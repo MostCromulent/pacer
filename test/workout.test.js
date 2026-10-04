@@ -192,3 +192,41 @@ test('pyramid repeats its ladder on long rides instead of cruising', () => {
   assert.ok(cruise <= 10 * 60, `cruise ${cruise / 60} min`);
   assert.ok(w.segments.filter((s) => s.name === 'Easy spell').length >= 2);
 });
+
+test('low impact stays moderate, seated and free of sprint gates', () => {
+  for (const v of [0, 1, 2]) {
+    const w = generateWorkout('lowimpact', 30, v);
+    assert.ok(w.segments.every((s) => s.pct <= 82 && s.kind !== 'sprint' && s.kind !== 'work'), w.code);
+    assert.equal(w.gates.length, 0);
+    assert.ok(w.segments.some((s) => s.name === 'Gentle rise'));
+  }
+});
+
+test('progression only ever gets harder, with no recoveries', () => {
+  for (const minutes of [22, 45, 90]) {
+    const w = generateWorkout('progression', minutes, 0);
+    const main = w.segments.filter((s) => /^Build/.test(s.label));
+    assert.ok(main.length >= 3);
+    for (let i = 1; i < main.length; i++) assert.ok(main[i].pct > main[i - 1].pct, `step ${i} at ${minutes}`);
+    assert.ok(!w.segments.some((s) => s.kind === 'recovery'));
+  }
+});
+
+test('climb repeats are the same slow, heavy hill each time', () => {
+  const w = generateWorkout('climbs', 45, 0);
+  const climbs = w.segments.filter((s) => s.kind === 'work');
+  assert.ok(climbs.length >= 3);
+  assert.equal(new Set(climbs.map((s) => `${s.dur}/${s.pct}/${s.cadence}`)).size, 1);
+  assert.ok(climbs[0].cadence <= 66);
+});
+
+test('every step is seated or standing, and only the steep slow ones stand', () => {
+  for (const t of TYPES) {
+    const w = generateWorkout(t.id, 45, 1);
+    assert.ok(w.segments.every((s) => s.position === 'seated' || s.position === 'standing'), w.code);
+  }
+  assert.ok(generateWorkout('lowimpact', 45, 0).segments.every((s) => s.position === 'seated'));
+  const spin = generateWorkout('spinclass', 45, 0);
+  assert.ok(spin.segments.filter((s) => s.position === 'standing').every((s) => /Standing climb|Jump/.test(s.label)));
+  assert.ok(spin.segments.some((s) => s.position === 'standing'));
+});

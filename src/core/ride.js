@@ -48,17 +48,21 @@ export function stepTargets(seg, segments, baselineW, model) {
 /**
  * What to say out loud when a step begins: its name and the two numbers to aim
  * for. Short reps get a single word, since there's no time for more.
- * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'.
+ * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'. Getting out
+ * of the saddle, or back into it after the step before (`prev`), is called too.
  */
-export function spokenCue(seg, targets, mode = 'knob') {
+export function spokenCue(seg, targets, mode = 'knob', prev = null) {
   const said = seg.label.split('·').pop().replace(/[\d/]+|\bof\b/g, '').replace(/\s+/g, ' ').trim();
   const name = said.charAt(0).toUpperCase() + said.slice(1);
-  if (seg.kind === 'sprint') return 'Sprint. All out.';
-  if (seg.dur < SHORT_STEP_S) return seg.kind === 'work' ? 'Go.' : `${name}.`;
-  if (seg.hold) return `${name}. Same resistance, cadence ${targets.cadence}.`;
+  const standing = seg.position === 'standing';
+  const wasStanding = prev?.position === 'standing';
+  const saddle = standing === wasStanding ? '' : standing ? ' Out of the saddle.' : ' Back in the saddle.';
+  if (seg.kind === 'sprint') return `Sprint. All out.${saddle}`;
+  if (seg.dur < SHORT_STEP_S) return seg.kind === 'work' ? (standing ? 'Up.' : 'Go.') : `${name}.`;
+  if (seg.hold) return `${name}.${saddle} Same resistance, cadence ${targets.cadence}.`;
   return mode === 'watts'
-    ? `${name}. ${targets.watts} watts, cadence ${targets.cadence}.`
-    : `${name}. Resistance ${targets.knob}, cadence ${targets.cadence}.`;
+    ? `${name}.${saddle} ${targets.watts} watts, cadence ${targets.cadence}.`
+    : `${name}.${saddle} Resistance ${targets.knob}, cadence ${targets.cadence}.`;
 }
 
 /** "80–90", or "105+" when there's no upper limit. */

@@ -185,9 +185,9 @@ function pickGhost(workout) {
 }
 
 const TYPE_COLORS = {
-  endurance: '#9CC5A1', recovery: '#C3DDC6', tempo: '#F2C14E',
+  endurance: '#9CC5A1', recovery: '#C3DDC6', lowimpact: '#A9D3D0', tempo: '#F2C14E', progression: '#F0B35A',
   hills: '#7FB38A', mountain: '#B3A2DD', fartlek: '#F7A1B0',
-  intervals: '#F6A96B', hiit: '#F2765C', pyramid: '#E0707F', sprints: '#FFB38A', cadence: '#9DB9F2',
+  intervals: '#F6A96B', climbs: '#C9A27E', hiit: '#F2765C', pyramid: '#E0707F', sprints: '#FFB38A', cadence: '#9DB9F2',
   spinclass: '#B9AEE0', surprise: '#8FD3C6',
 };
 
@@ -817,7 +817,8 @@ function onRideEvent(ev) {
     chimes.play(ev);
     if (ev === 'stepChange') {
       const snap = state.session.snapshot();
-      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode));
+      const prev = state.session.workout.segments[snap.segIndex - 1];
+      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode, prev));
     }
   }
 }
@@ -911,6 +912,9 @@ function renderRide() {
   $('step-label').textContent = seg.label;
   $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
+  const standing = seg.position === 'standing';
+  $('saddle').textContent = standing ? 'Out of the saddle' : 'In the saddle';
+  $('saddle').classList.toggle('standing', standing);
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);
 
@@ -997,13 +1001,15 @@ function updatePauseButton() {
   $('pause-icon').innerHTML = state.paused ? '<path d="M7 4.5v15l12-7.5z"/>' : '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
 }
 
-$('btn-pause').addEventListener('click', () => {
+function togglePause() {
   if (!state.session) return;
   state.paused = !state.paused;
   state.lastAdvance = clock();
   updatePauseButton();
   state.lastDom = 0;
-});
+}
+
+$('btn-pause').addEventListener('click', togglePause);
 
 function setSound({ muted = settings.muted, voice: spoken = settings.voice }) {
   saveSettings({ muted, voice: spoken });
@@ -1149,6 +1155,8 @@ $('diff-up').addEventListener('click', () => nudgeEffort(+1));
 function onKey(e) {
   if (e.target?.closest?.('input, textarea, select')) return;
   if (state.screen !== 'ride') return;
+  // Space pauses, unless a button has focus, where it already means "press".
+  if (e.key === ' ' && !e.target?.closest?.('button')) { e.preventDefault(); togglePause(); return; }
   if (e.key === '-' || e.key === '_') { e.preventDefault(); nudgeEffort(-1); return; }
   if (e.key === '+' || e.key === '=') { e.preventDefault(); nudgeEffort(+1); return; }
   if (state.bikeKind !== 'sim') return;

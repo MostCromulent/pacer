@@ -292,3 +292,14 @@ test('spoken cues name the step and its two targets', async () => {
   assert.equal(spokenCue({ kind: 'recovery', dur: 10, hold: true, label: 'Rest' }, tg), 'Rest.');
   assert.equal(spokenCue({ kind: 'steady', dur: 30, hold: true, label: 'Settle' }, tg), 'Settle. Same resistance, cadence 70.');
 });
+
+test('spoken cues call getting out of the saddle and back into it', async () => {
+  const { spokenCue } = await import('../src/core/ride.js');
+  const tg = { knob: 55, cadence: 65, watts: 300 };
+  const flat = { kind: 'steady', dur: 240, label: 'Flat road', position: 'seated' };
+  const climb = { kind: 'work', dur: 180, label: 'Standing climb', position: 'standing' };
+  assert.equal(spokenCue(climb, tg, 'knob', flat), 'Standing climb. Out of the saddle. Resistance 55, cadence 65.');
+  assert.equal(spokenCue(climb, tg, 'knob', climb), 'Standing climb. Resistance 55, cadence 65.');
+  assert.equal(spokenCue(flat, tg, 'knob', climb), 'Flat road. Back in the saddle. Resistance 55, cadence 65.');
+  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Jump 1 of 4', position: 'standing' }, tg), 'Up.');
+});

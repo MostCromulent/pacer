@@ -273,6 +273,9 @@ main { padding: 0 32px 40px; }
 .cd-num { font-family: var(--display); font-weight: 700; font-size: 74px; line-height: 0.95; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .cd-row { align-items: baseline; padding-left: 2px; }
 .cd-left { font-size: 15px; font-weight: 800; color: var(--muted); }
+/* In or out of the saddle for this step; standing is the one that stands out. */
+.saddle { margin-left: auto; align-self: center; padding: 6px 12px; border-radius: 12px; background: var(--sand); color: var(--ink-soft); font-size: 13px; font-weight: 800; text-align: center; line-height: 1.2; }
+.saddle.standing { background: var(--lavender); color: var(--ink); font-size: 16px; box-shadow: 0 2px 0 var(--lavender-deep); }
 .cd-bar { height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; margin: 2px 0 4px; }
 .cd-bar > i { display: block; height: 100%; width: 0; border-radius: 5px; background: var(--sage); transition: width 0.2s linear; }
 .stage.soon .cd-num { color: var(--coral-text); }
