@@ -376,7 +376,7 @@ $('btn-export').addEventListener('click', () => {
   const blob = new Blob([storage.exportAll()], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `ghostride-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `pacer-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
@@ -1404,4 +1404,4 @@ showScreen('setup');
 startLoop();
 
 // Expose a tiny hook for automated checks and debugging in the console.
-window.ghostride = { state, settings: () => settings, storage };
+window.pacer = { state, settings: () => settings, storage };

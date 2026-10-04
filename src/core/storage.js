@@ -2,6 +2,8 @@
 
 import { DEFAULT_MODEL } from './resistance.js';
 
+// The app was called GhostRide; the old name stays in these keys and in export
+// files so rides saved before the rename still load.
 const KEY_SETTINGS = 'ghostride.settings.v1';
 const KEY_RIDES = 'ghostride.rides.v1';
 
@@ -87,7 +89,7 @@ export class Storage {
 
   importAll(json) {
     const data = JSON.parse(json);
-    if (data?.app !== 'ghostride' || !Array.isArray(data.rides)) throw new Error('Not a GhostRide export file');
+    if (data?.app !== 'ghostride' || !Array.isArray(data.rides)) throw new Error('Not a Pacer export file');
     const existing = new Set(this.allRides().map((r) => r.id));
     const merged = [...this.allRides(), ...data.rides.filter((r) => !existing.has(r.id))];
     safeSet(this.store, KEY_RIDES, merged);

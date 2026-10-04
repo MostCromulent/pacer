@@ -13,7 +13,7 @@ export async function popOut(panel, { width = 400, height = 720, onClose } = {})
   for (const node of document.querySelectorAll('link[rel="stylesheet"], style')) {
     pipWin.document.head.appendChild(node.cloneNode(true));
   }
-  pipWin.document.title = 'GhostRide';
+  pipWin.document.title = 'Pacer';
   pipWin.document.body.classList.add('pip-body');
 
   const parent = panel.parentNode;

@@ -70,6 +70,6 @@ createServer(async (req, res) => {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
   }
 }).listen(port, '127.0.0.1', () => {
-  console.log(`GhostRide running at http://localhost:${port}`);
+  console.log(`Pacer running at http://localhost:${port}`);
   console.log('Open it in Chrome or Edge to use Web Bluetooth.');
 });

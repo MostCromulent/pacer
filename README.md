@@ -1,9 +1,9 @@
-# GhostRide
+# Pacer
 
 Race your own ghost on a Bluetooth spin bike, in a little papercraft window that
 floats beside whatever you're watching.
 
-GhostRide connects to bikes that speak the standard Bluetooth **Fitness Machine
+Pacer connects to bikes that speak the standard Bluetooth **Fitness Machine
 Service (FTMS)**, such as the Schwinn 800IC / IC4 / IC8 and Bowflex C6. It builds
 a workout for the time you have, then shows the ride as a cartoon race: your
 rider against a translucent ghost of your best (or last) ride on the same
