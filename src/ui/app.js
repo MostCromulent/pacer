@@ -414,8 +414,11 @@ $('btn-shuffle').addEventListener('click', () => {
 const EASY_PCT = 0.55; // an easy spin as a share of the baseline, as in recovery steps
 const PACE_EXAMPLES = [
   { name: 'Recovery spin', pct: 0.55, cadence: 92 },
-  { name: 'Steady riding', pct: 0.7, cadence: 88 },
-  { name: 'Hard effort', pct: 1.05, cadence: 80 },
+  { name: 'Flat road', pct: 0.7, cadence: 88 },
+  { name: 'Seated climb', pct: 0.9, cadence: 68 },
+  // The same watts ridden two ways: heavy and slow, or light and fast.
+  { name: 'Hill climb', pct: 1.05, cadence: 65 },
+  { name: 'Downhill sprint', pct: 1.05, cadence: 100 },
 ];
 
 function baselineFor(resistance, cadence) {
@@ -438,7 +441,7 @@ function renderPace() {
     return `<tr><td>${name}</td><td>resistance ${Math.round(resistanceFor(settings.model, watts, cadence))} at ${cadence} rpm</td><td>${Math.round(watts)} W</td></tr>`;
   }).join('');
   $('pace-note').textContent = settings.model.calibrated
-    ? 'Watts are as the bike reports them. The same effort at a faster cadence needs less resistance.'
+    ? 'The hill climb and the downhill sprint are the same watts: one is heavy and slow, the other light and fast. Watts are as the bike reports them.'
     : "The bike isn't calibrated yet, so these resistances are rough.";
 }
 
