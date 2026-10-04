@@ -1,0 +1,14 @@
+{
+  "name": "ghostride",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Papercraft ghost-racing companion for Bluetooth (FTMS) spin bikes.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

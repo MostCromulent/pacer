@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GhostRide</title>
+<meta name="description" content="Race your own ghost on a Bluetooth spin bike, in a little papercraft window beside your show.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2-2.2-2-2.2 2-2.3-2z' fill='%23B9AEE0' stroke='%233B3345' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2-2.2-2-2.2 2-2.3-2z" fill="#fff" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="9.5" cy="11" r="1" fill="currentColor"/><circle cx="14.5" cy="11" r="1" fill="currentColor"/></svg></span>
+    <span class="brand-name">GhostRide</span>
+  </div>
+  <div class="bike-controls">
+    <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
+    <button id="btn-connect" class="btn btn-paper" type="button">Connect bike</button>
+    <button id="btn-sim" class="btn btn-ghostly" type="button">Use simulator</button>
+    <label class="chip baseline">Baseline <input id="baseline" type="number" min="60" max="600" step="5" inputmode="numeric" aria-label="Baseline power in watts"> W</label>
+  </div>
+</header>
+
+<main>
+  <!-- SETUP -->
+  <section id="screen-setup" class="screen" aria-labelledby="setup-title">
+    <div class="setup-grid">
+      <div class="setup-left">
+        <h1 id="setup-title" class="title">Build a ride</h1>
+        <fieldset class="group">
+          <legend>How long?</legend>
+          <div id="durations" class="durations"></div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>What kind?</legend>
+          <div id="types" class="types"></div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Race against</legend>
+          <div id="ghosts" class="ghosts"></div>
+        </fieldset>
+      </div>
+
+      <div class="setup-right">
+        <div class="card preview">
+          <div class="preview-head">
+            <div>
+              <h2 id="preview-title" class="preview-title">Intervals · 30 min</h2>
+              <p class="muted small">Workout code <button id="code-btn" class="code-btn" type="button" title="Enter a workout code"><span id="preview-code">#INT-30-K7Q</span></button> · same code, same ride, fair ghost</p>
+            </div>
+            <button id="btn-shuffle" class="btn btn-lilac" type="button">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+              Shuffle
+            </button>
+          </div>
+          <div id="preview-chart" class="preview-chart"></div>
+          <div class="axis"><span>0</span><span id="axis-mid">15</span><span id="axis-end">30 min</span></div>
+          <div id="zones" class="zones"></div>
+          <div class="stats">
+            <div class="stat"><span id="stat-hard" class="stat-num">12</span><span class="stat-label">Hard minutes</span></div>
+            <div class="stat"><span id="stat-avg" class="stat-num">150 W</span><span class="stat-label">Average target</span></div>
+            <div class="stat"><span id="stat-effort" class="stat-num">6 / 10</span><span class="stat-label">Effort</span></div>
+          </div>
+        </div>
+        <button id="btn-start" class="btn btn-start" type="button">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+          Start ride
+        </button>
+        <p id="start-hint" class="muted small center"></p>
+      </div>
+    </div>
+    <footer class="setup-foot">
+      <button id="btn-calibrate" class="link" type="button">Calibrate knob</button>
+      <span aria-hidden="true">·</span>
+      <button id="btn-export" class="link" type="button">Export rides</button>
+      <span aria-hidden="true">·</span>
+      <label class="link" for="import-file">Import rides</label>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
+      <span aria-hidden="true">·</span>
+      <span id="model-note" class="muted small"></span>
+    </footer>
+  </section>
+
+  <!-- RIDE -->
+  <section id="screen-ride" class="screen ride-screen" hidden>
+    <div class="ride-layout">
+      <div id="panel-home" class="panel-home">
+        <section id="ride-panel" class="panel" aria-label="Ride">
+          <div class="panel-top">
+            <span class="panel-brand"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2-2.2-2-2.2 2-2.3-2z" fill="#E4DEF5" stroke="#6F62A6" stroke-width="1.8" stroke-linejoin="round"/></svg>GhostRide</span>
+            <span id="time-left" class="time-left">30:00 left</span>
+            <span class="panel-buttons">
+              <button id="btn-mute" class="icon-btn" type="button" aria-label="Mute chimes" aria-pressed="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path id="mute-wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+              </button>
+              <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">
+                <svg id="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+              </button>
+              <button id="btn-pip" class="icon-btn" type="button" aria-label="Pop out into a floating window">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg>
+              </button>
+            </span>
+          </div>
+
+          <div class="scene-wrap">
+            <canvas id="scene" width="360" height="380" role="img" aria-label="Papercraft race scene"></canvas>
+            <div class="scene-hud">
+              <span id="gap-pill" class="pill gap">Ready</span>
+              <span id="next-pill" class="pill paper"></span>
+            </div>
+            <div id="overlay" class="scene-overlay" hidden><span id="overlay-text">Paused</span></div>
+          </div>
+
+          <div class="card step">
+            <div class="step-row">
+              <span class="step-left"><span id="zone-chip" class="zone-chip">Z1</span><span id="step-label" class="step-label">Warm-up</span></span>
+              <span id="step-time" class="step-time">0:00</span>
+            </div>
+            <div class="step-row">
+              <span class="target">
+                <span class="target-line"><span id="target-big" class="target-big">100</span><span id="target-unit" class="target-unit">W</span></span>
+                <span id="now-text" class="now-text">Now 0 W · 0 rpm</span>
+              </span>
+              <span id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></span>
+            </div>
+          </div>
+
+          <div class="card route">
+            <div class="route-head"><span id="route-label">Route</span><span id="route-dist">0.0 km</span></div>
+            <div id="route-svg"></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="ride-side">
+        <div class="card side-card">
+          <h2 class="side-title">Watching something?</h2>
+          <p class="muted">Pop the ride out into a small window that stays on top of your show.</p>
+          <button id="btn-pip-big" class="btn btn-lilac wide" type="button">Pop out the mini window</button>
+          <p id="pip-note" class="muted small"></p>
+        </div>
+        <div id="sim-card" class="card side-card" hidden>
+          <h2 class="side-title">Simulator</h2>
+          <div class="seg-toggle" role="group" aria-label="Simulator mode">
+            <button id="sim-auto" class="seg on" type="button" aria-pressed="true">Auto rider</button>
+            <button id="sim-manual" class="seg" type="button" aria-pressed="false">I'll drive</button>
+          </div>
+          <div class="sim-grid">
+            <span class="muted small">Cadence</span>
+            <span class="sim-ctrl"><button id="cad-down" class="icon-btn" type="button" aria-label="Slower cadence">−</button><span id="sim-cad" class="sim-val">0</span><button id="cad-up" class="icon-btn" type="button" aria-label="Faster cadence">+</button></span>
+            <span class="muted small">Knob</span>
+            <span class="sim-ctrl"><button id="knob-down" class="icon-btn" type="button" aria-label="Less resistance">−</button><span id="sim-knob" class="sim-val">0</span><button id="knob-up" class="icon-btn" type="button" aria-label="More resistance">+</button></span>
+          </div>
+          <p class="muted small">Keys: ↑ ↓ cadence, ← → knob.</p>
+        </div>
+        <button id="btn-end" class="btn btn-paper wide" type="button">End ride</button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- SUMMARY -->
+  <section id="screen-summary" class="screen" hidden aria-labelledby="sum-title">
+    <div class="sum-head">
+      <div>
+        <p id="sum-eyebrow" class="eyebrow">Ride complete</p>
+        <h1 id="sum-title" class="title">You beat your ghost.</h1>
+        <p id="sum-sub" class="muted"></p>
+      </div>
+      <span id="pb-badge" class="pb-badge" hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+        New PB
+      </span>
+    </div>
+    <div class="sum-top">
+      <div id="sum-hero" class="hero">
+        <span id="hero-label" class="hero-label">Beat your ghost by</span>
+        <span id="hero-num" class="hero-num">0 m</span>
+        <span id="hero-sub" class="hero-sub"></span>
+      </div>
+      <div class="tiles">
+        <div class="tile"><span class="tile-label">Distance</span><span id="t-dist" class="tile-num"></span><span id="t-dist-sub" class="tile-sub"></span></div>
+        <div class="tile"><span class="tile-label">On target</span><span id="t-on" class="tile-num"></span><span id="t-on-sub" class="tile-sub"></span></div>
+        <div class="tile"><span class="tile-label">Average power</span><span id="t-pow" class="tile-num"></span><span id="t-pow-sub" class="tile-sub"></span></div>
+        <div class="tile"><span class="tile-label">Sprint gates</span><span id="t-gates" class="tile-num"></span><span id="t-gates-sub" class="tile-sub"></span></div>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div class="chart-head"><h2 class="card-title">Race vs ghost</h2>
+        <span class="legend"><span><i class="sw teal"></i>Ahead</span><span><i class="sw coral"></i>Behind</span></span></div>
+      <div id="gap-chart"></div>
+      <div class="axis"><span>0</span><span id="sum-axis-end"></span></div>
+    </div>
+    <div class="sum-bottom">
+      <div class="card">
+        <h2 class="card-title">Hard efforts</h2>
+        <div id="climbs" class="climbs"></div>
+      </div>
+      <div class="history card-lilac">
+        <h2 class="card-title">Every time you've ridden this</h2>
+        <div id="history" class="hist"></div>
+        <p id="history-note" class="small strong"></p>
+      </div>
+    </div>
+    <div id="baseline-tip" class="card tip" hidden>
+      <span id="baseline-tip-text"></span>
+      <button id="btn-apply-baseline" class="btn btn-lilac" type="button">Update baseline</button>
+    </div>
+    <div class="sum-actions">
+      <button id="btn-again" class="btn btn-start" type="button">Race this ghost again</button>
+      <button id="btn-new" class="btn btn-paper" type="button">Build a new ride</button>
+    </div>
+  </section>
+</main>
+
+<!-- CALIBRATION -->
+<dialog id="calib" class="dialog" aria-labelledby="calib-title">
+  <h2 id="calib-title" class="title-sm">Calibrate the knob</h2>
+  <div id="calib-body"></div>
+  <div class="dialog-actions">
+    <button id="calib-skip" class="btn btn-paper" type="button" hidden>Skip this level</button>
+    <button id="calib-cancel" class="btn btn-paper" type="button">Close</button>
+    <button id="calib-next" class="btn btn-start small-btn" type="button">Begin</button>
+  </div>
+</dialog>
+
+<!-- CODE ENTRY -->
+<dialog id="code-dialog" class="dialog" aria-labelledby="code-title">
+  <form method="dialog" id="code-form">
+    <h2 id="code-title" class="title-sm">Enter a workout code</h2>
+    <p class="muted">Codes look like <b>INT-30-K7Q</b>. The same code always gives the same ride.</p>
+    <label class="field">Code <input id="code-input" type="text" autocomplete="off" spellcheck="false" maxlength="12"></label>
+    <p id="code-error" class="error small" hidden>That isn't a valid code.</p>
+    <div class="dialog-actions">
+      <button value="cancel" class="btn btn-paper" type="submit" formnovalidate>Cancel</button>
+      <button id="code-ok" value="ok" class="btn btn-start small-btn" type="submit">Load</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+// Papercraft palette, shared by canvas and SVG drawing.
+
+export const P = {
+  ink: '#3B3345',
+  inkSoft: '#5E5566',
+  muted: '#7A6F7E',
+  cream: '#FBF3EA',
+  paper: '#FFFFFF',
+  sand: '#F6ECE1',
+  track: '#EFE3D6',
+  sky: '#FCE3D2',
+  skyTop: '#FAD8C3',
+  sun: '#FFB38A',
+  sunInner: '#FFC9A8',
+  mountain: '#C7B8E8',
+  mountain2: '#B3A2DD',
+  snow: '#EEE9FA',
+  hill: '#9CC5A1',
+  tree: '#7FB38A',
+  pine: '#6FA67E',
+  trunk: '#8C6A55',
+  ground: '#6FA67E',
+  groundDeep: '#5E9870',
+  road: '#4E4A5E',
+  coral: '#F2765C',
+  coralText: '#C24E36',
+  mustard: '#F2C14E',
+  teal: '#4FA3A5',
+  mint: '#8FD3C6',
+  lavender: '#B9AEE0',
+  lavenderText: '#6F62A6',
+  skin: '#F4C7A1',
+  shadow: 'rgba(122, 78, 58, 0.28)',
+};
+
+export const ZONE_COLORS = { 1: '#9DB9F2', 2: '#9CC5A1', 3: '#F2C14E', 4: '#F6A96B', 5: '#E0707F' };
