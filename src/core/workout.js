@@ -400,12 +400,15 @@ function makeBuilders(add, v, rand) {
         standing: () => [[180, 95, 'work', { cadence: 65, name: 'Standing climb', stand: true }], [60, 58, 'recovery', { cadence: 90 }]],
         jumps: () => Array.from({ length: 4 }, () => [[30, 95, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, 70, 'steady', { cadence: 85, hold: true, name: 'Settle' }]]).flat(),
         sprints: () => Array.from({ length: 2 }, () => [[30, 150, 'sprint', {}], [90, 55, 'recovery', { cadence: 90 }]]).flat(),
+        // Out of the saddle for longer each time, sitting for 30 seconds between
+        // at the same resistance: about four minutes in all.
+        ladder: () => [30, 45, 60].map((up) => [[up, 98, 'work', { cadence: 72, name: 'Stand', stand: true }], [30, 70, 'recovery', { cadence: 62, hold: true, name: 'Sit' }]]).flat(),
         recover: () => [[180, 55, 'recovery', { cadence: 90 }]],
       };
       const order = [
-        ['flat', 'seated', 'jumps', 'standing', 'recover', 'sprints'],
-        ['jumps', 'seated', 'sprints', 'recover', 'standing', 'flat'],
-        ['seated', 'standing', 'recover', 'jumps', 'sprints', 'flat'],
+        ['flat', 'seated', 'ladder', 'recover', 'jumps', 'standing', 'recover', 'sprints'],
+        ['jumps', 'seated', 'sprints', 'recover', 'ladder', 'flat', 'standing'],
+        ['seated', 'ladder', 'recover', 'jumps', 'sprints', 'flat', 'standing'],
       ][v];
       const k = stretch(budget);
       let left = budget;

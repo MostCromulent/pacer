@@ -38,6 +38,7 @@ export class Scene {
     this.wheel = 0;
     this.ghostWheel = 0;
     this.ghostScreenX = null;
+    this.stand = 0; // 0 seated .. 1 out of the saddle, eased between the two
   }
 
   /**
@@ -107,6 +108,9 @@ export class Scene {
     const ghostCad = snap.ghostCadence ?? 86;
     this.ghostCrank += (ghostCad / 60) * Math.PI * 2 * dt;
     this.ghostWheel += (snap.ghostSpeed ?? snap.speed ?? 0) / 0.34 * dt;
+    // Riders get out of the saddle on standing steps, and settle back after.
+    const standing = snap.seg?.position === 'standing' ? 1 : 0;
+    this.stand += (standing - this.stand) * Math.min(1, dt * 4);
 
     ctx.clearRect(0, 0, W, this.H);
     this._sky(ctx, worldX);
@@ -115,6 +119,7 @@ export class Scene {
     this._hills(ctx, worldX * 0.45);
     this._ground(ctx, t);
     this._gates(ctx, t);
+    this._finish(ctx, t);
 
     // Ghost position from the gap, converted to "seconds of riding" at your speed.
     const pace = Math.max(snap.speed || 0, 4);
@@ -132,7 +137,7 @@ export class Scene {
     // Lift the ghost's tag when the riders are side by side so the tags don't collide.
     const lift = Math.abs(ghostX - YOU_X) < 50 ? 24 : 0;
     this._tag(ctx, ghostX, this.roadY(ghostX, t) - 76 - lift, ghostTag, P.lavenderText);
-    this._tag(ctx, YOU_X, this.roadY(YOU_X, t) - 78, 'YOU', P.coralText);
+    this._tag(ctx, YOU_X, this.roadY(YOU_X, t) - 78 - this.stand * 6, 'YOU', P.coralText);
   }
 
   _shadow(ctx, on) {
@@ -337,6 +342,33 @@ export class Scene {
     ctx.fillText(label, x, top);
   }
 
+  /** The finish banner, standing on the road where the ride ends. */
+  _finish(ctx, t) {
+    const x = YOU_X + (this.workout.totalS - t) * PX_PER_S;
+    if (x < -40 || x > W + 50) return;
+    const l = x - 22;
+    const r = x + 22;
+    const yl = this.roadY(l, t);
+    const yr = this.roadY(r, t);
+    const top = Math.min(yl, yr) - 70;
+    this._shadow(ctx, true);
+    ctx.fillStyle = P.ink;
+    ctx.fillRect(l - 2, top, 4, yl - top + 2);
+    ctx.fillRect(r - 2, top, 4, yr - top + 2);
+    roundRect(ctx, x - 32, top - 12, 64, 24, 5, '#FFFFFF');
+    this._shadow(ctx, false);
+    // A chequered strip along the top and bottom of the banner.
+    ctx.fillStyle = P.ink;
+    for (let i = 0; i < 10; i++) {
+      ctx.fillRect(x - 30 + i * 6, top - 10 + (i % 2 ? 0 : 3), 6, 3);
+      ctx.fillRect(x - 30 + i * 6, top + 4 + (i % 2 ? 3 : 0), 6, 3);
+    }
+    ctx.font = '700 10px Fredoka, Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('FINISH', x, top + 0.5);
+  }
+
   _flag(ctx, x, t) {
     const y = this.roadY(x, t);
     this._shadow(ctx, true);
@@ -355,7 +387,7 @@ export class Scene {
   _rider(ctx, x, t, { ghost, crank, wheel, speedLines }) {
     const y = this.roadY(x, t) + 2;
     const slope = (this.roadY(x + 8, t) - this.roadY(x - 8, t)) / 16;
-    const pose = riderPose(crank);
+    const pose = riderPose(crank, this.stand);
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.atan(slope));
@@ -394,25 +426,40 @@ export class Scene {
 
 // --- rider geometry ---------------------------------------------------------
 
-const HIP = [-8, -34];
+// Each body point seated, and out of the saddle: up and forward over the bars.
+const SEATED = { hip: [-8, -34], shoulder: [6, -46], elbow: [12, -39], head: [11, -54] };
+const STANDING = { hip: [-3, -40], shoulder: [10, -52], elbow: [14, -42], head: [16, -60] };
 const BB = [-4, -11];
 const CRANK = 5.5;
 const THIGH = 13.5;
 const SHIN = 14.5;
 
-function legFor(angle) {
+function legFor(angle, hip) {
   const foot = [BB[0] + CRANK * Math.cos(angle), BB[1] + CRANK * Math.sin(angle)];
-  const dx = foot[0] - HIP[0];
-  const dy = foot[1] - HIP[1];
-  const d = Math.min(Math.hypot(dx, dy), THIGH + SHIN - 0.01);
+  const dx = foot[0] - hip[0];
+  const dy = foot[1] - hip[1];
+  const reach = Math.hypot(dx, dy);
+  // Standing tall, the leg straightens to reach the bottom of the stroke.
+  const k = Math.max(1, (reach + 0.01) / (THIGH + SHIN));
+  const thigh = THIGH * k;
+  const shin = SHIN * k;
   const base = Math.atan2(dy, dx);
-  const a = Math.acos((THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d));
-  const knee = [HIP[0] + THIGH * Math.cos(base - a), HIP[1] + THIGH * Math.sin(base - a)];
+  const a = Math.acos(Math.min(1, (thigh * thigh + reach * reach - shin * shin) / (2 * thigh * reach)));
+  const knee = [hip[0] + thigh * Math.cos(base - a), hip[1] + thigh * Math.sin(base - a)];
   return { knee, foot };
 }
 
-function riderPose(crank) {
-  return { near: legFor(crank), far: legFor(crank + Math.PI), crank };
+function riderPose(crank, stand = 0) {
+  const mix = (key) => SEATED[key].map((v, i) => v + (STANDING[key][i] - v) * stand);
+  // Out of the saddle the body rocks with each pedal stroke.
+  const bob = stand * Math.sin(crank * 2) * 1.2;
+  const hip = mix('hip');
+  hip[1] += bob;
+  const shoulder = mix('shoulder');
+  shoulder[1] += bob;
+  const head = mix('head');
+  head[1] += bob;
+  return { near: legFor(crank, hip), far: legFor(crank + Math.PI, hip), crank, hip, shoulder, elbow: mix('elbow'), head };
 }
 
 function drawRider(ctx, pose, wheel, c, outline) {
@@ -426,7 +473,7 @@ function drawRider(ctx, pose, wheel, c, outline) {
 
   // Far leg behind the bike.
   stroke(c.far, 5);
-  polyline(ctx, [HIP, pose.far.knee, pose.far.foot]);
+  polyline(ctx, [pose.hip, pose.far.knee, pose.far.foot]);
 
   // Wheels with turning spokes.
   for (const cx of [-15, 15]) {
@@ -460,27 +507,30 @@ function drawRider(ctx, pose, wheel, c, outline) {
 
   // Near leg.
   stroke(c.shorts, 6.5);
-  polyline(ctx, [HIP, pose.near.knee]);
+  polyline(ctx, [pose.hip, pose.near.knee]);
   stroke(c.skin, 4.5);
   polyline(ctx, [pose.near.knee, pose.near.foot]);
 
   // Body, arm, head, helmet.
+  const [sx, sy] = pose.shoulder;
+  const [ex, ey] = pose.elbow;
+  const [hx, hy] = pose.head;
   stroke(c.jersey, 10);
-  line(ctx, HIP[0], HIP[1], 6, -46);
+  line(ctx, pose.hip[0], pose.hip[1], sx, sy);
   stroke(c.jersey, 4.5);
-  line(ctx, 6, -46, 12, -39);
+  line(ctx, sx, sy, ex, ey);
   stroke(c.skin, 4);
-  line(ctx, 12, -39, 16, -34);
+  line(ctx, ex, ey, 16, -34);
   if (o) {
-    circle(ctx, 11, -54, 6.5 + o / 2 + 0.5, '#FFFFFF');
+    circle(ctx, hx, hy, 6.5 + o / 2 + 0.5, '#FFFFFF');
   } else {
-    circle(ctx, 11, -54, 6.5, c.skin);
+    circle(ctx, hx, hy, 6.5, c.skin);
     ctx.fillStyle = c.helmet;
     ctx.beginPath();
-    ctx.arc(11, -55, 7.8, Math.PI, 0);
+    ctx.arc(hx, hy - 1, 7.8, Math.PI, 0);
     ctx.closePath();
     ctx.fill();
-    if (c.eye) circle(ctx, 14.5, -52.5, 1.1, c.eye);
+    if (c.eye) circle(ctx, hx + 3.5, hy + 1.5, 1.1, c.eye);
   }
 }
 

@@ -227,6 +227,17 @@ test('every step is seated or standing, and only the steep slow ones stand', () 
   }
   assert.ok(generateWorkout('lowimpact', 45, 0).segments.every((s) => s.position === 'seated'));
   const spin = generateWorkout('spinclass', 45, 0);
-  assert.ok(spin.segments.filter((s) => s.position === 'standing').every((s) => /Standing climb|Jump/.test(s.label)));
+  assert.ok(spin.segments.filter((s) => s.position === 'standing').every((s) => /Standing climb|Jump|Stand/.test(s.label)));
   assert.ok(spin.segments.some((s) => s.position === 'standing'));
+});
+
+test('spin class includes a block of standing efforts that get longer', () => {
+  const w = generateWorkout('spinclass', 45, 0);
+  const stands = w.segments.filter((s) => /^Stand \d/.test(s.label));
+  assert.ok(stands.length >= 3);
+  assert.deepEqual(stands.slice(0, 3).map((s) => s.dur), [30, 45, 60]);
+  assert.ok(stands.every((s) => s.position === 'standing'));
+  const sit = w.segments[w.segments.indexOf(stands[0]) + 1];
+  assert.equal(sit.hold, true);
+  assert.equal(sit.position, 'seated');
 });

@@ -897,6 +897,7 @@ function renderRide() {
   const np = $('next-pill');
   if (snap.gate) np.textContent = `Gate ${snap.gate.index + 1}/${snap.gate.count} · ${fmtClock(snap.gate.left)}`;
   else if (snap.nextGate && snap.nextGate.inS < 600) np.textContent = `Gate ${snap.nextGate.index + 1} in ${fmtClock(snap.nextGate.inS)}`;
+  else if (state.started && snap.totalS - snap.t <= 60) np.textContent = `Finish in ${fmtClock(snap.totalS - snap.t)}`;
   else np.textContent = '';
 
   const zc = $('zone-chip');
