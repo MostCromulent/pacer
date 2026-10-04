@@ -21,7 +21,6 @@
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
     <button id="btn-connect" class="btn btn-paper" type="button">Connect bike</button>
     <button id="btn-sim" class="btn btn-ghostly" type="button" hidden>Use simulator</button>
-    <button id="btn-pace" class="chip chip-btn" type="button" title="Change your easy pace">Easy pace <b id="pace-chip">–</b></button>
   </div>
 </header>
 
@@ -59,8 +58,12 @@
         </fieldset>
         <fieldset class="group" data-step="2">
           <legend>How hard?</legend>
+          <div class="custom-dur pace-row">
+            <span class="custom-label">Your easy pace</span>
+            <button id="btn-pace" class="link" type="button" title="Change your easy pace"><span id="pace-chip">–</span></button>
+          </div>
           <div class="custom-dur">
-            <span class="custom-label">Effort</span>
+            <span class="custom-label">Effort for this ride</span>
             <span class="stepper">
               <button id="effort-minus" class="icon-btn" type="button" aria-label="Easier">−</button>
               <span id="effort-val" class="effort-setup" aria-live="polite">100%</span>

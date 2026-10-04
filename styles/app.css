@@ -74,8 +74,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: #D6C7B8; }
 .chip.ok .dot { background: #6FA67E; }
 .chip.warn .dot { background: var(--mustard); }
-.chip-btn { border: 0; color: var(--ink); font-family: inherit; cursor: pointer; }
-.chip-btn b { color: var(--lavender-text); text-decoration: underline; text-underline-offset: 3px; }
+.pace-row { margin-bottom: 10px; }
+.pace-row .link { font-size: 15px; }
 
 /* ---------- buttons ---------- */
 .btn {

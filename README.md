@@ -62,7 +62,7 @@ make that your normal.
 
 **How hard?** on the setup screen sets the effort a ride starts at, and shows
 what that means on the bike: the resistance and cadence of the easiest and
-hardest steps. Rides are sized from your **easy pace**, in the top bar: the resistance and
+hardest steps. Rides are sized from your **easy pace**, set in the same step: the resistance and
 cadence you could ride at while holding a conversation. Easy steps sit around
 it and hard ones are scaled up from it. (Underneath it is a baseline in watts,
 which you never need to see.)
