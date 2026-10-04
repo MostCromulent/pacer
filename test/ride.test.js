@@ -269,3 +269,14 @@ test('a pacer built from the shown targets ties a rider who follows them in HIIT
   const rest = w.segments.find((x) => x.hold);
   assert.ok(stepTargets(rest, w.segments, 200, DEFAULT_MODEL).watts / 200 > 0.6);
 });
+
+test('a ride can be deleted from storage', async () => {
+  const { Storage } = await import('../src/core/storage.js');
+  const items = new Map();
+  const store = { getItem: (k) => items.get(k) ?? null, setItem: (k, v) => items.set(k, v) };
+  const st = new Storage(store);
+  st.saveRide({ id: 'a', code: 'X', date: '2026-01-01', distanceM: 1 });
+  st.saveRide({ id: 'b', code: 'X', date: '2026-01-02', distanceM: 2 });
+  st.deleteRide('a');
+  assert.deepEqual(st.allRides().map((r) => r.id), ['b']);
+});

@@ -201,7 +201,10 @@ main { padding: 0 32px 40px; }
 .top-nav .link { text-decoration: none; color: var(--ink-soft); font-size: 15px; }
 .top-nav .link:hover { color: var(--lavender-text); text-decoration: underline; text-underline-offset: 3px; }
 .top-nav .link[aria-current="page"] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 3px; text-decoration-color: var(--lavender-deep); text-underline-offset: 6px; }
-.data-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+.data-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; align-items: start; }
+.backup-title { margin: 28px 0 4px; }
+.stats-card .calib-table td:last-child { width: 1%; white-space: nowrap; }
+.stats-card .link { font-size: 13px; padding: 0; }
 .data-cards .btn { cursor: pointer; }
 .stats-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stats-card { padding: 20px 24px; margin-bottom: 16px; }
@@ -269,11 +272,10 @@ main { padding: 0 32px 40px; }
 .num-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .num-col { border-radius: 14px; padding: 6px 12px 8px; background: var(--sand); display: flex; flex-direction: column; min-width: 0; }
 .num-lbl { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.num-big { display: block; font-family: var(--display); font-weight: 700; font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.num-unit { font-size: 18px; font-weight: 600; color: var(--ink-soft); }
-.num-big.long { font-size: 34px; line-height: 1.24; }
-.num-now { font-size: 15px; font-weight: 800; color: var(--ink-soft); margin-top: 2px; }
-.num-now b { font-family: var(--display); font-weight: 700; font-size: 24px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.num-big { display: block; font-family: var(--display); font-weight: 700; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.num-arrow { margin-left: 8px; font-size: 40px; }
+.num-aim { font-size: 15px; font-weight: 800; color: var(--ink-soft); margin-top: 2px; }
+.num-aim b { font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
 /* Each tile is coloured by how you're doing on that number. */
 .num-col.on { background: var(--sage); }
 .num-col.low { background: var(--mustard); }
@@ -289,15 +291,6 @@ main { padding: 0 32px 40px; }
 .effort-val.down { background: #C9D8F7; }
 .effort-val.flash { animation: effort-flash 0.5s ease-out; }
 @keyframes effort-flash { from { transform: scale(1.25); } to { transform: scale(1); } }
-.cue {
-  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
-  font-weight: 800; font-size: 18px; white-space: nowrap; box-shadow: 0 2px 0 rgba(59, 51, 69, 0.15);
-  background: var(--mustard);
-}
-.cue.cue-ok { background: var(--sage); }
-.cue.cue-down { background: #9DB9F2; }
-.cue.cue-gate { background: var(--coral); }
-.cue-icon { display: inline-flex; }
 .route { padding: 8px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
 .route-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: var(--muted); }
 #route-dist { color: var(--ink); font-size: 14px; }

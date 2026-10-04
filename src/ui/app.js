@@ -150,7 +150,7 @@ function saveSettings(patch) {
 
 function showScreen(name) {
   state.screen = name;
-  for (const s of ['setup', 'stats', 'data', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ['setup', 'stats', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
   $('top-nav').hidden = name === 'ride';
   for (const b of document.querySelectorAll('#top-nav [data-screen]')) {
     if (b.dataset.screen === name) b.setAttribute('aria-current', 'page');
@@ -158,13 +158,6 @@ function showScreen(name) {
   }
   window.scrollTo(0, 0);
 }
-
-const ICONS = {
-  up: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>',
-  down: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>',
-  ok: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
-  gate: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
-};
 
 // ---------------------------------------------------------------- setup screen
 
@@ -510,7 +503,7 @@ $('import-file').addEventListener('change', async (e) => {
     settings = storage.loadSettings();
     toast(`Imported ${n} ride${n === 1 ? '' : 's'}.`);
     renderSetup();
-    renderData();
+    renderStats();
   } catch (err) {
     toast(`Couldn't import that file: ${err.message}`);
   }
@@ -534,6 +527,9 @@ function fmtHours(s) {
 
 function renderStats() {
   const rides = storage.allRides().sort((a, b) => b.date.localeCompare(a.date));
+  $('data-count').textContent = rides.length
+    ? `${rides.length} ride${rides.length === 1 ? '' : 's'} and your settings, in one file.`
+    : 'No rides yet, so the file will only hold your settings.';
   if (!rides.length) {
     $('stats-sub').textContent = '';
     $('stats-body').innerHTML = '<p class="muted">No rides yet. Finish a ride and it will show up here.</p>';
@@ -565,7 +561,8 @@ function renderStats() {
   const rows = rides.slice(0, STATS_ROWS).map((r) => `<tr>
     <td>${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
     <td>${esc(rideName(r.code))}</td><td>${Math.round(r.durationS / 60)} min</td><td>${fmtKm(r.distanceM)}</td>
-    <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td></tr>`).join('');
+    <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td>
+    <td><button type="button" class="link" data-delete="${esc(r.id)}">Delete</button></td></tr>`).join('');
 
   $('stats-body').innerHTML = `
     <div class="stats-tiles">
@@ -580,9 +577,20 @@ function renderStats() {
     </div>
     <div class="card stats-card">
       <h2 class="card-title">${rides.length > STATS_ROWS ? `Last ${STATS_ROWS} rides` : 'Every ride'}</h2>
-      <table class="calib-table"><thead><tr><th>Date</th><th>Ride</th><th>Length</th><th>Distance</th><th>Average power</th><th>On target</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="calib-table"><thead><tr><th>Date</th><th>Ride</th><th>Length</th><th>Distance</th><th>Average power</th><th>On target</th><th></th></tr></thead><tbody>${rows}</tbody></table>
     </div>`;
 }
+
+$('stats-body').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-delete]');
+  if (!b) return;
+  const ride = storage.allRides().find((r) => r.id === b.dataset.delete);
+  if (!ride) return;
+  const when = new Date(ride.date).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  if (!window.confirm(`Delete the ${rideName(ride.code)} ride from ${when}? This can't be undone.`)) return;
+  storage.deleteRide(ride.id);
+  renderStats();
+});
 
 $('btn-stats').addEventListener('click', () => {
   renderStats();
@@ -593,15 +601,6 @@ $('btn-build').addEventListener('click', () => {
   showScreen('setup');
 });
 
-function renderData() {
-  const n = storage.allRides().length;
-  $('data-count').textContent = n ? `${n} ride${n === 1 ? '' : 's'} and your settings, in one file.` : 'No rides yet, so the file will only hold your settings.';
-}
-
-$('btn-data').addEventListener('click', () => {
-  renderData();
-  showScreen('data');
-});
 
 // ---------------------------------------------------------------- bike connection
 
@@ -822,6 +821,7 @@ function startRide(workout) {
   state.lastDom = 0;
   // Rides open in the mini window. The browser only allows that straight from
   // a click, which starting a ride always is.
+  holdScreenAwake();
   if (pipSupported() && !(state.pipWin && !state.pipWin.closed)) togglePip();
 }
 
@@ -891,15 +891,15 @@ function renderRide() {
   const estimate = knobIsEstimate();
   const resNow = snap.resistance === null ? '–' : String(snap.resistance);
   const cadenceTile = {
-    label: 'Cadence · rpm',
-    big: formatRange(snap.cadenceRange),
+    label: 'Cadence',
+    aim: formatRange(snap.cadenceRange),
     now: String(snap.cadence),
     status: live ? snap.cadenceStatus : '',
   };
   if (settings.targetMode === 'watts') {
     setTile('a', {
-      label: 'Power · W',
-      big: sprint ? 'All out' : formatRange(snap.wattsRange),
+      label: 'Watts',
+      aim: sprint ? 'all out' : formatRange(snap.wattsRange),
       now: String(snap.powerW),
       status: live ? (snap.onTarget ? 'on' : sprint || snap.powerW < snap.targetW ? 'low' : 'high') : '',
     });
@@ -909,7 +909,7 @@ function renderRide() {
     setTile('a', cadenceTile);
     setTile('b', {
       label: estimate ? 'Resistance · est.' : 'Resistance',
-      big: formatRange(snap.knobRange),
+      aim: formatRange(snap.knobRange),
       now: resNow,
       status: live ? snap.knobStatus : '',
     });
@@ -922,17 +922,6 @@ function renderRide() {
   dv.classList.toggle('down', pct < 100);
   $('diff-down').disabled = snap.difficulty <= DIFFICULTY_MIN + 1e-9;
   $('diff-up').disabled = snap.difficulty >= DIFFICULTY_MAX - 1e-9;
-
-  const cue = $('cue');
-  cue.className = `cue cue-${snap.cue.type}`;
-  if (cue.dataset.icon !== snap.cue.type) {
-    $('cue-icon').innerHTML = ICONS[snap.cue.type];
-    cue.dataset.icon = snap.cue.type;
-  }
-  $('cue-text').textContent = state.started ? snap.cue.text : 'Start pedalling';
-  // Nothing to change when both tiles are green, so the line steps aside. It
-  // keeps its space, so the window doesn't jump when it comes back.
-  cue.style.visibility = state.started && snap.cue.type === 'ok' ? 'hidden' : 'visible';
 
   updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
   $('route-dist').textContent = fmtKm(snap.dist);
@@ -955,11 +944,23 @@ function shortLabel(seg) {
   return seg.label.replace(/ of \d+$/, '');
 }
 
-function setTile(key, { label, big, now, status }) {
+// A tile leads with what the rider is doing; its colour says whether that is
+// in range, and an arrow says which way to go when it isn't.
+const TILE_HOLD_MS = 2500;
+const tileShown = {};
+
+function setTile(key, { label, aim, now, status }) {
   $(`tile-${key}-lbl`).textContent = label;
-  $(`tile-${key}-big`).textContent = big;
-  $(`tile-${key}-big`).classList.toggle('long', big.length >= 6);
-  $(`tile-${key}-now`).textContent = now;
+  // A big number that flickers with every pedal stroke is hard to read, so it
+  // holds for a couple of seconds, unless it has just moved in or out of range.
+  const shown = (tileShown[key] ??= {});
+  const at = performance.now();
+  if (shown.status !== status || shown.aim !== aim || at - (shown.at ?? 0) >= TILE_HOLD_MS) {
+    $(`tile-${key}-now`).textContent = now;
+    Object.assign(shown, { status, aim, at });
+  }
+  $(`tile-${key}-arrow`).textContent = { low: '↑', high: '↓' }[status] ?? '';
+  $(`tile-${key}-aim`).textContent = aim;
   $(`tile-${key}`).className = `num-col ${status || ''}`;
 }
 
@@ -994,6 +995,30 @@ $('btn-end').addEventListener('click', () => {
   finishRide(state.session.done);
 });
 
+// Keep the screen awake for the length of a ride. The lock belongs to a
+// visible window, so it is taken from the mini window when that is open.
+let wakeLock = null;
+
+async function holdScreenAwake() {
+  const win = state.pipWin && !state.pipWin.closed ? state.pipWin : window;
+  try {
+    await wakeLock?.release();
+    wakeLock = (await win.navigator.wakeLock?.request('screen')) ?? null;
+  } catch {
+    wakeLock = null; // not supported, or the window isn't visible
+  }
+}
+
+function letScreenSleep() {
+  wakeLock?.release().catch(() => {});
+  wakeLock = null;
+}
+
+// The browser drops the lock when a window is hidden; take it again on return.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.screen === 'ride') holdScreenAwake();
+});
+
 // Picture-in-picture
 async function togglePip() {
   if (state.pipWin && !state.pipWin.closed) {
@@ -1011,6 +1036,7 @@ async function togglePip() {
         scene.pixelScale = 1;
         $('panel-home').classList.remove('away');
         startLoop();
+        if (state.screen === 'ride') holdScreenAwake();
       },
     });
     state.pipWin = win;
@@ -1020,6 +1046,7 @@ async function togglePip() {
     fitPip();
     $('panel-home').classList.add('away');
     startLoop();
+    holdScreenAwake();
   } catch (err) {
     toast(err.message || String(err));
   }
@@ -1120,6 +1147,7 @@ function finishRide(completed) {
   renderSummary({ sum, workout, prevBest, prevLast, completed, saved, session: s });
   state.session = null;
   showScreen('summary');
+  letScreenSleep();
   saveLearning();
 }
 

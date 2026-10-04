@@ -21,7 +21,6 @@
     <button id="btn-build" class="link" type="button" data-screen="setup">Build a ride</button>
     <button id="btn-stats" class="link" type="button" data-screen="stats">Statistics</button>
     <button id="btn-model" class="link" type="button">Calibration</button>
-    <button id="btn-data" class="link" type="button" data-screen="data">Import / export</button>
   </nav>
   <div class="bike-controls">
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
@@ -139,12 +138,8 @@
       </div>
     </div>
     <div id="stats-body"></div>
-  </section>
-
-  <!-- IMPORT / EXPORT -->
-  <section id="screen-data" class="screen" hidden aria-labelledby="data-title">
-    <h1 id="data-title" class="title">Import / export</h1>
-    <p class="muted">Your rides and settings are kept in this browser. A backup file lets you keep a copy or move them to another computer.</p>
+    <h2 class="card-title backup-title">Backup</h2>
+    <p class="muted">Your rides and settings are kept in this browser. A backup file keeps a copy, or moves them to another computer.</p>
     <div class="data-cards">
       <div class="card stats-card">
         <h2 class="card-title">Export</h2>
@@ -159,6 +154,7 @@
       </div>
     </div>
   </section>
+
 
   <!-- RIDE -->
   <section id="screen-ride" class="screen ride-screen" hidden>
@@ -208,17 +204,16 @@
             <div class="cd-bar" aria-hidden="true"><i id="step-bar"></i></div>
             <div class="num-cols">
               <div id="tile-a" class="num-col">
-                <span id="tile-a-lbl" class="num-lbl">Cadence · rpm</span>
-                <span id="tile-a-big" class="num-big">80–90</span>
-                <span class="num-now">now <b id="tile-a-now">0</b></span>
+                <span id="tile-a-lbl" class="num-lbl">Cadence</span>
+                <span class="num-big"><span id="tile-a-now">0</span><span id="tile-a-arrow" class="num-arrow" aria-hidden="true"></span></span>
+                <span class="num-aim">aim <b id="tile-a-aim">80–90</b></span>
               </div>
               <div id="tile-b" class="num-col">
                 <span id="tile-b-lbl" class="num-lbl">Resistance</span>
-                <span id="tile-b-big" class="num-big">38–42</span>
-                <span class="num-now">now <b id="tile-b-now">0</b></span>
+                <span class="num-big"><span id="tile-b-now">0</span><span id="tile-b-arrow" class="num-arrow" aria-hidden="true"></span></span>
+                <span class="num-aim">aim <b id="tile-b-aim">38–42</b></span>
               </div>
             </div>
-            <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
             <div class="stage-foot">
               <p id="aside-line" class="aside-line"></p>
               <span class="effort" role="group" aria-label="Effort">

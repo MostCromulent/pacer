@@ -43,8 +43,8 @@ Your choices are remembered, so next time it's one click.
 
 ## 📺 During a ride
 
-- 🟩 Two tiles, **cadence** and **resistance**: green is in range, yellow too
-  low, blue too high.
+- 🟩 Two tiles, **cadence** and **resistance**, showing what you're doing now.
+  Green is in range; yellow or blue with an arrow means go up or down.
 - ⛰️ The road is the workout. A steeper hill means more resistance.
 - 🔔 A chime warns you before each change, so your eyes can stay on the show.
 - 🎚️ Off day? **Effort − / +** makes the rest of the ride easier or harder.
@@ -75,7 +75,8 @@ its resistance (the 800IC does) it keeps learning from every ride.
   **Calibration** in the top bar.
 - **Watts look high?** They're the bike's own estimate. You only race yourself,
   so it doesn't matter.
-- **Your data stays on your computer.** **Import / export** makes a backup.
+- **Your data stays on your computer.** **Statistics** has a backup button,
+  and lets you delete a ride.
 
 ---
 

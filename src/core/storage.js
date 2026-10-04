@@ -84,6 +84,10 @@ export class Storage {
     return safeSet(this.store, KEY_RIDES, trimmed);
   }
 
+  deleteRide(id) {
+    return safeSet(this.store, KEY_RIDES, this.allRides().filter((r) => r.id !== id));
+  }
+
   exportAll() {
     return JSON.stringify({ app: 'ghostride', version: 1, settings: this.loadSettings(), rides: this.allRides() }, null, 1);
   }
