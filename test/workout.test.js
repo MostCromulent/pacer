@@ -154,3 +154,15 @@ test('a higher effort setting means more hard minutes and a higher average', () 
   assert.ok(easy.hardMinutes < normal.hardMinutes && normal.hardMinutes <= hard.hardMinutes);
   assert.ok(easy.avgTargetW < normal.avgTargetW && normal.avgTargetW < hard.avgTargetW);
 });
+
+test('natural rides vary: hills, descents and flats are not all alike', () => {
+  const w = generateWorkout('hills', 45, 0);
+  const distinct = (name, key) => new Set(w.segments.filter((s) => s.name === name).map((s) => s[key])).size;
+  assert.ok(distinct('Hill', 'pct') > 2 && distinct('Hill', 'cadence') > 1);
+  assert.ok(distinct('Descent', 'pct') > 1 && distinct('Descent', 'cadence') > 1);
+  // Still the same ride every time for the same code.
+  assert.deepEqual(generateWorkout('hills', 45, 0).segments, w.segments);
+  const m = generateWorkout('mountain', 45, 0);
+  const climbs = m.segments.filter((s) => /Mountain 1 · climb/.test(s.label));
+  for (let i = 1; i < climbs.length; i++) assert.ok(climbs[i].pct > climbs[i - 1].pct, 'mountain steps still rise');
+});

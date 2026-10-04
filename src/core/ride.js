@@ -45,6 +45,22 @@ export function stepTargets(seg, segments, baselineW, model) {
   };
 }
 
+/**
+ * What to say out loud when a step begins: its name and the two numbers to aim
+ * for. Short reps get a single word, since there's no time for more.
+ * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'.
+ */
+export function spokenCue(seg, targets, mode = 'knob') {
+  const said = seg.label.split('·').pop().replace(/[\d/]+|\bof\b/g, '').replace(/\s+/g, ' ').trim();
+  const name = said.charAt(0).toUpperCase() + said.slice(1);
+  if (seg.kind === 'sprint') return 'Sprint. All out.';
+  if (seg.dur < SHORT_STEP_S) return seg.kind === 'work' ? 'Go.' : `${name}.`;
+  if (seg.hold) return `${name}. Same resistance, cadence ${targets.cadence}.`;
+  return mode === 'watts'
+    ? `${name}. ${targets.watts} watts, cadence ${targets.cadence}.`
+    : `${name}. Resistance ${targets.knob}, cadence ${targets.cadence}.`;
+}
+
 /** "80–90", or "105+" when there's no upper limit. */
 export function formatRange([lo, hi]) {
   return hi === null ? `${lo}+` : `${lo}–${hi}`;

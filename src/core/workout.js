@@ -127,6 +127,7 @@ function makeBuilders(add, v, rand) {
   const cruise = (sec) => add(sec, 62, 'steady', { name: 'Cruise' });
   const between = (lo, hi) => lo + rand() * (hi - lo);
   const step = (x, s = 15) => Math.round(x / s) * s;
+  const clampInt = (x, lo, hi) => Math.min(hi, Math.max(lo, Math.round(x)));
 
   const b = {
     endurance(budget) {
@@ -236,11 +237,13 @@ function makeBuilders(add, v, rand) {
       while (left >= style.climb[0] + 120) {
         const climb = Math.min(step(between(...style.climb)), left - 120);
         const pct = between(...style.pct);
-        add(climb, pct, 'work', { cadence: pct >= 92 ? 65 : 72, name: 'Hill' });
+        // No two hills alike: steeper ones are ridden slower, and descents and
+        // flats vary a little too.
+        add(climb, pct, 'work', { cadence: clampInt(72 - (pct - 80) / 3 + between(-2, 2), 60, 76), name: 'Hill' });
         const descent = step(between(45, 90));
-        add(descent, 56, 'recovery', { cadence: 95, name: 'Descent' });
+        add(descent, between(50, 60), 'recovery', { cadence: Math.round(between(90, 98)), name: 'Descent' });
         const flat = Math.min(step(between(60, 150)), left - climb - descent);
-        add(flat, between(66, 74), 'steady', { cadence: 90, name: 'Flat' });
+        add(flat, between(66, 74), 'steady', { cadence: Math.round(between(86, 92)), name: 'Flat' });
         left -= climb + descent + Math.max(0, flat);
       }
       cruise(left);
@@ -262,12 +265,13 @@ function makeBuilders(add, v, rand) {
         const room = left - approach - summit - descent;
         const steps = Math.max(2, Math.min(5, Math.floor(room / style.stepS)));
         m++;
-        add(approach, 70, 'steady', { cadence: 88, name: 'Approach' });
+        add(approach, between(66, 72), 'steady', { cadence: 88, name: 'Approach' });
+        // Each mountain's steps still rise, but unevenly, as real gradients do.
         for (let i = 0; i < steps; i++) {
-          add(style.stepS, style.start + i * style.rise, 'work', { cadence: Math.max(60, 72 - i * 3), label: `Mountain ${m} · climb ${i + 1}/${steps}` });
+          add(style.stepS, style.start + i * style.rise + between(-1.5, 1.5), 'work', { cadence: clampInt(72 - i * 3 + between(-1, 1), 60, 76), label: `Mountain ${m} · climb ${i + 1}/${steps}` });
         }
-        add(summit, 108, 'work', { cadence: 68, label: `Mountain ${m} · summit` });
-        add(descent, 55, 'recovery', { cadence: 95, name: 'Descent' });
+        add(summit, between(104, 112), 'work', { cadence: Math.round(between(65, 70)), label: `Mountain ${m} · summit` });
+        add(descent, between(52, 58), 'recovery', { cadence: Math.round(between(92, 98)), name: 'Descent' });
         left -= approach + steps * style.stepS + summit + descent;
       }
       cruise(left);
@@ -283,10 +287,10 @@ function makeBuilders(add, v, rand) {
       let left = budget;
       while (left >= style.gap[0] + style.surge[0]) {
         const gap = Math.min(step(between(...style.gap)), left - style.surge[0]);
-        add(gap, between(66, 74), 'steady', { cadence: 88, name: 'Ride' });
+        add(gap, between(66, 74), 'steady', { cadence: Math.round(between(85, 91)), name: 'Ride' });
         left -= gap;
         const surge = Math.min(step(between(...style.surge), 5), left);
-        add(surge, between(...style.pct), 'work', { cadence: 98, name: 'Surge' });
+        add(surge, between(...style.pct), 'work', { cadence: Math.round(between(94, 102)), name: 'Surge' });
         left -= surge;
       }
       cruise(left);

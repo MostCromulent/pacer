@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   easyCadence: 80,
   model: DEFAULT_MODEL,
   muted: false,
+  voice: false,
   lastDuration: 30,
   lastType: 'intervals',
   lastGhost: 'pb',

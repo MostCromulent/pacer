@@ -1,5 +1,5 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession, formatRange, stepTargets, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
+import { RideSession, formatRange, stepTargets, spokenCue, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
@@ -8,7 +8,7 @@ import { fitModel, crossValidate, resistanceFor, powerFor, CALIBRATION_STEPS } f
 import { Learner, addToBins, fitBins, levelCounts, totalReadings } from '../core/learn.js';
 import { Scene } from './scene.js';
 import { profileSvg, routeSvg, updateRoute, gapChartSvg, weeksSvg, esc, modelSvg, modelRange, MODEL_PLOT, MODEL_CADENCES } from './charts.js';
-import { Chimes } from './audio.js';
+import { Chimes, Voice } from './audio.js';
 import { popOut, pipSupported } from './pip.js';
 import { ZONE_COLORS } from './palette.js';
 
@@ -80,6 +80,8 @@ async function saveCalibrationFile(patch) {
 
 const chimes = new Chimes();
 chimes.muted = settings.muted;
+const voice = new Voice();
+voice.enabled = settings.voice && !settings.muted;
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 const state = {
@@ -289,6 +291,12 @@ function renderSetup() {
     b.setAttribute('aria-pressed', String(on));
   }
   $('calib-nudge').hidden = settings.targetMode !== 'knob' || !knobIsEstimate();
+  const sound = settings.muted ? 'off' : settings.voice ? 'voice' : 'chimes';
+  for (const b of document.querySelectorAll('#sounds .seg')) {
+    b.classList.toggle('on', b.dataset.sound === sound);
+    b.setAttribute('aria-pressed', String(b.dataset.sound === sound));
+    if (b.dataset.sound === 'voice') b.hidden = !Voice.supported();
+  }
 }
 
 function goToStep(i) {
@@ -788,9 +796,14 @@ function onRideEvent(ev) {
     chimes.play(r?.won ? 'gateWon' : 'gateLost');
   } else if (ev === 'done') {
     chimes.play('done');
+    voice.say('Ride complete.');
     setTimeout(() => finishRide(true), 400);
   } else {
     chimes.play(ev);
+    if (ev === 'stepChange') {
+      const snap = state.session.snapshot();
+      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode));
+    }
   }
 }
 
@@ -977,15 +990,30 @@ $('btn-pause').addEventListener('click', () => {
   state.lastDom = 0;
 });
 
-$('btn-mute').addEventListener('click', () => {
-  chimes.muted = !chimes.muted;
-  saveSettings({ muted: chimes.muted });
+function setSound({ muted = settings.muted, voice: spoken = settings.voice }) {
+  saveSettings({ muted, voice: spoken });
+  chimes.muted = muted;
+  voice.enabled = spoken && !muted;
+  if (!voice.enabled) voice.stop();
   updateMute();
+}
+
+$('btn-mute').addEventListener('click', () => setSound({ muted: !settings.muted }));
+
+$('sounds').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sound]');
+  if (!b) return;
+  const kind = b.dataset.sound;
+  chimes.unlock();
+  setSound({ muted: kind === 'off', voice: kind === 'voice' });
+  if (kind === 'voice') voice.say('Voice cues on.');
+  if (kind === 'chimes') chimes.play('stepChange');
+  renderSetup();
 });
 
 function updateMute() {
   $('btn-mute').setAttribute('aria-pressed', String(chimes.muted));
-  $('btn-mute').setAttribute('aria-label', chimes.muted ? 'Unmute chimes' : 'Mute chimes');
+  $('btn-mute').setAttribute('aria-label', chimes.muted ? 'Unmute sound' : 'Mute sound');
   $('mute-wave').style.display = chimes.muted ? 'none' : '';
 }
 
@@ -1148,6 +1176,7 @@ function finishRide(completed) {
   state.session = null;
   showScreen('summary');
   letScreenSleep();
+  if (!completed) voice.stop();
   saveLearning();
 }
 

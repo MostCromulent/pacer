@@ -47,6 +47,7 @@ Your choices are remembered, so next time it's one click.
   Green is in range; yellow or blue with an arrow means go up or down.
 - ⛰️ The road is the workout. A steeper hill means more resistance.
 - 🔔 A chime warns you before each change, so your eyes can stay on the show.
+  Turn on voice and each step is read out too: "Hill. Resistance 45, cadence 70."
 - 🎚️ Off day? **Effort − / +** makes the rest of the ride easier or harder.
 
 ## 📈 Afterwards

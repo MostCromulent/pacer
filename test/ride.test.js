@@ -280,3 +280,15 @@ test('a ride can be deleted from storage', async () => {
   st.deleteRide('a');
   assert.deepEqual(st.allRides().map((r) => r.id), ['b']);
 });
+
+test('spoken cues name the step and its two targets', async () => {
+  const { spokenCue } = await import('../src/core/ride.js');
+  const tg = { knob: 45, cadence: 70, watts: 260 };
+  assert.equal(spokenCue({ kind: 'work', dur: 120, label: 'Hill 2 of 7' }, tg), 'Hill. Resistance 45, cadence 70.');
+  assert.equal(spokenCue({ kind: 'work', dur: 150, label: 'Mountain 1 · climb 2/4' }, tg), 'Climb. Resistance 45, cadence 70.');
+  assert.equal(spokenCue({ kind: 'work', dur: 120, label: 'Hill' }, tg, 'watts'), 'Hill. 260 watts, cadence 70.');
+  assert.equal(spokenCue({ kind: 'sprint', dur: 30, label: 'Sprint 1 of 4' }, tg), 'Sprint. All out.');
+  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Tabata 1 · rep 3/8' }, tg), 'Go.');
+  assert.equal(spokenCue({ kind: 'recovery', dur: 10, hold: true, label: 'Rest' }, tg), 'Rest.');
+  assert.equal(spokenCue({ kind: 'steady', dur: 30, hold: true, label: 'Settle' }, tg), 'Settle. Same resistance, cadence 70.');
+});

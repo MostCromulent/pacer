@@ -44,3 +44,26 @@ export class Chimes {
     }
   }
 }
+
+/** Spoken cues, using the browser's built-in voices. Off unless switched on. */
+export class Voice {
+  static supported() {
+    return typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined';
+  }
+
+  constructor() {
+    this.enabled = false;
+  }
+
+  say(text) {
+    if (!this.enabled || !Voice.supported()) return;
+    speechSynthesis.cancel(); // a new step replaces anything still being said
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.05;
+    speechSynthesis.speak(u);
+  }
+
+  stop() {
+    if (Voice.supported()) speechSynthesis.cancel();
+  }
+}

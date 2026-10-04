@@ -143,6 +143,8 @@ main { padding: 0 32px 40px; }
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .custom-dur.on .stepper input { border-color: var(--mustard-deep); background: #FFF6DE; }
 .effort-setup { min-width: 64px; text-align: center; font-family: var(--display); font-weight: 700; font-size: 20px; }
+.seg-toggle.sound-toggle { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 420px; }
+.sound-toggle .seg { cursor: pointer; }
 .seg-toggle.effort-words { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .effort-words .seg { cursor: pointer; padding: 0 2px; }
 .effort-note { margin: 8px 2px 0; line-height: 1.45; }
