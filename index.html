@@ -55,11 +55,11 @@
         <fieldset class="group">
           <legend>Show targets as</legend>
           <div class="seg-toggle mode-toggle" role="group" aria-label="Show targets as">
-            <button id="mode-knob" class="seg" type="button" data-mode="knob">Cadence + knob</button>
+            <button id="mode-knob" class="seg" type="button" data-mode="knob">Cadence + resistance</button>
             <button id="mode-watts" class="seg" type="button" data-mode="watts">Watts</button>
           </div>
           <p id="calib-nudge" class="nudge small" hidden>
-            Knob numbers are estimates until you calibrate, and may not match your bike's screen.
+            Resistance numbers are estimates until you calibrate, and may not match your bike's screen.
             <button id="btn-calibrate-nudge" class="link" type="button">Calibrate now (2 min)</button>
           </p>
         </fieldset>
@@ -94,7 +94,7 @@
       </div>
     </div>
     <footer class="setup-foot">
-      <button id="btn-calibrate" class="link" type="button">Calibrate knob</button>
+      <button id="btn-calibrate" class="link" type="button">Calibrate resistance</button>
       <span aria-hidden="true">·</span>
       <button id="btn-export" class="link" type="button">Export rides</button>
       <span aria-hidden="true">·</span>
@@ -127,7 +127,7 @@
           </div>
 
           <div class="scene-wrap">
-            <canvas id="scene" width="360" height="214" role="img" aria-label="Papercraft race scene"></canvas>
+            <canvas id="scene" width="360" height="236" role="img" aria-label="Papercraft race scene"></canvas>
             <div class="scene-hud">
               <span id="gap-pill" class="pill gap">Ready</span>
               <span id="next-pill" class="pill paper"></span>
@@ -135,42 +135,36 @@
             <div id="overlay" class="scene-overlay" hidden><span id="overlay-text">Paused</span></div>
           </div>
 
-          <div id="countdown" class="card countdown">
-            <div class="cd-head">
-              <span id="zone-chip" class="zone-chip">Z1</span>
-              <span id="step-label" class="step-label">Warm-up</span>
-            </div>
-            <div class="cd-row">
-              <span id="step-time" class="cd-num">0:00</span>
-              <span class="cd-next">
-                <span class="cd-next-lbl">Next</span>
-                <span id="next-name" class="cd-next-name"></span>
-                <span id="next-target" class="cd-next-target"></span>
-              </span>
-            </div>
-            <div class="cd-bar" aria-hidden="true"><i id="step-bar"></i></div>
-          </div>
-
-          <div class="card numbers">
-            <div class="num-cols">
-              <div id="tile-a" class="num-col">
-                <span id="tile-a-lbl" class="num-lbl">Cadence</span>
-                <span class="num-big"><span id="tile-a-big">85</span><span id="tile-a-unit" class="num-unit">rpm</span></span>
-                <span class="num-now">now <b id="tile-a-now">0</b></span>
-              </div>
-              <div id="tile-b" class="num-col">
-                <span id="tile-b-lbl" class="num-lbl">Knob</span>
-                <span class="num-big"><span id="tile-b-big">40</span><span id="tile-b-unit" class="num-unit"></span></span>
-                <span class="num-now">now <b id="tile-b-now">0</b></span>
-              </div>
-            </div>
-            <p id="aside-line" class="aside-line"></p>
-            <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
-          </div>
-
           <div class="card route">
             <div class="route-head"><span id="route-label">Route</span><span id="route-dist">0.0 km</span></div>
             <div id="route-svg"></div>
+          </div>
+
+          <div id="countdown" class="card stage">
+            <div class="cd-head">
+              <span id="zone-chip" class="zone-chip">Z1</span>
+              <span id="step-label" class="step-label">Warm-up</span>
+              <span id="next-label" class="next-label"></span>
+            </div>
+            <div class="cd-row">
+              <span id="step-time" class="cd-num">0:00</span>
+              <span class="cd-left">left</span>
+            </div>
+            <div class="cd-bar" aria-hidden="true"><i id="step-bar"></i></div>
+            <div class="num-cols">
+              <div id="tile-a" class="num-col">
+                <span id="tile-a-lbl" class="num-lbl">Cadence · rpm</span>
+                <span id="tile-a-big" class="num-big">80–90</span>
+                <span class="num-now">now <b id="tile-a-now">0</b></span>
+              </div>
+              <div id="tile-b" class="num-col">
+                <span id="tile-b-lbl" class="num-lbl">Resistance</span>
+                <span id="tile-b-big" class="num-big">38–42</span>
+                <span class="num-now">now <b id="tile-b-now">0</b></span>
+              </div>
+            </div>
+            <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
+            <p id="aside-line" class="aside-line"></p>
           </div>
         </section>
       </div>
@@ -191,10 +185,10 @@
           <div class="sim-grid">
             <span class="muted small">Cadence</span>
             <span class="sim-ctrl"><button id="cad-down" class="icon-btn" type="button" aria-label="Slower cadence">−</button><span id="sim-cad" class="sim-val">0</span><button id="cad-up" class="icon-btn" type="button" aria-label="Faster cadence">+</button></span>
-            <span class="muted small">Knob</span>
+            <span class="muted small">Resistance</span>
             <span class="sim-ctrl"><button id="knob-down" class="icon-btn" type="button" aria-label="Less resistance">−</button><span id="sim-knob" class="sim-val">0</span><button id="knob-up" class="icon-btn" type="button" aria-label="More resistance">+</button></span>
           </div>
-          <p class="muted small">Keys: ↑ ↓ cadence, ← → knob.</p>
+          <p class="muted small">Keys: ↑ ↓ cadence, ← → resistance.</p>
         </div>
         <button id="btn-end" class="btn btn-paper wide" type="button">End ride</button>
       </aside>
@@ -257,7 +251,7 @@
 
 <!-- CALIBRATION -->
 <dialog id="calib" class="dialog" aria-labelledby="calib-title">
-  <h2 id="calib-title" class="title-sm">Calibrate the knob</h2>
+  <h2 id="calib-title" class="title-sm">Calibrate resistance</h2>
   <div id="calib-body"></div>
   <div class="dialog-actions">
     <button id="calib-skip" class="btn btn-paper" type="button" hidden>Skip this level</button>

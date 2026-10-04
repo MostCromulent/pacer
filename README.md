@@ -27,7 +27,7 @@ dependencies.
 
 Want to try it without the bike? Click **Use simulator**. The simulated bike
 pedals along to the workout by itself, or switch it to *I'll drive* and use the
-arrow keys (↑ ↓ cadence, ← → knob).
+arrow keys (↑ ↓ cadence, ← → resistance).
 
 ## Riding with the bike
 
@@ -42,28 +42,29 @@ arrow keys (↑ ↓ cadence, ← → knob).
    window, so you can put your show full screen. Drag the window bigger and
    everything in it scales up, which helps if the screen is across the room.
 
-### Targets are cadence and knob
+### Targets are cadence and resistance
 
-Each step gives you two numbers to match, the way a spin class does: a
-**cadence** (rpm) and a **knob** setting. Heavy climbs are ridden at around
-80 rpm with more knob, recoveries spin at about 92 rpm, and sprints at 105+.
-Each tile shows the target big and what you're doing now underneath, and turns
-sage when you're on it, mustard when you're under, and blue when you're over.
-The line underneath says which to change first, e.g. `Knob up to 63`.
+Each step gives you two ranges to stay in, the way a spin class does: a
+**cadence** range (rpm) and a **resistance** range. Heavy climbs are ridden at
+75–85 rpm with more resistance, recoveries spin at 87–97 rpm, and sprints at
+100+. Each tile shows the range big and what you're doing now underneath, and
+turns sage when you're in it, mustard when you're under, and blue when you're
+over. The line underneath says which to change first, e.g.
+`Resistance up to 61–65`.
 
 Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 
-### Calibrate the knob once
+### Calibrate resistance once
 
 The 800IC has no power meter: the console works watts out from cadence and the
-knob position. **Calibrate knob** (on the setup screen) walks you through seven
-knob settings for about two minutes and learns that formula. After that the
-knob numbers in the app match the numbers on your bike's screen, and the app
-can tell your knob position from the watts and cadence alone.
+resistance level. **Calibrate resistance** (on the setup screen) walks you
+through seven resistance levels for about two minutes and learns that formula.
+After that the resistance numbers in the app match the numbers on your bike's
+screen, and the app can tell your resistance from the watts and cadence alone.
 
-Until you calibrate, knob numbers are estimates from a generic spin-bike curve
-and show with a `≈`. If your bike reports its resistance level over Bluetooth,
-the app reads it directly.
+Until you calibrate, resistance numbers are estimates from a generic spin-bike
+curve, and the tile is labelled *est.* If your bike reports its resistance
+level over Bluetooth, the app reads it directly.
 
 ## What's in the box
 
@@ -78,14 +79,16 @@ the app reads it directly.
 - **Papercraft scene**: the road *is* the workout. It climbs on hard efforts and
   drops in recoveries, the kerbs are coloured by zone, and gates appear on the
   road ahead before they arrive. Riders pedal at their real cadence.
-- **Glanceable mini window**, built to be read from the bike at a glance:
-  - a huge countdown for the current step, which turns coral and pulses for
-    the last 10 seconds, with the next step's cadence and knob beside it;
-  - **Cadence** and **Knob** targets side by side in big numbers, each with
-    what you're doing now and coloured by how close you are, plus a one-line
-    hint saying what to change (watts are shown small underneath);
-  - ride time left with a progress bar, the gap to the ghost, the next sprint
-    gate, and the route ahead;
+- **Glanceable mini window**, built to be read from the bike at a glance.
+  Top to bottom:
+  - ride time left with a progress bar;
+  - the race scene, with the gap to the ghost and the next sprint gate;
+  - the route ahead;
+  - one box for the current stage: its name, a huge countdown (coral and
+    pulsing for the last 10 seconds), and the **cadence** and **resistance**
+    ranges side by side, each with what you're doing now and coloured by how
+    close you are, plus a one-line hint saying what to change (watts small
+    underneath);
   - soft chimes before each change (mute button in the corner).
 - **Summary**: the gap to the ghost minute by minute, each hard effort compared
   with last time, and every ride of that workout. If the hard efforts were
@@ -101,7 +104,7 @@ src/core/   pure logic, no DOM, unit-tested
   bike.js        Web Bluetooth connection with auto-reconnect
   sim.js         simulated bike (hidden "true" watts formula)
   workout.js     deterministic workout generator, gates, zones
-  resistance.js  knob/cadence -> watts model, inversion, calibration fit
+  resistance.js  resistance/cadence -> watts model, inversion, calibration fit
   physics.js     power -> virtual speed (flat road, eased)
   ghost.js       distance-over-time traces; pacer ghost
   ride.js        the ride engine: distance, targets, gates, events, summary

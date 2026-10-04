@@ -11,6 +11,11 @@ const STEP_WARNING_S = 10;
 const CADENCE_TOLERANCE = 5;
 const KNOB_TOLERANCE = 2;
 
+/** "80–90", or "105+" when there's no upper limit. */
+export function formatRange([lo, hi]) {
+  return hi === null ? `${lo}+` : `${lo}–${hi}`;
+}
+
 /** Power-based check, used when the knob position isn't known. */
 export function isOnTarget(segment, baselineW, powerW, cadence) {
   if (segment.kind === 'sprint') return powerW >= baselineW * 1.2;
@@ -165,10 +170,17 @@ export class RideSession {
   targetsFor(seg) {
     const watts = targetWatts(seg, this.baselineW);
     const cadence = seg.cadence ?? 85;
+    const knob = Math.round(resistanceFor(this.model, watts, cadence));
+    const wattsTol = Math.max(10, watts * 0.06);
+    const sprint = seg.kind === 'sprint';
+    // The ranges that count as on target. Sprints have no upper limit.
     return {
       watts: Math.round(watts),
       cadence,
-      knob: Math.round(resistanceFor(this.model, watts, cadence)),
+      knob,
+      cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
+      knobRange: [Math.max(1, knob - KNOB_TOLERANCE), sprint ? null : Math.min(100, knob + KNOB_TOLERANCE)],
+      wattsRange: sprint ? [Math.round(this.baselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
     };
   }
 
@@ -205,17 +217,19 @@ export class RideSession {
 
     const st = this.status(seg, powerW, cadence, resistance);
     const tg = st.targets;
+    const res = formatRange(tg.knobRange);
+    const rpm = `${formatRange(tg.cadenceRange)} rpm`;
     let cue;
     if (resistance === null) {
-      cue = { type: 'up', text: `Set knob to ${tg.knob}` };
+      cue = { type: 'up', text: `Set resistance to ${res}` };
     } else if (st.knobStatus === 'low') {
-      cue = { type: 'up', text: `Knob up to ${tg.knob}` };
+      cue = { type: 'up', text: `Resistance up to ${res}` };
     } else if (st.knobStatus === 'high') {
-      cue = { type: 'down', text: `Knob down to ${tg.knob}` };
+      cue = { type: 'down', text: `Resistance down to ${res}` };
     } else if (st.cadenceStatus === 'low') {
-      cue = { type: 'up', text: `Pedal faster · ${tg.cadence} rpm` };
+      cue = { type: 'up', text: `Pedal faster · ${rpm}` };
     } else if (st.cadenceStatus === 'high') {
-      cue = { type: 'down', text: `Ease the cadence · ${tg.cadence} rpm` };
+      cue = { type: 'down', text: `Ease the cadence · ${rpm}` };
     } else {
       cue = { type: 'ok', text: 'Spot on, hold it' };
     }
@@ -251,6 +265,9 @@ export class RideSession {
       targetW: tg.watts,
       targetCadence: tg.cadence,
       targetKnob: tg.knob,
+      cadenceRange: tg.cadenceRange,
+      knobRange: tg.knobRange,
+      wattsRange: tg.wattsRange,
       powerW: Math.round(powerW),
       cadence: Math.round(cadence),
       resistance: resistance === null ? null : Math.round(resistance),

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateWorkout } from '../src/core/workout.js';
 import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
 import { Ghost, pacerGhost, targetWatts } from '../src/core/ghost.js';
-import { RideSession, isOnTarget } from '../src/core/ride.js';
+import { RideSession, isOnTarget, formatRange } from '../src/core/ride.js';
 import { speedFromPower } from '../src/core/physics.js';
 import { Storage } from '../src/core/storage.js';
 
@@ -96,13 +96,15 @@ test('knob is corrected first, then cadence', () => {
   assert.equal(snap.resistance, 38);
   assert.equal(snap.knobStatus, 'low');
   assert.equal(snap.cadenceStatus, 'on');
-  assert.deepEqual(snap.cue, { type: 'up', text: `Knob up to ${snap.targetKnob}` });
+  assert.deepEqual(snap.knobRange, [snap.targetKnob - 2, snap.targetKnob + 2]);
+  assert.deepEqual(snap.cadenceRange, [75, 85]);
+  assert.deepEqual(snap.cue, { type: 'up', text: `Resistance up to ${snap.targetKnob - 2}–${snap.targetKnob + 2}` });
 
   const tk = snap.targetKnob;
   snap = rideToFirstClimb(tk, 95).s.snapshot();
   assert.equal(snap.knobStatus, 'on');
   assert.equal(snap.cadenceStatus, 'high');
-  assert.deepEqual(snap.cue, { type: 'down', text: 'Ease the cadence · 80 rpm' });
+  assert.deepEqual(snap.cue, { type: 'down', text: 'Ease the cadence · 75–85 rpm' });
 
   snap = rideToFirstClimb(tk, 81).s.snapshot();
   assert.equal(snap.cue.type, 'ok');
@@ -127,6 +129,16 @@ test('matching cadence and knob counts as on target even if the watts disagree',
   assert.equal(snap.cadenceStatus, 'on');
   assert.equal(isOnTarget(climb, 200, snap.powerW, snap.cadence), false);
   assert.equal(snap.onTarget, true);
+});
+
+test('sprints have open-ended ranges', () => {
+  const w = generateWorkout('sprints', 22, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const tg = s.targetsFor(w.segments.find((x) => x.kind === 'sprint'));
+  assert.deepEqual(tg.cadenceRange, [100, null]);
+  assert.equal(tg.knobRange[1], null);
+  assert.deepEqual(tg.wattsRange, [240, null]);
+  assert.equal(formatRange(tg.cadenceRange), '100+');
 });
 
 test('summary reports average cadence and knob for each hard effort', () => {

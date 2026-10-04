@@ -1,5 +1,5 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession } from '../core/ride.js';
+import { RideSession, formatRange } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
@@ -23,7 +23,7 @@ const $ = (id) => {
   return found;
 };
 
-const SCENE_HEIGHT = 214;
+const SCENE_HEIGHT = 236;
 const ROUTE_W = 328;
 const ROUTE_H = 40;
 
@@ -181,8 +181,8 @@ function renderSetup() {
     ? `You'll race ${versus}.`
     : 'Connect your bike, or use the simulator, to start.';
   $('model-note').textContent = settings.model.calibrated
-    ? 'Knob calibrated for your bike.'
-    : 'Knob hints use a generic model until you calibrate.';
+    ? 'Resistance calibrated for your bike.'
+    : 'Resistance targets use a generic model until you calibrate.';
   $('baseline').value = settings.baselineW;
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
@@ -192,7 +192,7 @@ function renderSetup() {
   $('calib-nudge').hidden = settings.targetMode !== 'knob' || !knobIsEstimate();
 }
 
-/** Knob numbers come from the generic model and may not match the bike's screen. */
+/** Resistance numbers come from the generic model and may not match the bike's screen. */
 function knobIsEstimate() {
   return !settings.model.calibrated && state.latest.resistance === undefined;
 }
@@ -531,36 +531,38 @@ function renderRide() {
   const seg = snap.seg;
   const next = s.workout.segments[snap.segIndex + 1];
   $('step-label').textContent = seg.label;
-  $('next-name').textContent = next ? shortLabel(next) : 'Finish';
-  $('next-target').textContent = next ? stepTarget(next, s) : '';
+  $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && snap.stepLeft <= 10);
 
   const live = state.started && !snap.noSignal;
   const sprint = seg.kind === 'sprint';
-  const approx = knobIsEstimate() ? '≈' : '';
-  const knobNow = snap.resistance === null ? '–' : String(snap.resistance);
+  const estimate = knobIsEstimate();
+  const resNow = snap.resistance === null ? '–' : String(snap.resistance);
   const cadenceTile = {
-    label: 'Cadence',
-    big: sprint ? `${snap.targetCadence}+` : String(snap.targetCadence),
-    unit: 'rpm',
+    label: 'Cadence · rpm',
+    big: formatRange(snap.cadenceRange),
     now: String(snap.cadence),
     status: live ? snap.cadenceStatus : '',
   };
   if (settings.targetMode === 'watts') {
     setTile('a', {
-      label: 'Power',
-      big: sprint ? 'All out' : String(snap.targetW),
-      unit: sprint ? '' : 'W',
-      now: `${snap.powerW} W`,
+      label: 'Power · W',
+      big: sprint ? 'All out' : formatRange(snap.wattsRange),
+      now: String(snap.powerW),
       status: live ? (snap.onTarget ? 'on' : sprint || snap.powerW < snap.targetW ? 'low' : 'high') : '',
     });
     setTile('b', cadenceTile);
-    $('aside-line').textContent = `Knob ${approx}${snap.targetKnob} · now ${knobNow}`;
+    $('aside-line').textContent = `Resistance ${estimate ? '≈' : ''}${formatRange(snap.knobRange)} · now ${resNow}`;
   } else {
     setTile('a', cadenceTile);
-    setTile('b', { label: 'Knob', big: `${approx}${snap.targetKnob}`, unit: '', now: knobNow, status: live ? snap.knobStatus : '' });
+    setTile('b', {
+      label: estimate ? 'Resistance · est.' : 'Resistance',
+      big: formatRange(snap.knobRange),
+      now: resNow,
+      status: live ? snap.knobStatus : '',
+    });
     $('aside-line').textContent = sprint ? `All out! · now ${snap.powerW} W` : `Target ${snap.targetW} W · now ${snap.powerW} W`;
   }
   const cue = $('cue');
@@ -592,16 +594,9 @@ function shortLabel(seg) {
   return seg.label.replace(/ of \d+$/, '');
 }
 
-function stepTarget(seg, session) {
-  const tg = session.targetsFor(seg);
-  if (settings.targetMode === 'watts') return seg.kind === 'sprint' ? 'all out' : `${tg.watts} W`;
-  return `${tg.cadence} rpm · knob ${tg.knob}`;
-}
-
-function setTile(key, { label, big, unit, now, status }) {
+function setTile(key, { label, big, now, status }) {
   $(`tile-${key}-lbl`).textContent = label;
   $(`tile-${key}-big`).textContent = big;
-  $(`tile-${key}-unit`).textContent = unit;
   $(`tile-${key}-now`).textContent = now;
   $(`tile-${key}`).className = `num-col ${status || ''}`;
 }
@@ -802,7 +797,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
       const txt = d === null ? 'new' : `${d >= 0 ? '+' : '−'}${Math.abs(d)} W`;
       const metric = settings.targetMode === 'watts'
         ? `${c.avgW} W`
-        : `knob ${c.avgKnob ?? '–'} · ${c.avgCadence} rpm`;
+        : `resistance ${c.avgKnob ?? '–'} · ${c.avgCadence} rpm`;
       return `<div class="climb"><span>${esc(c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${metric}</span>
         <span class="bar"><i style="width:${c.onTargetPct}%"></i></span><span class="muted">${c.onTargetPct}%</span>
         <span class="delta ${cls}">${txt}</span></div>`;
@@ -832,8 +827,8 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
     const ratio = actual / target;
     if ((ratio > 1.04 || ratio < 0.9) && settings.targetMode === 'knob' && knobIsEstimate()) {
       // Following estimated knob numbers: the gap is most likely the estimate, not fitness.
-      $('baseline-tip-text').textContent = `Following the knob, your hard efforts came out ${Math.round(Math.abs(ratio - 1) * 100)}% ${ratio > 1 ? 'above' : 'below'} target. Calibrate so the knob numbers match your bike.`;
-      $('btn-apply-baseline').textContent = 'Calibrate knob';
+      $('baseline-tip-text').textContent = `Following the resistance targets, your hard efforts came out ${Math.round(Math.abs(ratio - 1) * 100)}% ${ratio > 1 ? 'above' : 'below'} target. Calibrate so the resistance numbers match your bike.`;
+      $('btn-apply-baseline').textContent = 'Calibrate resistance';
       tip.hidden = false;
       $('btn-apply-baseline').onclick = () => {
         tip.hidden = true;
@@ -969,14 +964,14 @@ const calib = {
       const native = state.latest.resistance !== undefined;
       body.innerHTML = `
         <p>${native
-          ? 'Good news: your bike reports its resistance level directly, so the app reads it as you ride. You can still calibrate to improve the knob suggestions.'
-          : 'Your bike works out watts from cadence and the knob position. Ride a few short steps so the app can learn that formula, then it can work out your knob position by itself and suggest exactly where to set it.'}</p>
-        <p class="muted">About ${Math.round((LEVELS.length * (SETTLE_S + RECORD_S)) / 60)} minutes. At each step, set the knob to the level shown (check it on the bike's screen) and pedal at a steady, comfortable pace.</p>`;
+          ? 'Good news: your bike reports its resistance level directly, so the app reads it as you ride. You can still calibrate to improve the resistance targets.'
+          : 'Your bike works out watts from cadence and the resistance level. Ride a few short steps so the app can learn that formula; then it can work out your resistance by itself and give resistance targets that match your bike’s screen.'}</p>
+        <p class="muted">About ${Math.round((LEVELS.length * (SETTLE_S + RECORD_S)) / 60)} minutes. At each step, set the resistance to the level shown (check it on the bike's screen) and pedal at a steady, comfortable pace.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
       body.innerHTML = `
         <p class="muted small">Step ${this.level + 1} of ${LEVELS.length}</p>
-        <p>Set the knob to</p>
+        <p>Set resistance to</p>
         <div class="knob-big">${LEVELS[this.level]}</div>
         <p id="calib-phase" class="muted">Settle in…</p>
         <div class="calib-progress"><i id="calib-bar"></i></div>
@@ -998,12 +993,12 @@ const calib = {
         if (!at.length) return '';
         const cad = at.reduce((a, s) => a + s.cadence, 0) / at.length;
         const p = at.reduce((a, s) => a + s.power, 0) / at.length;
-        return `<tr><td>Knob ${l}</td><td>${Math.round(cad)} rpm</td><td>${Math.round(p)} W</td><td>${Math.round(powerFor(this.model, l, cad))} W</td></tr>`;
+        return `<tr><td>Resistance ${l}</td><td>${Math.round(cad)} rpm</td><td>${Math.round(p)} W</td><td>${Math.round(powerFor(this.model, l, cad))} W</td></tr>`;
       }).join('');
       body.innerHTML = `
         <p>Learned your bike's formula. Typical error: <b>${err.toFixed(1)} W</b>.</p>
         <table class="calib-table"><thead><tr><th>Step</th><th>Cadence</th><th>Measured</th><th>Model</th></tr></thead><tbody>${rows}</tbody></table>
-        <p>Check it: turn the knob anywhere and pedal. Detected knob: <b id="calib-detect">—</b> (compare with the bike's screen).</p>`;
+        <p>Check it: set any resistance and pedal. Detected resistance: <b id="calib-detect">—</b> (compare with the bike's screen).</p>`;
       next.textContent = 'Save';
     }
   },
@@ -1036,7 +1031,7 @@ $('calib-next').addEventListener('click', () => {
   else if (calib.phase === 'result') {
     if (calib.model) {
       saveSettings({ model: calib.model });
-      toast('Calibration saved. Knob hints now use your bike’s formula.');
+      toast('Calibration saved. Resistance targets now match your bike.');
       calib.close();
       renderSetup();
     } else {
