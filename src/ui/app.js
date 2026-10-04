@@ -203,11 +203,9 @@ const GROUP_COLORS = { Steady: '#9CC5A1', Natural: '#B3A2DD', Intervals: '#F6A96
 /** A plain word for an effort setting, to go with the percentage. */
 function effortWord(effort) {
   const pct = Math.round(effort * 100);
-  if (pct <= 60) return 'Very easy';
-  if (pct <= 80) return 'Easy';
-  if (pct <= 95) return 'Gentle';
-  if (pct === 100) return 'Normal';
-  if (pct <= 115) return 'Challenging';
+  if (pct <= 65) return 'Very easy';
+  if (pct <= 90) return 'Easy';
+  if (pct <= 105) return 'Normal';
   if (pct <= 130) return 'Hard';
   return 'Very hard';
 }
