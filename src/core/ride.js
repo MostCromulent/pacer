@@ -3,16 +3,47 @@
 
 import { stepSpeed } from './physics.js';
 import { segmentIndexAt, zoneOf } from './workout.js';
-import { resistanceFor } from './resistance.js';
+import { resistanceFor, powerFor } from './resistance.js';
 import { targetWatts } from './ghost.js';
 
 const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
+export const SHORT_STEP_S = 25;
 const CADENCE_TOLERANCE = 5;
 const KNOB_TOLERANCE = 2;
 export const DIFFICULTY_MIN = 0.7;
 export const DIFFICULTY_MAX = 1.3;
 export const DIFFICULTY_STEP = 0.05;
+
+/**
+ * What to aim for in a step: power, cadence, and the resistance that gives that
+ * power at that cadence (from the resistance model), plus the on-target ranges.
+ * Steps marked `hold` keep the previous step's resistance; their watts follow
+ * from the lower cadence.
+ */
+export function stepTargets(seg, segments, baselineW, model) {
+  const cadence = seg.cadence ?? 85;
+  let watts = targetWatts(seg, baselineW);
+  let knob = Math.round(resistanceFor(model, watts, cadence));
+  if (seg.hold) {
+    const prev = segments[segments.indexOf(seg) - 1];
+    if (prev && !prev.hold) {
+      knob = stepTargets(prev, segments, baselineW, model).knob;
+      watts = powerFor(model, knob, cadence);
+    }
+  }
+  const wattsTol = Math.max(10, watts * 0.06);
+  const sprint = seg.kind === 'sprint';
+  // The ranges that count as on target. Sprints have no upper limit.
+  return {
+    watts: Math.round(watts),
+    cadence,
+    knob,
+    cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
+    knobRange: [Math.max(1, knob - KNOB_TOLERANCE), sprint ? null : Math.min(100, knob + KNOB_TOLERANCE)],
+    wattsRange: sprint ? [Math.round(baselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
+  };
+}
 
 /** "80–90", or "105+" when there's no upper limit. */
 export function formatRange([lo, hi]) {
@@ -121,7 +152,8 @@ export class RideSession {
       this._lastSeg = si;
     }
     const next = this.workout.segments[si + 1];
-    if (next) {
+    // No heads-up inside short HIIT reps: the change chime itself is the cue.
+    if (next && seg.dur >= SHORT_STEP_S) {
       const left = seg.start + seg.dur - this.t;
       if (left <= STEP_WARNING_S && !this._warned.has(si)) {
         this._warned.add(si);
@@ -192,20 +224,7 @@ export class RideSession {
    * that power at that cadence (from the resistance model).
    */
   targetsFor(seg) {
-    const watts = targetWatts(seg, this.effectiveBaselineW);
-    const cadence = seg.cadence ?? 85;
-    const knob = Math.round(resistanceFor(this.model, watts, cadence));
-    const wattsTol = Math.max(10, watts * 0.06);
-    const sprint = seg.kind === 'sprint';
-    // The ranges that count as on target. Sprints have no upper limit.
-    return {
-      watts: Math.round(watts),
-      cadence,
-      knob,
-      cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
-      knobRange: [Math.max(1, knob - KNOB_TOLERANCE), sprint ? null : Math.min(100, knob + KNOB_TOLERANCE)],
-      wattsRange: sprint ? [Math.round(this.effectiveBaselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
-    };
+    return stepTargets(seg, this.workout.segments, this.effectiveBaselineW, this.model);
   }
 
   /**
@@ -284,7 +303,7 @@ export class RideSession {
       ghostCadence: this.ghost.cadenceAt(this.t) ?? 86,
       segIndex: si,
       seg,
-      zone: zoneOf(seg.pct),
+      zone: zoneOf((tg.watts / this.effectiveBaselineW) * 100),
       stepLeft: seg.start + seg.dur - this.t,
       targetW: tg.watts,
       targetCadence: tg.cadence,

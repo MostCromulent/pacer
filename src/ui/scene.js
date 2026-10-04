@@ -1,8 +1,9 @@
 // The papercraft race scene, drawn on a canvas every frame.
 //
-// The road is the workout: x maps to time (PX_PER_S), and the road climbs when
-// the workout is hard and descends in recoveries, so the terrain ahead previews
-// the next steps. Your rider sits at a fixed x; the ghost is placed by the gap.
+// The road is the workout: x maps to time (PX_PER_S), and each step's slope comes
+// from how heavy it is (the caller passes a steepness per step, from the
+// resistance target), so the terrain ahead previews the next steps. Your rider
+// sits at a fixed x; the ghost is placed by the gap.
 
 import { P, ZONE_COLORS } from './palette.js';
 import { pctAt, zoneOf } from '../core/workout.js';
@@ -39,16 +40,27 @@ export class Scene {
     this.ghostScreenX = null;
   }
 
-  setWorkout(workout) {
+  /**
+   * @param {object} workout
+   * @param {(segment) => number} [steepness] -1 (steep descent) .. 1 (steep climb)
+   *   per step. Defaults to one based on the step's power.
+   */
+  setWorkout(workout, steepness = (seg) => Math.tanh((seg.pct - 70) / 45)) {
+    const first = this.workout !== workout;
     this.workout = workout;
+    const slopes = workout.segments.map((seg) => SLOPE_K * Math.max(-1, Math.min(1, steepness(seg))));
     const n = workout.totalS;
     const e = new Float32Array(n + 1);
+    let si = 0;
     for (let t = 0; t < n; t++) {
-      e[t + 1] = e[t] + SLOPE_K * Math.tanh((pctAt(workout, t) - 70) / 45);
+      while (si < slopes.length - 1 && t >= workout.segments[si].start + workout.segments[si].dur) si++;
+      e[t + 1] = e[t] + slopes[si];
     }
     this.elev = e;
-    this.camElev = null;
-    this.ghostScreenX = null;
+    if (first) {
+      this.camElev = null;
+      this.ghostScreenX = null;
+    }
   }
 
   elevAt(t) {

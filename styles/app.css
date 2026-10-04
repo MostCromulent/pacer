@@ -144,6 +144,8 @@ main { padding: 0 32px 40px; }
   background: var(--paper); box-shadow: 0 2px 0 #EAD8C6; display: flex; align-items: center; gap: 12px; text-align: left;
 }
 .type.wide { grid-column: span 2; }
+.type-group { grid-column: 1 / -1; margin: 6px 0 -2px; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.type-group:first-child { margin-top: 0; }
 .type .sw { width: 18px; height: 18px; border-radius: 6px; flex-shrink: 0; box-shadow: 0 1px 0 rgba(59, 51, 69, 0.2); }
 .type .name { display: block; font-weight: 800; font-size: 15px; }
 .type .hint { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
@@ -242,6 +244,7 @@ main { padding: 0 32px 40px; }
 .num-lbl { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .num-big { display: block; font-family: var(--display); font-weight: 700; font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .num-unit { font-size: 18px; font-weight: 600; color: var(--ink-soft); }
+.num-big.long { font-size: 34px; line-height: 1.24; }
 .num-now { font-size: 15px; font-weight: 800; color: var(--ink-soft); margin-top: 2px; }
 .num-now b { font-family: var(--display); font-weight: 700; font-size: 24px; color: var(--ink); font-variant-numeric: tabular-nums; }
 /* Each tile is coloured by how you're doing on that number. */
@@ -347,7 +350,13 @@ main { padding: 0 32px 40px; }
 .calib-live .stat { background: var(--paper); }
 .calib-progress { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
 .calib-progress > i { display: block; height: 100%; width: 0; background: var(--sage); transition: width 0.3s; }
-.knob-big { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; }
+.knob-big { display: block; font-family: var(--display); font-weight: 700; font-size: 56px; line-height: 1; }
+.knob-big small { font-size: 20px; color: var(--muted); }
+.calib-ask { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 8px 0; }
+.calib-ask > div { background: var(--paper); border-radius: 16px; padding: 10px 14px; box-shadow: 0 2px 0 #EAD8C6; }
+.calib-ask-lbl { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.calib-live .stat.good { background: var(--sage); }
+.calib-live .stat.off { background: var(--mustard); }
 .calib-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
 .calib-table td, .calib-table th { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); }
 .calib-table th:first-child, .calib-table td:first-child { text-align: left; }

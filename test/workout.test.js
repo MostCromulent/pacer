@@ -93,3 +93,55 @@ test('zones and stats', () => {
   assert.ok(s.avgTargetW > 100 && s.avgTargetW < 200);
   assert.ok(s.effort >= 1 && s.effort <= 10);
 });
+
+test('workout types are grouped and include natural styles, HIIT and mixes', () => {
+  const groups = new Set(TYPES.map((t) => t.group));
+  assert.deepEqual([...groups], ['Steady', 'Natural', 'Intervals', 'Mixed']);
+  for (const id of ['hills', 'mountain', 'fartlek', 'hiit', 'recovery', 'spinclass']) assert.ok(TYPES.some((t) => t.id === id), id);
+  assert.equal(new Set(TYPES.map((t) => t.code)).size, TYPES.length);
+});
+
+test('HIIT is built from short reps with rests between blocks', () => {
+  const w = generateWorkout('hiit', 30, 0);
+  const reps = w.segments.filter((s) => s.kind === 'work');
+  assert.equal(reps.length % 8, 0);
+  assert.ok(reps.every((s) => s.dur === 20 && s.pct > 130));
+  assert.match(reps[8].label, /^Tabata 2 · rep 1\/8$/);
+  assert.ok(w.segments.some((s) => s.label === 'Rest' && s.dur === 180));
+  assert.equal(w.gates.length, 0);
+});
+
+test('natural rides vary like terrain but repeat exactly for the same code', () => {
+  const a = generateWorkout('hills', 45, 0);
+  const hills = a.segments.filter((s) => s.name === 'Hill');
+  assert.ok(hills.length >= 4);
+  assert.ok(new Set(hills.map((s) => s.dur)).size > 1, 'hill lengths vary');
+  assert.ok(new Set(hills.map((s) => s.pct)).size > 1, 'hill steepness varies');
+  assert.deepEqual(generateWorkout('hills', 45, 0), a);
+  assert.notDeepEqual(generateWorkout('hills', 45, 1).segments, a.segments);
+});
+
+test('mountains climb in steps that get harder, with a gate only at the summit', () => {
+  const w = generateWorkout('mountain', 45, 0);
+  const climbs = w.segments.filter((s) => /^Mountain 1 · climb/.test(s.label));
+  for (let i = 1; i < climbs.length; i++) assert.ok(climbs[i].pct > climbs[i - 1].pct);
+  const summits = w.segments.filter((s) => /summit$/.test(s.label));
+  assert.equal(w.gates.length, summits.length);
+  summits.forEach((s, i) => assert.equal(w.gates[i].end, s.start + s.dur));
+});
+
+test('mix pairs a natural first half with an interval second half', () => {
+  const w = generateWorkout('surprise', 45, 0);
+  assert.equal(w.name, 'Mix: rolling hills + HIIT');
+  const firstHill = w.segments.findIndex((s) => s.name === 'Hill');
+  const firstRep = w.segments.findIndex((s) => /^Tabata/.test(s.label ?? ''));
+  assert.ok(firstHill >= 0 && firstRep > firstHill);
+  assert.equal(generateWorkout('surprise', 45, 1).name, 'Mix: mountain + sprints');
+});
+
+test('spin class has standing climbs at low cadence and jumps', () => {
+  const w = generateWorkout('spinclass', 45, 0);
+  const standing = w.segments.find((s) => s.name === 'Standing climb');
+  assert.equal(standing.cadence, 65);
+  assert.ok(w.segments.filter((s) => s.name === 'Jump').length >= 4);
+});

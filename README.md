@@ -64,10 +64,19 @@ Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 ### Calibrate resistance once
 
 The 800IC has no power meter: the console works watts out from cadence and the
-resistance level. **Calibrate resistance** (on the setup screen) walks you
-through seven resistance levels for about two minutes and learns that formula.
-After that the resistance numbers in the app match the numbers on your bike's
-screen, and the app can tell your resistance from the watts and cadence alone.
+resistance level. **Calibrate resistance** (on the setup screen) takes about
+two and a half minutes: nine short steps, each asking for a resistance *and* a
+cadence. Two levels are ridden both slow and fast, which is how the app learns
+what cadence does to your watts. After that the resistance numbers in the app
+match the numbers on your bike's screen, and the app can tell your resistance
+from the watts and cadence alone.
+
+At the end it tells you how accurate the result is, in resistance levels: it
+hides each step in turn, learns from the rest, and checks it can predict the
+hidden one. The calibrated formula follows your bike's actual measurements
+level by level, so it also copes with consoles that use stepped lookup tables.
+It's tested against several plausible console formulas (see
+`test/resistance.test.js`); every resistance target lands within ±2 levels.
 
 Until you calibrate, resistance numbers are estimates from a generic spin-bike
 curve, and the tile is labelled *est.* If your bike reports its resistance
@@ -75,17 +84,28 @@ level over Bluetooth, the app reads it directly.
 
 ## What's in the box
 
-- **Workout generator**: endurance, sweet spot, intervals, pyramid, sprints,
-  cadence drills and a random mix, sized to the minutes you choose. Each
+- **Workout generator**, sized to the minutes you choose:
+  - *Steady*: endurance, recovery spin, sweet spot;
+  - *Natural*: rolling hills, mountain climb (stepped climbs to a summit) and
+    fartlek (easy riding with surprise surges), which vary like a real ride;
+  - *Intervals*: intervals, HIIT (Tabata 20/10, 30/30 or 40/20 blocks), pyramid,
+    sprints, cadence drills;
+  - *Mixed*: spin class (seated and standing climbs, jumps, sprints, song by
+    song) and *Mix it up* (a natural first half, then intervals: hills + HIIT,
+    mountain + sprints, or fartlek + intervals).
+
+  HIIT rests and spin-class jumps keep the resistance and change only cadence,
+  as in a real class. Each
   workout has a code (e.g. `INT-30-K7Q`, or `INT-37-K7Q` for a custom 37 minutes); the same code always gives the same
   ride, which keeps ghost races fair. Shuffle for another variation, or click
   the code to type one in.
 - **Ghost racing**: race your best ride on that workout, your last one, or a
   pacer that hits every target exactly. Every hard block ends in a 30-second
   **sprint gate**: a mini race against the ghost.
-- **Papercraft scene**: the road *is* the workout. It climbs on hard efforts and
-  drops in recoveries, the kerbs are coloured by zone, and gates appear on the
-  road ahead before they arrive. Riders pedal at their real cadence.
+- **Papercraft scene**: the road *is* the workout. Its steepness follows the
+  resistance target, so a steeper hill always means turn it up (and the hills
+  grow when you raise the effort). The kerbs are coloured by zone, gates appear
+  on the road ahead before they arrive, and riders pedal at their real cadence.
 - **Glanceable mini window**, built to be read from the bike at a glance.
   Top to bottom:
   - ride time left with a progress bar;

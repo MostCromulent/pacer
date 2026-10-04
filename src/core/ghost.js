@@ -46,15 +46,18 @@ export function targetWatts(segment, baselineW) {
   return (segment.pct / 100) * baselineW;
 }
 
-/** A rider who hits every target exactly. */
-export function pacerGhost(workout, baselineW) {
+/**
+ * A rider who hits every target exactly. `wattsFor(segment)` gives each step's
+ * target watts; by default it's the step's % of baseline.
+ */
+export function pacerGhost(workout, baselineW, wattsFor = (seg) => targetWatts(seg, baselineW)) {
   const dist = [0];
   let v = 0;
   let d = 0;
   let si = 0;
   for (let t = 0; t < workout.totalS; t++) {
     while (si < workout.segments.length - 1 && t >= workout.segments[si].start + workout.segments[si].dur) si++;
-    const w = targetWatts(workout.segments[si], baselineW);
+    const w = wattsFor(workout.segments[si]);
     // Integrate in quarter-second steps to match the live engine closely.
     for (let k = 0; k < 4; k++) {
       v = stepSpeed(v, w, 0.25);

@@ -1,10 +1,10 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession, formatRange, DIFFICULTY_MIN, DIFFICULTY_MAX } from '../core/ride.js';
+import { RideSession, formatRange, stepTargets, DIFFICULTY_MIN, DIFFICULTY_MAX, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
 import { SimulatedBike } from '../core/sim.js';
-import { fitModel, modelError, powerFor, resistanceFor } from '../core/resistance.js';
+import { fitModel, crossValidate, resistanceFor, CALIBRATION_STEPS } from '../core/resistance.js';
 import { Scene } from './scene.js';
 import { profileSvg, routeSvg, updateRoute, gapChartSvg, esc } from './charts.js';
 import { Chimes } from './audio.js';
@@ -134,8 +134,16 @@ function ghostChoices(code) {
 function pickGhost(workout) {
   const choice = ghostChoices(workout.code).find((g) => g.id === state.ghostKind);
   if (choice?.ride) return ghostFromRide(choice.ride, choice.id);
-  return pacerGhost(workout, settings.baselineW);
+  // The pacer rides exactly what the screen shows, held-resistance rests included.
+  return pacerGhost(workout, settings.baselineW, (seg) => stepTargets(seg, workout.segments, settings.baselineW, settings.model).watts);
 }
+
+const TYPE_COLORS = {
+  endurance: '#9CC5A1', recovery: '#C3DDC6', tempo: '#F2C14E',
+  hills: '#7FB38A', mountain: '#B3A2DD', fartlek: '#F7A1B0',
+  intervals: '#F6A96B', hiit: '#F2765C', pyramid: '#E0707F', sprints: '#FFB38A', cadence: '#9DB9F2',
+  spinclass: '#B9AEE0', surprise: '#8FD3C6',
+};
 
 function renderSetup() {
   const w = currentWorkout();
@@ -149,13 +157,16 @@ function renderSetup() {
   $('custom-dur').classList.toggle('on', custom);
   if (document.activeElement !== $('cust-min')) $('cust-min').value = state.duration;
 
-  const typeColors = { endurance: '#9CC5A1', tempo: '#F2C14E', intervals: '#F6A96B', pyramid: '#E0707F', sprints: '#F2765C', cadence: '#9DB9F2', surprise: '#B9AEE0' };
-  $('types').innerHTML = TYPES.map((t) => `
-    <button type="button" class="type${t.id === 'surprise' ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
-      style="${t.id === state.type ? `border-color:${typeColors[t.id]}` : ''}">
-      <span class="sw" style="background:${typeColors[t.id]}"></span>
+  const groups = [...new Set(TYPES.map((t) => t.group))];
+  $('types').innerHTML = groups.map((g) => {
+    const list = TYPES.filter((t) => t.group === g);
+    return `<p class="type-group">${esc(g)}</p>` + list.map((t, i) => `
+    <button type="button" class="type${list.length % 2 && i === list.length - 1 ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
+      style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
+      <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
       <span><span class="name">${esc(t.name)}</span><span class="hint">${esc(t.hint)}</span></span>
     </button>`).join('');
+  }).join('');
 
   const choices = ghostChoices(w.code);
   $('ghosts').innerHTML = choices.map((g) => `
@@ -473,8 +484,10 @@ function startRide(workout) {
   state.paused = false;
   state.lastAdvance = clock();
   state.ride = { workout, ghost, prevBest: storage.bestRide(workout.code), prevLast: storage.lastRide(workout.code) };
-  scene.setWorkout(workout);
-  $('route-svg').innerHTML = routeSvg(workout, ROUTE_W, ROUTE_H);
+  // Hills follow resistance: steeper means turn it up. Measured against an easy
+  // cruise at the starting effort, so raising the effort makes the hills grow.
+  state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).knob;
+  applyTerrain();
   $('route-label').textContent = `Route · ${workout.name} ${workout.minutes} min`;
   $('pip-note').textContent = pipSupported() ? '' : 'Floating windows need Chrome or Edge 116+. You can still snap this window beside your show.';
   $('btn-pip-big').disabled = !pipSupported();
@@ -482,6 +495,15 @@ function startRide(workout) {
   updatePauseButton();
   showScreen('ride');
   state.lastDom = 0;
+}
+
+function applyTerrain() {
+  const s = state.session;
+  if (!s) return;
+  const ref = state.terrainRef;
+  scene.setWorkout(s.workout, (seg) => Math.tanh((s.targetsFor(seg).knob - ref) / 10));
+  state.routeHeight = (seg) => (s.targetsFor(seg).knob - 15) / 70;
+  $('route-svg').innerHTML = routeSvg(s.workout, ROUTE_W, ROUTE_H, state.routeHeight);
 }
 
 $('btn-start').addEventListener('click', () => startRide(currentWorkout()));
@@ -534,7 +556,7 @@ function renderRide() {
   $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
-  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && snap.stepLeft <= 10);
+  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);
 
   const live = state.started && !snap.noSignal;
   const sprint = seg.kind === 'sprint';
@@ -581,7 +603,7 @@ function renderRide() {
   }
   $('cue-text').textContent = state.started ? snap.cue.text : 'Start pedalling';
 
-  updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H);
+  updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
   $('route-dist').textContent = fmtKm(snap.dist);
 
   const ov = $('overlay');
@@ -605,6 +627,7 @@ function shortLabel(seg) {
 function setTile(key, { label, big, now, status }) {
   $(`tile-${key}-lbl`).textContent = label;
   $(`tile-${key}-big`).textContent = big;
+  $(`tile-${key}-big`).classList.toggle('long', big.length >= 6);
   $(`tile-${key}-now`).textContent = now;
   $(`tile-${key}`).className = `num-col ${status || ''}`;
 }
@@ -715,6 +738,7 @@ function nudgeEffort(steps) {
   dv.classList.remove('flash');
   void dv.offsetWidth; // restart the animation
   dv.classList.add('flash');
+  applyTerrain();
   state.lastDom = 0;
 }
 
@@ -815,9 +839,12 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
   $('gap-chart').innerHTML = gapChartSvg(sum.gapPerMinute);
   $('sum-axis-end').textContent = `${Math.floor(sum.durationS / 60)} min`;
 
-  const prevClimbs = prevLast?.climbs ?? [];
-  $('climbs').innerHTML = sum.climbs.length
-    ? sum.climbs.map((c, i) => {
+  // Lots of short efforts (HIIT, fartlek): one row per kind of effort.
+  const many = sum.climbs.length > 8;
+  const climbs = many ? groupEfforts(sum.climbs) : sum.climbs;
+  const prevClimbs = many ? groupEfforts(prevLast?.climbs ?? []) : prevLast?.climbs ?? [];
+  $('climbs').innerHTML = climbs.length
+    ? climbs.map((c, i) => {
       const p = prevClimbs[i];
       const d = p ? c.avgW - p.avgW : null;
       const cls = d === null ? '' : d >= 0 ? 'up' : 'down';
@@ -825,7 +852,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
       const metric = settings.targetMode === 'watts'
         ? `${c.avgW} W`
         : `resistance ${c.avgKnob ?? '–'} · ${c.avgCadence} rpm`;
-      return `<div class="climb"><span>${esc(c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${metric}</span>
+      return `<div class="climb"><span>${esc(many ? c.label : c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${metric}</span>
         <span class="bar"><i style="width:${c.onTargetPct}%"></i></span><span class="muted">${c.onTargetPct}%</span>
         <span class="delta ${cls}">${txt}</span></div>`;
     }).join('')
@@ -888,6 +915,30 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
   }
 }
 
+function effortKind(label) {
+  return label.replace(/·.*$/, '').replace(/\bof\b/g, '').replace(/[\d/]+/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function groupEfforts(list) {
+  const groups = new Map();
+  for (const c of list) {
+    const k = effortKind(c.label);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(c);
+  }
+  const avg = (xs) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  return [...groups.entries()].map(([k, xs]) => {
+    const knobs = xs.map((x) => x.avgKnob).filter((x) => x !== null && x !== undefined);
+    return {
+      label: `${k} ×${xs.length}`,
+      avgW: avg(xs.map((x) => x.avgW)),
+      avgCadence: avg(xs.map((x) => x.avgCadence)),
+      avgKnob: knobs.length ? avg(knobs) : null,
+      onTargetPct: avg(xs.map((x) => x.onTargetPct)),
+    };
+  });
+}
+
 $('btn-again').addEventListener('click', () => {
   const w = state.ride?.workout;
   if (!w) return;
@@ -906,9 +957,10 @@ $('btn-new').addEventListener('click', () => {
 
 // ---------------------------------------------------------------- calibration
 
-const LEVELS = [20, 30, 40, 50, 60, 70, 80];
-const SETTLE_S = 6;
-const RECORD_S = 12;
+const STEPS = CALIBRATION_STEPS;
+const SETTLE_S = 5;
+const RECORD_S = 10;
+const round1 = (x) => Math.round(x * 10) / 10;
 
 const calib = {
   open: false,
@@ -918,6 +970,7 @@ const calib = {
   samples: [],
   levelSamples: [],
   model: null,
+  check: null,
   timer: null,
 
   start() {
@@ -929,6 +982,7 @@ const calib = {
     this.phase = 'intro';
     this.samples = [];
     this.model = null;
+    this.check = null;
     this.render();
     $('calib').showModal();
     clearInterval(this.timer);
@@ -948,10 +1002,10 @@ const calib = {
     this.started = performance.now();
     this.levelSamples = [];
     if (state.bikeKind === 'sim') {
-      // Stand-in for the rider turning the knob.
+      // Stand-in for the rider setting resistance and cadence.
       setSimMode('manual');
-      state.bike.manualResistance = LEVELS[i];
-      state.bike.manualCadence = 80 + (i % 3) * 5;
+      state.bike.manualResistance = STEPS[i].resistance;
+      state.bike.manualCadence = STEPS[i].cadence;
     }
     this.render();
   },
@@ -960,7 +1014,7 @@ const calib = {
     if (!this.open || this.phase !== 'level') return;
     const elapsed = (performance.now() - this.started) / 1000;
     if (elapsed >= SETTLE_S && f.powerW > 0 && f.cadence > 20) {
-      this.levelSamples.push({ resistance: LEVELS[this.level], cadence: f.cadence, power: f.powerW });
+      this.levelSamples.push({ resistance: STEPS[this.level].resistance, cadence: f.cadence, power: f.powerW });
     }
   },
 
@@ -970,7 +1024,7 @@ const calib = {
       const elapsed = (performance.now() - this.started) / 1000;
       if (elapsed >= SETTLE_S + RECORD_S) {
         if (this.levelSamples.length >= 3) this.samples.push(...this.levelSamples);
-        else toast(`Not enough steady pedalling at level ${LEVELS[this.level]}; skipped it.`);
+        else toast(`Not enough steady pedalling at resistance ${STEPS[this.level].resistance}; skipped it.`);
         this.nextLevel();
         return;
       }
@@ -979,13 +1033,14 @@ const calib = {
   },
 
   nextLevel() {
-    if (this.level + 1 < LEVELS.length) this.beginLevel(this.level + 1);
+    if (this.level + 1 < STEPS.length) this.beginLevel(this.level + 1);
     else this.finish();
   },
 
   finish() {
     this.phase = 'result';
     this.model = fitModel(this.samples, settings.model);
+    this.check = this.model ? crossValidate(this.samples, settings.model) : null;
     if (state.bikeKind === 'sim') setSimMode('auto');
     this.render();
   },
@@ -1002,18 +1057,21 @@ const calib = {
         <p>${native
           ? 'Good news: your bike reports its resistance level directly, so the app reads it as you ride. You can still calibrate to improve the resistance targets.'
           : 'Your bike works out watts from cadence and the resistance level. Ride a few short steps so the app can learn that formula; then it can work out your resistance by itself and give resistance targets that match your bike’s screen.'}</p>
-        <p class="muted">About ${Math.round((LEVELS.length * (SETTLE_S + RECORD_S)) / 60)} minutes. At each step, set the resistance to the level shown (check it on the bike's screen) and pedal at a steady, comfortable pace.</p>`;
+        <p class="muted">About ${Math.round((STEPS.length * (SETTLE_S + RECORD_S)) / 60 * 2) / 2} minutes, ${STEPS.length} steps. Each step asks for a resistance <b>and a cadence</b>: some levels are ridden both slow and fast, which is how the app learns what cadence does to your watts. Check the resistance on the bike's screen.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
+      const st = STEPS[this.level];
       body.innerHTML = `
-        <p class="muted small">Step ${this.level + 1} of ${LEVELS.length}</p>
-        <p>Set resistance to</p>
-        <div class="knob-big">${LEVELS[this.level]}</div>
+        <p class="muted small">Step ${this.level + 1} of ${STEPS.length}</p>
+        <div class="calib-ask">
+          <div><span class="calib-ask-lbl">Resistance</span><span class="knob-big">${st.resistance}</span></div>
+          <div><span class="calib-ask-lbl">Cadence</span><span class="knob-big">${st.cadence}<small> rpm</small></span></div>
+        </div>
         <p id="calib-phase" class="muted">Settle in…</p>
         <div class="calib-progress"><i id="calib-bar"></i></div>
         <div class="calib-live">
+          <div id="cl-c-box" class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Your cadence</span></div>
           <div class="stat"><span id="cl-p" class="stat-num">0 W</span><span class="stat-label">Power</span></div>
-          <div class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Cadence</span></div>
           <div class="stat"><span id="cl-n" class="stat-num">0</span><span class="stat-label">Readings</span></div>
         </div>`;
       next.hidden = true;
@@ -1023,18 +1081,16 @@ const calib = {
         next.textContent = 'Try again';
         return;
       }
-      const err = modelError(this.model, this.samples);
-      const rows = LEVELS.map((l) => {
-        const at = this.samples.filter((s) => s.resistance === l);
-        if (!at.length) return '';
-        const cad = at.reduce((a, s) => a + s.cadence, 0) / at.length;
-        const p = at.reduce((a, s) => a + s.power, 0) / at.length;
-        return `<tr><td>Resistance ${l}</td><td>${Math.round(cad)} rpm</td><td>${Math.round(p)} W</td><td>${Math.round(powerFor(this.model, l, cad))} W</td></tr>`;
-      }).join('');
+      const cv = this.check;
+      const rows = (cv?.results ?? []).map((x) => `<tr><td>Resistance ${x.level}</td><td>${Math.round(x.cadence)} rpm</td><td>${round1(x.predicted)}</td></tr>`).join('');
+      const shaky = cv && cv.interiorMaxAbs > 2;
       body.innerHTML = `
-        <p>Learned your bike's formula. Typical error: <b>${err.toFixed(1)} W</b>.</p>
-        <table class="calib-table"><thead><tr><th>Step</th><th>Cadence</th><th>Measured</th><th>Model</th></tr></thead><tbody>${rows}</tbody></table>
-        <p>Check it: set any resistance and pedal. Detected resistance: <b id="calib-detect">—</b> (compare with the bike's screen).</p>`;
+        <p>Learned your bike's formula.</p>
+        ${cv ? `<p>Resistance targets should land within about <b>±${round1(Math.max(0.5, cv.interiorMeanAbs))} levels</b> of your bike's screen (worst ${round1(cv.maxAbs)}, at the ends of the range).</p>` : ''}
+        ${shaky ? '<p class="error small">Some steps were noisy. For sharper targets, run it again and hold each cadence steady.</p>' : ''}
+        <p class="muted small">How that's checked: each step is hidden in turn, the formula is learned from the others, and it has to predict the hidden step's resistance from its watts and cadence.</p>
+        <table class="calib-table"><thead><tr><th>Hidden step</th><th>Cadence</th><th>Predicted</th></tr></thead><tbody>${rows}</tbody></table>
+        <p>Check it yourself: set any resistance and pedal. Detected resistance: <b id="calib-detect">—</b> (compare with the bike's screen).</p>`;
       next.textContent = 'Save';
     }
   },
@@ -1045,10 +1101,16 @@ const calib = {
       const elapsed = (performance.now() - this.started) / 1000;
       const bar = $('calib-bar');
       if (!bar) return;
+      const want = STEPS[this.level].cadence;
+      const cad = Math.round(l.cadence ?? 0);
+      const off = cad - want;
       bar.style.width = `${Math.min(100, (elapsed / (SETTLE_S + RECORD_S)) * 100)}%`;
-      $('calib-phase').textContent = elapsed < SETTLE_S ? 'Settle in…' : 'Recording, keep it steady';
+      $('calib-phase').textContent = elapsed < SETTLE_S
+        ? 'Settle in…'
+        : Math.abs(off) > 6 ? (off < 0 ? 'Recording · pedal a little faster' : 'Recording · ease off a little') : 'Recording, keep it steady';
+      $('cl-c').textContent = String(cad);
+      $('cl-c-box').className = `stat ${cad > 0 ? (Math.abs(off) <= 6 ? 'good' : 'off') : ''}`;
       $('cl-p').textContent = `${Math.round(l.powerW ?? 0)} W`;
-      $('cl-c').textContent = String(Math.round(l.cadence ?? 0));
       $('cl-n').textContent = String(this.levelSamples.length);
     } else if (this.phase === 'result' && this.model) {
       const el = $('calib-detect');

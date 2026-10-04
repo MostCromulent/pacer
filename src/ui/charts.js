@@ -23,14 +23,19 @@ export function profileSvg(workout, width, height) {
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" aria-hidden="true">${rects.join('')}</svg>`;
 }
 
-/** Route strip for the mini window: the workout as paper hills, gate flags and a playhead. */
-export function routeSvg(workout, width = 328, height = 56) {
+const byPower = (s) => Math.min(s.pct, 150) / 150;
+
+/**
+ * Route strip for the mini window: the workout as paper blocks, gate flags and a playhead.
+ * `heightOf(segment)` gives each block's height from 0 to 1.
+ */
+export function routeSvg(workout, width = 328, height = 56, heightOf = byPower) {
   const total = workout.totalS;
   let d = `M0,${height}`;
   for (const s of workout.segments) {
     const x0 = (s.start / total) * width;
     const x1 = ((s.start + s.dur) / total) * width;
-    const y = (height - (6 + (Math.min(s.pct, 150) / 150) * (height - 12))).toFixed(1);
+    const y = (height - (6 + clamp01(heightOf(s)) * (height - 12))).toFixed(1);
     const r = Math.min(3, (x1 - x0) / 4);
     d += ` L${(x0 + r).toFixed(1)},${y} L${(x1 - r).toFixed(1)},${y}`;
   }
@@ -51,7 +56,7 @@ export function routeSvg(workout, width = 328, height = 56) {
 }
 
 /** Move the route strip's playhead. */
-export function updateRoute(root, workout, t, width = 328, height = 56) {
+export function updateRoute(root, workout, t, width = 328, height = 56, heightOf = byPower) {
   const x = Math.max(0, Math.min(width, (t / workout.totalS) * width));
   const rect = root.querySelector('#route-past-rect');
   const dot = root.querySelector('#route-dot');
@@ -59,9 +64,8 @@ export function updateRoute(root, workout, t, width = 328, height = 56) {
   rect.setAttribute('width', x.toFixed(1));
   let si = workout.segments.findIndex((s) => t < s.start + s.dur);
   if (si < 0) si = workout.segments.length - 1;
-  const pct = workout.segments[si].pct;
   dot.setAttribute('cx', x.toFixed(1));
-  dot.setAttribute('cy', (height - (6 + (Math.min(pct, 150) / 150) * (height - 12))).toFixed(1));
+  dot.setAttribute('cy', (height - (6 + clamp01(heightOf(workout.segments[si])) * (height - 12))).toFixed(1));
 }
 
 /** Gap to the ghost per minute: teal bars up when ahead, coral bars down when behind. */
@@ -86,4 +90,8 @@ export function gapChartSvg(gaps, width = 960, height = 150) {
     .join('');
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Gap to the ghost each minute">
     ${bars}<rect x="0" y="${zero - 1}" width="${width}" height="2" fill="#E3D3C3"/></svg>`;
+}
+
+function clamp01(x) {
+  return Math.min(1, Math.max(0, x));
 }

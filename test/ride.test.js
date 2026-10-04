@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateWorkout } from '../src/core/workout.js';
 import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
 import { Ghost, pacerGhost, targetWatts } from '../src/core/ghost.js';
-import { RideSession, isOnTarget, formatRange } from '../src/core/ride.js';
+import { RideSession, isOnTarget, formatRange, stepTargets } from '../src/core/ride.js';
 import { speedFromPower } from '../src/core/physics.js';
 import { Storage } from '../src/core/storage.js';
 
@@ -223,4 +223,49 @@ test('storage survives a broken or missing localStorage', () => {
   assert.equal(st.loadSettings().baselineW, 200);
   assert.deepEqual(st.allRides(), []);
   assert.equal(new Storage(undefined).loadSettings().baselineW, 200);
+});
+
+test('no step-change heads-up inside short HIIT reps', () => {
+  const w = generateWorkout('hiit', 22, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const firstRep = w.segments.find((x) => x.kind === 'work');
+  const events = [];
+  while (s.t < firstRep.start + 120) {
+    s.setInput({ powerW: 200, cadence: 95 });
+    for (const e of s.update(0.25)) if (s.t > firstRep.start) events.push(e);
+  }
+  assert.equal(events.filter((e) => e === 'stepSoon').length, 0);
+  assert.ok(events.filter((e) => e === 'stepChange').length >= 7);
+});
+
+test('HIIT rests hold the rep resistance and only drop the cadence', () => {
+  const w = generateWorkout('hiit', 22, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const repIdx = w.segments.findIndex((x) => x.kind === 'work');
+  const rep = s.targetsFor(w.segments[repIdx]);
+  const rest = s.targetsFor(w.segments[repIdx + 1]);
+  assert.equal(w.segments[repIdx + 1].hold, true);
+  assert.equal(rest.knob, rep.knob);
+  assert.ok(rest.cadence < rep.cadence);
+  assert.ok(rest.watts < rep.watts);
+  // The long rest between blocks is a normal step again.
+  const longRest = w.segments.find((x) => x.label === 'Rest' && x.dur === 180);
+  assert.ok(!longRest.hold);
+  assert.ok(s.targetsFor(longRest).knob < rep.knob);
+});
+
+test('a pacer built from the shown targets ties a rider who follows them in HIIT', () => {
+  const w = generateWorkout('hiit', 22, 0);
+  const wattsFor = (seg) => stepTargets(seg, w.segments, 200, DEFAULT_MODEL).watts;
+  const pacer = pacerGhost(w, 200, wattsFor);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacer });
+  while (!s.done) {
+    const tg = s.targetsFor(s.snapshot().seg);
+    s.setInput({ powerW: tg.watts, cadence: tg.cadence });
+    s.update(0.25);
+  }
+  assert.ok(Math.abs(s.summary().gap) < 2, `gap ${s.summary().gap}`);
+  // And the zone shown for a held rest reflects its real effort.
+  const rest = w.segments.find((x) => x.hold);
+  assert.ok(stepTargets(rest, w.segments, 200, DEFAULT_MODEL).watts / 200 > 0.6);
 });
