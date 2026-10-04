@@ -78,8 +78,8 @@ export function generateWorkout(type, minutes, variant = 0) {
   };
   const rand = seeded(`${type}-${minutes}-${v}`);
 
-  const warm = Math.max(3, Math.round(minutes * 0.13));
-  const cool = Math.max(3, Math.round(minutes * 0.1));
+  const warm = Math.min(5, Math.max(3, Math.round(minutes * 0.13)));
+  const cool = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
   const main = (minutes - warm - cool) * 60;
 
   const warmTop = type === 'recovery' ? 58 : 72;
@@ -119,19 +119,43 @@ export function generateWorkout(type, minutes, variant = 0) {
   return workout;
 }
 
+const EASY_SPELL_S = 180;
+
 /**
  * The main-set builders. Each takes a budget in seconds, spends what it can,
  * and fills any remainder with easy cruising, so the total is always exact.
+ *
+ * A longer ride gets both longer efforts and more of them: lengths grow with
+ * the square root of the time available (`stretch`), and the count makes up the
+ * rest. Once there are more than five repeats they are grouped into sets with
+ * an easy spell between, so a long ride has a shape.
  */
 function makeBuilders(add, v, rand) {
   const cruise = (sec) => add(sec, 62, 'steady', { name: 'Cruise' });
   const between = (lo, hi) => lo + rand() * (hi - lo);
   const step = (x, s = 15) => Math.round(x / s) * s;
+  const stretch = (budget) => Math.min(1.8, Math.max(0.85, Math.sqrt(budget / 1200)));
+
+  /** Fill the budget with repeats of `repS` seconds, in sets. Returns the seconds used. */
+  const inSets = (budget, repS, emit) => {
+    let n = Math.floor(budget / repS);
+    let sets = 1;
+    if (n > 5) {
+      sets = Math.ceil(n / 4);
+      n = Math.floor((budget - (sets - 1) * EASY_SPELL_S) / repS);
+    }
+    for (let i = 0; i < sets; i++) {
+      const inThisSet = Math.floor(n / sets) + (i < n % sets ? 1 : 0);
+      for (let r = 0; r < inThisSet; r++) emit();
+      if (i < sets - 1) add(EASY_SPELL_S, 60, 'steady', { name: 'Easy spell' });
+    }
+    return n * repS + (sets - 1) * EASY_SPELL_S;
+  };
   const clampInt = (x, lo, hi) => Math.min(hi, Math.max(lo, Math.round(x)));
 
   const b = {
     endurance(budget) {
-      const blk = [5, 6, 4][v] * 60;
+      const blk = step([5, 6, 4][v] * 60 * stretch(budget), 60);
       const ps = [[65, 72], [68, 74], [62, 70]][v];
       let left = budget;
       let i = 0;
@@ -140,7 +164,7 @@ function makeBuilders(add, v, rand) {
     },
 
     recovery(budget) {
-      const blk = 300;
+      const blk = step(300 * stretch(budget), 60);
       const ps = [[55, 60], [52, 58], [58, 62]][v];
       let left = budget;
       let i = 0;
@@ -162,38 +186,44 @@ function makeBuilders(add, v, rand) {
     },
 
     intervals(budget) {
-      const [on, off] = [[3, 2], [4, 3], [2, 1]][v].map((m) => m * 60);
-      let left = budget;
-      while (left >= on + off) { add(on, 105, 'work'); add(off, 55, 'recovery'); left -= on + off; }
-      cruise(left);
+      const [on, off] = [[3, 2], [4, 3], [2, 1]][v].map((m) => step(m * 60 * stretch(budget), 30));
+      cruise(budget - inSets(budget, on + off, () => { add(on, 105, 'work'); add(off, 55, 'recovery'); }));
     },
 
     pyramid(budget) {
-      // The biggest ladder that fits (each needs its steps plus 1 min between them).
+      // The biggest ladder that fits (each needs its steps plus 1 min between
+      // them), then another after an easy spell, for as long as one fits.
       const ladders = [[1, 2, 3, 4, 3, 2, 1], [1, 2, 3, 2, 1], [1, 2, 1], [1]];
       const cost = (s) => (s.reduce((x, y) => x + y, 0) + s.length - 1) * 60;
-      const steps = ladders.find((s) => cost(s) <= budget) ?? [];
       const peak = [115, 110, 120][v];
-      steps.forEach((s, i) => {
-        add(s * 60, s <= 2 ? peak : peak - 12, 'work');
-        if (i < steps.length - 1) add(60, 55, 'recovery');
-      });
-      cruise(budget - (steps.length ? cost(steps) : 0));
+      let left = budget;
+      for (let n = 0; ; n++) {
+        const room = n ? left - EASY_SPELL_S : left;
+        const steps = ladders.find((s) => cost(s) <= room && (n === 0 || s.length > 1));
+        if (!steps) break;
+        if (n) add(EASY_SPELL_S, 60, 'steady', { name: 'Easy spell' });
+        steps.forEach((s, i) => {
+          add(s * 60, s <= 2 ? peak : peak - 12, 'work');
+          if (i < steps.length - 1) add(60, 55, 'recovery');
+        });
+        left = room - cost(steps);
+      }
+      cruise(left);
     },
 
     sprints(budget) {
+      // Sprints stay the same length however long the ride; there are just more sets.
       const [on, off] = [[30, 150], [15, 105], [30, 210]][v];
-      let left = budget;
-      while (left >= on + off) { add(on, 150, 'sprint'); add(off, 58, 'recovery'); left -= on + off; }
-      cruise(left);
+      cruise(budget - inSets(budget, on + off, () => { add(on, 150, 'sprint'); add(off, 58, 'recovery'); }));
     },
 
     cadence(budget) {
       const rpms = [70, 90, 110];
       const ps = [58, 63, 68];
+      const blk = step(180 * stretch(budget), 30);
       let left = budget;
       let i = 0;
-      while (left >= 180) { add(180, ps[(i + v) % 3], 'drill', { cadence: rpms[(i + v) % 3] }); left -= 180; i++; }
+      while (left >= blk) { add(blk, ps[(i + v) % 3], 'drill', { cadence: rpms[(i + v) % 3] }); left -= blk; i++; }
       cruise(left);
     },
 
@@ -233,16 +263,17 @@ function makeBuilders(add, v, rand) {
         { climb: [45, 90], pct: [95, 110] }, // punchy
         { climb: [120, 240], pct: [78, 90] }, // long drags
       ][v];
+      const k = stretch(budget);
       let left = budget;
-      while (left >= style.climb[0] + 120) {
-        const climb = Math.min(step(between(...style.climb)), left - 120);
+      while (left >= style.climb[0] * k + 120) {
+        const climb = Math.min(step(between(...style.climb) * k), left - 120);
         const pct = between(...style.pct);
         // No two hills alike: steeper ones are ridden slower, and descents and
         // flats vary a little too.
         add(climb, pct, 'work', { cadence: clampInt(72 - (pct - 80) / 3 + between(-2, 2), 60, 76), name: 'Hill' });
         const descent = step(between(45, 90));
         add(descent, between(50, 60), 'recovery', { cadence: Math.round(between(90, 98)), name: 'Descent' });
-        const flat = Math.min(step(between(60, 150)), left - climb - descent);
+        const flat = Math.min(step(between(60, 150) * k), left - climb - descent);
         add(flat, between(66, 74), 'steady', { cadence: Math.round(between(86, 92)), name: 'Flat' });
         left -= climb + descent + Math.max(0, flat);
       }
@@ -256,23 +287,29 @@ function makeBuilders(add, v, rand) {
         { start: 84, rise: 5, stepS: 120 },
         { start: 78, rise: 3, stepS: 180 },
       ][v];
+      const stepS = step(style.stepS * stretch(budget), 30);
       const approach = 120;
       const summit = 60;
       const descent = 180;
+      // Share the time evenly between the mountains, so the last one isn't
+      // squeezed out and replaced by a long cruise.
+      const fixed = approach + summit + descent;
+      const count = Math.max(1, Math.round(budget / (fixed + 4 * stepS)));
+      const each = Math.floor(budget / count);
       let left = budget;
-      let m = 0;
-      while (left >= approach + style.stepS * 2 + summit + descent) {
-        const room = left - approach - summit - descent;
-        const steps = Math.max(2, Math.min(5, Math.floor(room / style.stepS)));
-        m++;
-        add(approach, between(66, 72), 'steady', { cadence: 88, name: 'Approach' });
+      for (let m = 1; m <= count && each >= fixed + stepS * 2; m++) {
+        const steps = Math.min(6, Math.floor((each - fixed) / stepS));
+        // Time that doesn't fill another step goes into a longer ride in.
+        const valley = Math.min(240, step(each - fixed - steps * stepS) - 15);
+        const rideIn = approach + Math.max(0, valley);
+        add(rideIn, between(66, 72), 'steady', { cadence: 88, name: 'Approach' });
         // Each mountain's steps still rise, but unevenly, as real gradients do.
         for (let i = 0; i < steps; i++) {
-          add(style.stepS, style.start + i * style.rise + between(-1.5, 1.5), 'work', { cadence: clampInt(72 - i * 3 + between(-1, 1), 60, 76), label: `Mountain ${m} · climb ${i + 1}/${steps}` });
+          add(stepS, style.start + i * style.rise + between(-1.5, 1.5), 'work', { cadence: clampInt(72 - i * 3 + between(-1, 1), 60, 76), label: `Mountain ${m} · climb ${i + 1}/${steps}` });
         }
         add(summit, between(104, 112), 'work', { cadence: Math.round(between(65, 70)), label: `Mountain ${m} · summit` });
         add(descent, between(52, 58), 'recovery', { cadence: Math.round(between(92, 98)), name: 'Descent' });
-        left -= approach + steps * style.stepS + summit + descent;
+        left -= rideIn + steps * stepS + summit + descent;
       }
       cruise(left);
     },
@@ -284,12 +321,13 @@ function makeBuilders(add, v, rand) {
         { gap: [60, 150], surge: [15, 40], pct: [120, 140] },
         { gap: [180, 300], surge: [30, 75], pct: [110, 120] },
       ][v];
+      const k = stretch(budget);
       let left = budget;
       while (left >= style.gap[0] + style.surge[0]) {
-        const gap = Math.min(step(between(...style.gap)), left - style.surge[0]);
+        const gap = Math.min(step(between(...style.gap) * k), left - style.surge[0]);
         add(gap, between(66, 74), 'steady', { cadence: Math.round(between(85, 91)), name: 'Ride' });
         left -= gap;
-        const surge = Math.min(step(between(...style.surge), 5), left);
+        const surge = Math.min(step(between(...style.surge) * Math.sqrt(k), 5), left);
         add(surge, between(...style.pct), 'work', { cadence: Math.round(between(94, 102)), name: 'Surge' });
         left -= surge;
       }
@@ -311,9 +349,10 @@ function makeBuilders(add, v, rand) {
         ['jumps', 'seated', 'sprints', 'recover', 'standing', 'flat'],
         ['seated', 'standing', 'recover', 'jumps', 'sprints', 'flat'],
       ][v];
+      const k = stretch(budget);
       let left = budget;
       for (let i = 0; ; i++) {
-        const parts = songs[order[i % order.length]]();
+        const parts = songs[order[i % order.length]]().map(([dur, ...rest]) => [dur >= 120 ? step(dur * k, 30) : dur, ...rest]);
         const len = parts.reduce((a, p) => a + p[0], 0);
         if (len > left) break;
         for (const p of parts) add(...p);

@@ -166,3 +166,29 @@ test('natural rides vary: hills, descents and flats are not all alike', () => {
   const climbs = m.segments.filter((s) => /Mountain 1 · climb/.test(s.label));
   for (let i = 1; i < climbs.length; i++) assert.ok(climbs[i].pct > climbs[i - 1].pct, 'mountain steps still rise');
 });
+
+test('warm-up and cool-down are capped at five minutes', () => {
+  for (const minutes of [22, 45, 90, 120]) {
+    const w = generateWorkout('endurance', minutes, 0);
+    const count = (kind) => w.segments.filter((s) => s.kind === kind).reduce((a, s) => a + s.dur, 0) / 60;
+    assert.ok(count('warmup') >= 3 && count('warmup') <= 5, `warm-up at ${minutes}`);
+    assert.ok(count('cooldown') >= 3 && count('cooldown') <= 5, `cool-down at ${minutes}`);
+  }
+});
+
+test('a longer ride has longer efforts and more of them, in sets', () => {
+  const efforts = (minutes) => generateWorkout('intervals', minutes, 0).segments.filter((s) => s.kind === 'work');
+  const [short, mid, long] = [22, 45, 90].map(efforts);
+  assert.ok(short[0].dur < mid[0].dur && mid[0].dur < long[0].dur, 'efforts get longer');
+  assert.ok(short.length < mid.length && mid.length < long.length, 'and there are more of them');
+  const spells = (minutes) => generateWorkout('intervals', minutes, 0).segments.filter((s) => s.name === 'Easy spell').length;
+  assert.equal(spells(22), 0);
+  assert.ok(spells(90) >= 1, 'long rides are split into sets');
+});
+
+test('pyramid repeats its ladder on long rides instead of cruising', () => {
+  const w = generateWorkout('pyramid', 90, 0);
+  const cruise = w.segments.filter((s) => s.name === 'Cruise').reduce((a, s) => a + s.dur, 0);
+  assert.ok(cruise <= 10 * 60, `cruise ${cruise / 60} min`);
+  assert.ok(w.segments.filter((s) => s.name === 'Easy spell').length >= 2);
+});

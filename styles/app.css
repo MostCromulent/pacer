@@ -158,6 +158,11 @@ main { padding: 0 32px 40px; }
   background: var(--paper); box-shadow: 0 2px 0 #EAD8C6; display: flex; align-items: center; gap: 12px; text-align: left;
 }
 .type.wide { grid-column: span 2; }
+.type-random {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+  border: 2px dashed var(--lavender-deep); border-radius: 14px; background: var(--lavender-soft); color: var(--lavender-text);
+  font-family: inherit; font-weight: 800; font-size: 15px; cursor: pointer;
+}
 .type-group {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px;
   border: 0; border-radius: 14px; background: var(--sand); color: var(--ink); font-family: inherit; cursor: pointer; text-align: left;

@@ -225,7 +225,10 @@ function renderSetup() {
   // One group of types open at a time; a closed group shows the pick inside it.
   const groups = [...new Set(TYPES.map((t) => t.group))];
   if (state.typeGroup === undefined) state.typeGroup = TYPES.find((t) => t.id === state.type)?.group;
-  $('types').innerHTML = groups.map((g) => {
+  $('types').innerHTML = `<button type="button" class="type-random" data-random>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+      Pick one for me
+    </button>` + groups.map((g) => {
     const list = TYPES.filter((t) => t.group === g);
     const open = g === state.typeGroup;
     const head = `<button type="button" class="type-group" data-group="${esc(g)}" aria-expanded="${open}" style="background:${GROUP_COLORS[g] ?? ''}">
@@ -388,6 +391,17 @@ $('cust-minus').addEventListener('click', () => setDuration(Math.ceil(state.dura
 $('cust-plus').addEventListener('click', () => setDuration(Math.floor(state.duration / 5) * 5 + 5));
 
 $('types').addEventListener('click', (e) => {
+  if (e.target.closest('[data-random]')) {
+    // Any ride but the current one, in any of its three versions.
+    const others = TYPES.filter((t) => t.id !== state.type);
+    const pick = others[Math.floor(Math.random() * others.length)];
+    state.type = pick.id;
+    state.variant = Math.floor(Math.random() * 3);
+    state.typeGroup = pick.group;
+    saveSettings({ lastType: state.type });
+    renderSetup();
+    return;
+  }
   const head = e.target.closest('[data-group]');
   if (head) {
     state.typeGroup = state.typeGroup === head.dataset.group ? null : head.dataset.group;
