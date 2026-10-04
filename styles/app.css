@@ -484,8 +484,15 @@ main { padding: 0 32px 40px; }
   .seg-toggle.effort-words { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .preview { padding: 16px; }
   .preview-head { flex-wrap: wrap; }
-  #screen-setup { padding-bottom: 84px; }
-  .setup-right .btn-start { position: fixed; left: 16px; right: 16px; bottom: 12px; z-index: 5; }
+  /* Start is docked to the bottom edge as a full-width bar, so it reads as part
+     of the screen and not as a button floating over the page. */
+  #screen-setup { padding-bottom: 96px; }
+  .setup-right .btn-start {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; width: 100%;
+    min-height: 64px; padding-bottom: env(safe-area-inset-bottom, 0px); border-radius: 0;
+    box-shadow: 0 -3px 0 var(--coral-deep), 0 -10px 24px rgba(59, 51, 69, 0.18);
+  }
+  .setup-right .btn-start:active { transform: none; }
 
   /* The ride fills the screen: the header steps aside and the panel is scaled to fit. */
   body.riding .topbar { display: none; }
