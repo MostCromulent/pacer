@@ -11,8 +11,8 @@ const STEP_WARNING_S = 10;
 export const SHORT_STEP_S = 25;
 const CADENCE_TOLERANCE = 5;
 const KNOB_TOLERANCE = 2;
-export const DIFFICULTY_MIN = 0.7;
-export const DIFFICULTY_MAX = 1.3;
+export const DIFFICULTY_MIN = 0.5;
+export const DIFFICULTY_MAX = 1.5;
 export const DIFFICULTY_STEP = 0.05;
 
 /**
@@ -202,7 +202,7 @@ export class RideSession {
     return null;
   }
 
-  /** Set the effort multiplier (0.7-1.3, in 5% steps). Returns the new value. */
+  /** Set the effort multiplier (0.5-1.5, in 5% steps). Returns the new value. */
   setDifficulty(value) {
     const snapped = Math.round(value / DIFFICULTY_STEP) * DIFFICULTY_STEP;
     this.difficulty = Math.round(Math.min(DIFFICULTY_MAX, Math.max(DIFFICULTY_MIN, snapped)) * 100) / 100;

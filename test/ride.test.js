@@ -153,11 +153,11 @@ test('effort control scales power and resistance targets, not cadence', () => {
   assert.ok(harder.knob > base.knob);
   assert.equal(s.snapshot().difficulty, 1.1);
   // Clamped and snapped to 5% steps.
-  assert.equal(s.setDifficulty(2), 1.3);
-  assert.equal(s.setDifficulty(0.1), 0.7);
+  assert.equal(s.setDifficulty(2), 1.5);
+  assert.equal(s.setDifficulty(0.1), 0.5);
   assert.equal(s.setDifficulty(1.02), 1);
   for (let i = 0; i < 20; i++) s.nudgeDifficulty(-1);
-  assert.equal(s.difficulty, 0.7);
+  assert.equal(s.difficulty, 0.5);
 });
 
 test('summary reports the average effort over the ride', () => {

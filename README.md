@@ -55,7 +55,7 @@ over. The line underneath says which to change first, e.g.
 
 Feeling strong, or having an off day? Use **Effort − / +** at the bottom of the
 mini window (or the `-` and `+` keys) to make the ride easier or harder in 5%
-steps, from 70% to 130%. It scales the power behind every step, so the
+steps, from 50% to 150%. It scales the power behind every step, so the
 resistance ranges move while cadence stays the same. The summary notes the
 effort you rode at, and if you held a higher (or lower) effort it offers to
 make that your normal.
