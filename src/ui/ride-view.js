@@ -100,9 +100,9 @@ export function startRide(workout) {
   state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).resistance;
   applyTerrain();
   $('route-label').textContent = `Route · ${workout.name} ${workout.minutes} min`;
-  $('pip-note').textContent = pipSupported() ? '' : 'Floating windows need Chrome or Edge 116+. You can still snap this window beside your show.';
-  $('btn-pip-big').disabled = !pipSupported();
-  $('btn-pip').disabled = !pipSupported();
+  $('pip-card').hidden = !pipSupported();
+  $('btn-pip').hidden = !pipSupported();
+  fitPage();
   updatePauseButton();
   showScreen('ride');
   state.lastDom = 0;
@@ -430,11 +430,20 @@ async function togglePip() {
     toast(err.message || String(err));
   }
 }
+const PANEL_W = 400; // the ride panel is laid out at this width and scaled to fit
+
+/** On a narrow screen (a phone on the handlebars), shrink the panel to the width of the page. */
+function fitPage() {
+  const narrow = window.innerWidth < PANEL_W + 32;
+  $('panel-home').style.zoom = narrow && !(state.pipWin && !state.pipWin.closed) ? String((window.innerWidth - 16) / PANEL_W) : '';
+}
+window.addEventListener('resize', fitPage);
+
 // Scale the panel to fill the floating window, so dragging it bigger makes the numbers bigger.
 function fitPip() {
   const win = state.pipWin;
   if (!win || win.closed) return;
-  const k = Math.max(0.5, Math.min(win.innerWidth / 400, win.innerHeight / 720));
+  const k = Math.max(0.5, Math.min(win.innerWidth / PANEL_W, win.innerHeight / 720));
   $('ride-panel').style.transform = `scale(${k})`;
   scene.pixelScale = k;
 }

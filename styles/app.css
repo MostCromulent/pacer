@@ -471,9 +471,48 @@ main { padding: 0 32px 40px; }
   .setup-right { padding-top: 0; }
   .topbar, main { padding-left: 16px; padding-right: 16px; }
 }
+
+/* ---------- phones ---------- */
+@media (max-width: 640px) {
+  .topbar { padding-top: 12px; padding-bottom: 12px; gap: 10px; }
+  .top-nav { padding-left: 0; order: 3; flex-basis: 100%; }
+  .title { font-size: 30px; }
+
+  /* Build a ride: one column, with Start always in reach at the bottom of the screen. */
+  .types, .type-list { grid-template-columns: 1fr; }
+  .type.wide { grid-column: auto; }
+  .seg-toggle.effort-words { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .preview { padding: 16px; }
+  .preview-head { flex-wrap: wrap; }
+  #screen-setup { padding-bottom: 84px; }
+  .setup-right .btn-start { position: fixed; left: 16px; right: 16px; bottom: 12px; z-index: 5; }
+
+  /* The ride fills the screen: the header steps aside and the panel is scaled to fit. */
+  body.riding .topbar { display: none; }
+  body.riding main { padding: 8px 8px 24px; }
+  .ride-layout { gap: 16px; }
+  .ride-side { width: 100%; }
+
+  /* Statistics: two tiles a row, and the table keeps to the columns that matter. */
+  .stats-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-card { padding: 16px; overflow-x: auto; }
+  .stats-card svg { min-width: 520px; }
+  .stats-card .calib-table th:nth-child(4), .stats-card .calib-table td:nth-child(4),
+  .stats-card .calib-table th:nth-child(5), .stats-card .calib-table td:nth-child(5) { display: none; }
+  .stats-card .calib-table td:nth-child(2), .stats-card .calib-table th:nth-child(2) { padding-left: 8px; }
+  .data-cards { grid-template-columns: 1fr; }
+
+  .sum-head { flex-direction: column; align-items: flex-start; }
+  .sum-head .title { font-size: 32px; }
+  .tip { flex-direction: column; align-items: stretch; }
+  .sum-actions { flex-direction: column; }
+
+  .dialog { padding: 18px; }
+  .model-facts { grid-template-columns: 1fr; }
+  .calib-banner { padding: 14px 16px; }
+}
 @media (max-width: 460px) {
   .durations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .types { grid-template-columns: 1fr; }
-  .type.wide { grid-column: auto; }
-  .panel-home, .panel { width: 100%; }
+  .steps { gap: 8px; }
+  .step { padding: 12px 6px 8px 10px; }
 }

@@ -25,6 +25,10 @@ IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
 **Open <https://mostcromulent.github.io/pacer/> in Chrome or Edge.** There is
 nothing to install. (Firefox and Safari can't talk to Bluetooth bikes.)
 
+It works on a computer, where the ride floats over your show, and on an
+**Android phone** in Chrome, which you can prop on the handlebars. iPhones and
+iPads can't run it: their browsers don't allow Bluetooth.
+
 1. Pedal to wake the bike, click **Connect bike** and pick it from the list.
    Close Peloton, Zwift or JRNY first: a bike takes one connection at a time.
 2. Calibrate when prompted (about two and a half minutes of pedalling), then
