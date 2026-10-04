@@ -37,9 +37,26 @@ You need **Chrome or Edge**, Bluetooth, and [Node.js](https://nodejs.org) 18+.
   <img src="docs/build-a-ride.png" alt="Build a ride" width="760">
 </p>
 
-Pick a length from 10 to 120 minutes, one of seventeen kinds of ride (steady,
-hills, intervals, a randomisable spin class and more), how hard you want it, and who to race.
-Your choices are remembered, so next time it's one click.
+Pick a length from 10 to 120 minutes, one of seventeen kinds of ride (spin
+class, steady, hills, intervals and more), how hard you want it, and who to
+race. Your choices are remembered, so next time it's one click.
+
+### 🎓 The spin class generator
+
+**Spin class** builds an instructor-style class out of short themed blocks,
+and **New class** makes a fresh one whenever you like.
+
+- 🧱 **Sixteen kinds of block**: seated and standing climbs, cadence and
+  resistance pushes, jumps, switchbacks, spin-ups, creeping climbs, Tabata,
+  sprints and more. Each one's lengths and numbers vary every time it comes up.
+- 📈 **A class with a shape**: it warms up, builds in waves from easier blocks
+  to harder ones with recoveries between, and ends on a big finish.
+- 🗣️ **Called like a class**: each block is introduced by name ("Cadence
+  pushes, 3 rounds"), with badges for *Push*, *Recover*, *Add 2* and *Out of
+  the saddle*.
+- 🪑 **Low impact class**: the same idea kept in the saddle, with gentler
+  efforts, no sprints, and resistance never above 50.
+- ✂️ **Leave blocks out**: don't like jumps or sprints? Tap them off.
 
 ## 📺 During a ride
 
@@ -99,6 +116,7 @@ src/core/   logic with no browser code, covered by unit tests
   workout.js     the workout generator
   resistance.js  the resistance/cadence/watts model and its calibration fit
   learn.js       pools ride readings and refits the model from them
+  spinclass.js   the spin class generator: blocks, arc, finale
   physics.js     power to virtual speed
   ghost.js       ghost riders
   ride.js        the ride engine: targets, gates, events, summary
