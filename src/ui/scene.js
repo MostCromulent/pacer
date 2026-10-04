@@ -133,7 +133,7 @@ export class Scene {
     this._rider(ctx, ghostX, t, { ghost: true, crank: this.ghostCrank, wheel: this.ghostWheel });
     this._rider(ctx, YOU_X, t, { ghost: false, crank: this.crank, wheel: this.wheel, speedLines: (snap.speed || 0) > 6 });
 
-    const ghostTag = offscreen ? `${snap.ghostLabel} ${fmtGap(-snap.gap)}` : snap.ghostLabel;
+    const ghostTag = offscreen ? `${snap.ghostLabel} ${tagGap(-snap.gap)}` : snap.ghostLabel;
     // Lift the ghost's tag when the riders are side by side so the tags don't collide.
     const lift = Math.abs(ghostX - YOU_X) < 50 ? 24 : 0;
     this._tag(ctx, ghostX, this.roadY(ghostX, t) - 76 - lift, ghostTag, P.lavenderText);
@@ -581,7 +581,7 @@ function mod(a, n) {
   return ((a % n) + n) % n;
 }
 
-function fmtGap(m) {
+function tagGap(m) {
   const a = Math.abs(Math.round(m));
   if (a === 0) return '0 m';
   return `${m >= 0 ? '+' : '−'}${a >= 1000 ? (a / 1000).toFixed(1) + ' km' : a + ' m'}`;

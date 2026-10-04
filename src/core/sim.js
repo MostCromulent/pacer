@@ -1,7 +1,8 @@
 // A simulated spin bike, so the app can be built and tried without the real one.
-// It behaves like the console: it computes watts from cadence and knob position
+// It behaves like the console: it computes watts from cadence and resistance position
 // with its own (hidden) formula and reports roughly once a second.
 
+import { clamp } from './util.js';
 import { powerFor } from './resistance.js';
 
 // Deliberately a little different from the app's default model, so calibration
@@ -49,7 +50,7 @@ export class SimulatedBike extends EventTarget {
     this.manualCadence = clamp(this.manualCadence + delta, 0, 140);
   }
 
-  nudgeKnob(delta) {
+  nudgeResistance(delta) {
     this.setMode('manual');
     this.manualResistance = clamp(this.manualResistance + delta, 1, 100);
   }
@@ -78,15 +79,15 @@ export class SimulatedBike extends EventTarget {
         wantCad = 78;
         wantR = 28;
       } else {
-        // Do what the screen says: spin the target cadence, set the target knob.
+        // Do what the screen says: spin the target cadence, set the target resistance.
         // With an uncalibrated model the watts come out a bit off, as they would
         // on a real bike.
         wantCad = t.seg.kind === 'sprint' ? Math.max(t.targetCadence, 108) : t.targetCadence;
-        wantR = t.targetKnob + (this.skill - 1) * 20;
+        wantR = t.targetResistance + (this.skill - 1) * 20;
       }
       wantCad += noise() * 2;
     }
-    // A person doesn't snap to a new cadence or knob position instantly.
+    // A person doesn't snap to a new cadence or resistance position instantly.
     this.cadence += clamp(wantCad - this.cadence, -8 * dt, 8 * dt);
     this.resistance += clamp(wantR - this.resistance, -4 * dt, 4 * dt);
     const cadence = Math.max(0, this.cadence);
@@ -100,10 +101,6 @@ export class SimulatedBike extends EventTarget {
     if (this.reportResistance) reading.resistance = Math.round(this.resistance);
     this.dispatchEvent(new CustomEvent('data', { detail: reading }));
   }
-}
-
-function clamp(x, lo, hi) {
-  return Math.min(hi, Math.max(lo, x));
 }
 
 function mulberry32(a) {

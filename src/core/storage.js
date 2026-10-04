@@ -1,17 +1,14 @@
-// Local persistence. Everything stays in this browser; export/import moves it.
+// Local persistence. Everything stays in this browser: settings, rides, and the
+// bike's calibration. Export and import move all three as one backup file.
 
-import { DEFAULT_MODEL } from './resistance.js';
-
-// The app was called GhostRide; the old name stays in these keys and in export
-// files so rides saved before the rename still load.
-const KEY_SETTINGS = 'ghostride.settings.v1';
-const KEY_RIDES = 'ghostride.rides.v1';
+const KEY_SETTINGS = 'pacer.settings.v1';
+const KEY_RIDES = 'pacer.rides.v1';
+const KEY_CALIBRATION = 'pacer.calibration.v1';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   baselineW: 200,
   effort: 1,
   easyCadence: 80,
-  model: DEFAULT_MODEL,
   muted: false,
   voice: false,
   spinExclude: [],
@@ -19,7 +16,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lastType: 'intervals',
   lastGhost: 'pb',
   simReportsResistance: false,
-  targetMode: 'knob',
+  targetMode: 'resistance',
 });
 
 function safeGet(store, key) {
@@ -51,6 +48,19 @@ export class Storage {
 
   saveSettings(settings) {
     return safeSet(this.store, KEY_SETTINGS, settings);
+  }
+
+  /**
+   * The bike's calibration: { bike, date, updated, model, check, bins }, or null.
+   * `model` is the resistance model; `bins` are the readings it is learned from.
+   */
+  loadCalibration() {
+    const saved = safeGet(this.store, KEY_CALIBRATION);
+    return saved?.model?.calibrated ? saved : null;
+  }
+
+  saveCalibration(calibration) {
+    return safeSet(this.store, KEY_CALIBRATION, calibration);
   }
 
   allRides() {
@@ -91,16 +101,17 @@ export class Storage {
   }
 
   exportAll() {
-    return JSON.stringify({ app: 'ghostride', version: 1, settings: this.loadSettings(), rides: this.allRides() }, null, 1);
+    return JSON.stringify({ app: 'pacer', version: 1, settings: this.loadSettings(), calibration: this.loadCalibration(), rides: this.allRides() }, null, 1);
   }
 
   importAll(json) {
     const data = JSON.parse(json);
-    if (data?.app !== 'ghostride' || !Array.isArray(data.rides)) throw new Error('Not a Pacer export file');
+    if (data?.app !== 'pacer' || !Array.isArray(data.rides)) throw new Error('Not a Pacer backup file');
     const existing = new Set(this.allRides().map((r) => r.id));
     const merged = [...this.allRides(), ...data.rides.filter((r) => !existing.has(r.id))];
     safeSet(this.store, KEY_RIDES, merged);
     if (data.settings) this.saveSettings({ ...this.loadSettings(), ...data.settings });
+    if (data.calibration?.model?.calibrated) this.saveCalibration(data.calibration);
     return data.rides.length;
   }
 }

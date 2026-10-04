@@ -55,6 +55,10 @@ createServer(async (req, res) => {
       await saveCalibration(req, res);
       return;
     }
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405, { Allow: 'GET, HEAD' }).end('Method not allowed');
+      return;
+    }
     let path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
     if (path === '' || path.endsWith('/')) path = join(path, 'index.html');
     const file = resolve(root, path);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutFromCode, segmentIndexAt, zoneOf, workoutStats, randomVariant, VARIANT_CODES,
+  TYPES, DURATIONS, generateWorkout, parseWorkoutCode, segmentIndexAt, zoneOf, workoutStats, randomVariant, VARIANT_CODES,
 } from '../src/core/workout.js';
 
 test('every type, duration and variant fills the exact time with contiguous steps', () => {
@@ -40,7 +40,8 @@ test('any custom length from 10 to 120 minutes fills the time exactly', () => {
 
 test('same code, same workout', () => {
   const a = generateWorkout('pyramid', 45, 2);
-  const b = workoutFromCode(a.code);
+  const { type, minutes, variant } = parseWorkoutCode(a.code);
+  const b = generateWorkout(type, minutes, variant);
   assert.deepEqual(b, a);
 });
 
@@ -93,7 +94,7 @@ test('zones and stats', () => {
   const s = workoutStats(generateWorkout('intervals', 30, 0), 200);
   assert.equal(s.hardMinutes, 12);
   assert.ok(s.avgTargetW > 100 && s.avgTargetW < 200);
-  assert.ok(s.effort >= 1 && s.effort <= 10);
+  assert.ok(s.score >= 1 && s.score <= 10);
 });
 
 test('workout types are grouped and include natural styles, HIIT and mixes', () => {
@@ -133,12 +134,12 @@ test('mountains climb in steps that get harder, with a gate only at the summit',
 });
 
 test('mix pairs a natural first half with an interval second half', () => {
-  const w = generateWorkout('surprise', 45, 0);
+  const w = generateWorkout('mix', 45, 0);
   assert.equal(w.name, 'Mix: rolling hills + HIIT');
   const firstHill = w.segments.findIndex((s) => s.name === 'Hill');
   const firstRep = w.segments.findIndex((s) => /^Tabata/.test(s.label ?? ''));
   assert.ok(firstHill >= 0 && firstRep > firstHill);
-  assert.equal(generateWorkout('surprise', 45, 1).name, 'Mix: mountain + sprints');
+  assert.equal(generateWorkout('mix', 45, 1).name, 'Mix: mountain + sprints');
 });
 
 test('a higher effort setting means more hard minutes and a higher average', () => {

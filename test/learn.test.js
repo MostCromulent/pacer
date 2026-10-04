@@ -29,7 +29,7 @@ test('the learner skips readings taken while resistance or cadence is changing',
   const l = new Learner();
   assert.equal(l.observe(reading(30, 80)), false); // nothing to compare with yet
   assert.equal(l.observe(reading(30, 81)), true);
-  assert.equal(l.observe(reading(35, 81)), false); // knob just moved
+  assert.equal(l.observe(reading(35, 81)), false); // resistance just moved
   assert.equal(l.observe(reading(35, 82)), true);
   assert.equal(l.observe(reading(35, 95)), false); // cadence jumped
   l.rest();

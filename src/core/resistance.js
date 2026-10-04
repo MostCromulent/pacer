@@ -13,6 +13,8 @@
 // Either way the model also runs backwards: watts + cadence -> resistance, and
 // target watts at a target cadence -> the resistance to set.
 
+import { clamp } from './util.js';
+
 export const DEFAULT_MODEL = Object.freeze({
   a: -2.602,
   b: 1.3,
@@ -281,8 +283,4 @@ function leastSquares(X, y) {
 
 function mean(xs) {
   return xs.reduce((a, b) => a + b, 0) / xs.length;
-}
-
-function clamp(x, lo, hi) {
-  return Math.min(hi, Math.max(lo, x));
 }

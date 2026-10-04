@@ -3,7 +3,6 @@
 
 export const FTMS_SERVICE = 0x1826;
 export const INDOOR_BIKE_DATA = 0x2ad2;
-export const FITNESS_MACHINE_FEATURE = 0x2acc;
 
 // Field order and sizes follow the flag bits. Bit 0 is inverted: when it is 0
 // ("More Data" not set) the instantaneous speed field IS present.

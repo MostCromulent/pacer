@@ -8,11 +8,13 @@
 //   rising waves, with a recovery between waves.
 // - It finishes on one of its hardest blocks, straight into the cool-down.
 // - Blocks join up: one that starts from a base effort picks that base near the
-//   resistance the last block ended on, to save turning the knob back and forth.
+//   resistance the last block ended on, to save turning the dial back and forth.
 // - Time out of the saddle and time flat out are capped as a share of the class.
 // - Blocks can be left out (`exclude`).
 // - The low impact class uses only the gentle blocks, eases every effort, caps
 //   cadence at 100 rpm and resistance at 50, and never sprints.
+
+import { draws, roundTo, stretchFor } from './util.js';
 
 /**
  * Every block. The order is the bit order of the "left out" part of a workout
@@ -41,7 +43,7 @@ export const SPIN_BLOCKS = Object.freeze([
 
 const STAND_SHARE = 0.22; // most of a class that may be ridden out of the saddle
 const ALL_OUT_SHARE = 0.08; // most of a class that may be flat out
-const LOW_KNOB_CAP = 50;
+const LOW_RESISTANCE_CAP = 50;
 
 /** Left-out block ids -> a number for the workout code, and back. */
 export function excludeMask(ids = []) {
@@ -57,11 +59,10 @@ export function excludeFromMask(mask) {
  * `rand` is the seeded generator, so the same code gives the same class.
  */
 export function buildSpinClass({ add, budget, rand, low = false, exclude = [] }) {
-  const between = (lo, hi) => lo + rand() * (hi - lo);
-  const int = (lo, hi) => Math.round(between(lo, hi));
-  const step = (x, s = 15) => Math.round(x / s) * s;
+  const { between, int } = draws(rand);
+  const step = roundTo;
   const times = (n, make) => Array.from({ length: n }, (_, i) => make(i)).flat();
-  const stretch = Math.min(1.8, Math.max(0.85, Math.sqrt(budget / 1200)));
+  const stretch = stretchFor(budget);
 
   // Roughly the resistance the rider is on: effort with the cadence taken out.
   let load = null;
@@ -178,7 +179,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   // Low impact: efforts above an easy pace are pulled 40% of the way back
   // towards it, with a ceiling on cadence and on resistance.
   const eased = ([dur, pct, kind, opts]) => (low
-    ? [dur, pct > 60 ? 60 + (pct - 60) * 0.6 : pct, kind, { ...opts, cadence: Math.min(100, opts.cadence ?? 100), knobCap: LOW_KNOB_CAP }]
+    ? [dur, pct > 60 ? 60 + (pct - 60) * 0.6 : pct, kind, { ...opts, cadence: Math.min(100, opts.cadence ?? 100), resistanceCap: LOW_RESISTANCE_CAP }]
     : [dur, pct, kind, opts]);
 
   /** Build a block's steps: sized, eased, and tagged with the block they belong to. */
@@ -262,6 +263,6 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     }
     empty = added ? 0 : empty + 1;
   }
-  if (left > 0) add(left, 62, 'steady', { name: 'Cruise', ...(low ? { knobCap: LOW_KNOB_CAP } : {}) });
+  if (left > 0) add(left, 62, 'steady', { name: 'Cruise', ...(low ? { resistanceCap: LOW_RESISTANCE_CAP } : {}) });
   if (finale) emit(finale);
 }

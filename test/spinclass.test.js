@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateWorkout, parseWorkoutCode, SPIN_BLOCKS } from '../src/core/workout.js';
 import { excludeMask, excludeFromMask } from '../src/core/spinclass.js';
-import { stepTargets, spokenCue, repeatsInBlock } from '../src/core/ride.js';
+import { stepTargets } from '../src/core/ride.js';
+import { spokenCue, repeatsInBlock } from '../src/core/cues.js';
 import { DEFAULT_MODEL } from '../src/core/resistance.js';
 
 const main = (w) => w.segments.filter((s) => s.kind !== 'warmup' && s.kind !== 'cooldown');
@@ -88,7 +89,7 @@ test('the low impact class is seated, gentle, never sprints and keeps resistance
     assert.ok(hardest(w) < hardest(generateWorkout('spinclass', 45, variant)));
     assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), 45 * 60);
     // Even for a very strong rider, whose targets would otherwise run higher.
-    for (const s of main(w)) assert.ok(stepTargets(s, w.segments, 600, DEFAULT_MODEL).knob <= 50, `${w.code} ${s.label}`);
+    for (const s of main(w)) assert.ok(stepTargets(s, w.segments, 600, DEFAULT_MODEL).resistance <= 50, `${w.code} ${s.label}`);
   }
 });
 
@@ -97,7 +98,7 @@ test('cadence pushes hold the resistance and spin faster', () => {
   const [settle, push] = steps;
   assert.equal(push.hold, true);
   assert.ok(push.cadence - settle.cadence >= 15 && push.cadence - settle.cadence <= 25);
-  assert.equal(stepTargets(push, w.segments, 300, DEFAULT_MODEL).knob, stepTargets(settle, w.segments, 300, DEFAULT_MODEL).knob);
+  assert.equal(stepTargets(push, w.segments, 300, DEFAULT_MODEL).resistance, stepTargets(settle, w.segments, 300, DEFAULT_MODEL).resistance);
   assert.equal(steps.length, steps[0].rounds * 2);
 });
 
@@ -137,8 +138,8 @@ test('spin-ups climb through the cadences on one resistance', () => {
   const round = steps.slice(0, 4);
   assert.deepEqual(round.map((s) => s.cadence), [80, 90, 100, 110]);
   // Every stage, however far down the chain of held steps, uses the first one's resistance.
-  const knob = stepTargets(round[0], w.segments, 300, DEFAULT_MODEL).knob;
-  for (const s of steps) assert.equal(stepTargets(s, w.segments, 300, DEFAULT_MODEL).knob, knob, s.label);
+  const resistance = stepTargets(round[0], w.segments, 300, DEFAULT_MODEL).resistance;
+  for (const s of steps) assert.equal(stepTargets(s, w.segments, 300, DEFAULT_MODEL).resistance, resistance, s.label);
 });
 
 test('a climb with attacks surges for 15 seconds each minute', () => {
@@ -163,7 +164,7 @@ test('a time trial is one long hard seated effort', () => {
 });
 
 test('the first step of a block is introduced by name when spoken', () => {
-  const tg = { knob: 31, cadence: 80, watts: 220 };
+  const tg = { resistance: 31, cadence: 80, watts: 220 };
   const first = { kind: 'steady', dur: 45, label: 'Settle', block: 'Cadence pushes', blockStart: true, rounds: 4, position: 'seated' };
   assert.equal(spokenCue(first, tg), 'Cadence pushes, 4 rounds. Settle. Resistance 31, cadence 80.');
   assert.equal(spokenCue({ ...first, blockStart: false }, tg), 'Settle. Resistance 31, cadence 80.');
@@ -174,7 +175,7 @@ test('the first step of a block is introduced by name when spoken', () => {
 test('a block gives its numbers once, then just names the steps it repeats', () => {
   const { w, steps } = findBlock('Cadence pushes');
   const at = (seg) => w.segments.indexOf(seg);
-  const say = (seg) => spokenCue(seg, stepTargets(seg, w.segments, 300, DEFAULT_MODEL), 'knob', w.segments[at(seg) - 1], repeatsInBlock(w.segments, at(seg)));
+  const say = (seg) => spokenCue(seg, stepTargets(seg, w.segments, 300, DEFAULT_MODEL), 'resistance', w.segments[at(seg) - 1], repeatsInBlock(w.segments, at(seg)));
   assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Settle\. Resistance \d+, cadence \d+\.$/);
   assert.match(say(steps[1]), /^Cadence push\. Same resistance, cadence \d+\.$/);
   assert.equal(say(steps[2]), 'Settle.');
@@ -182,20 +183,20 @@ test('a block gives its numbers once, then just names the steps it repeats', () 
 });
 
 test('blocks that open on a short step still say their numbers, and titles are not repeated', () => {
-  const tg = { knob: 60, cadence: 100, watts: 460 };
+  const tg = { resistance: 60, cadence: 100, watts: 460 };
   const tabata = { kind: 'work', dur: 20, label: 'Tabata 1/8', block: 'Tabata', blockStart: true, rounds: 8, position: 'seated' };
   assert.equal(spokenCue(tabata, tg), 'Tabata, 8 rounds. Resistance 60, cadence 100. Go.');
-  assert.equal(spokenCue({ ...tabata, blockStart: false, label: 'Tabata 2/8' }, tg, 'knob', { dur: 10 }), 'Go.');
+  assert.equal(spokenCue({ ...tabata, blockStart: false, label: 'Tabata 2/8' }, tg, 'resistance', { dur: 10 }), 'Go.');
   const trial = { kind: 'work', dur: 300, label: 'Time trial', name: 'Time trial', block: 'Time trial', blockStart: true, position: 'seated' };
   assert.equal(spokenCue(trial, tg), 'Time trial. Resistance 60, cadence 100.');
   const bend = { kind: 'work', dur: 30, label: 'Switchback 1 of 4', name: 'Switchback', block: 'Switchbacks', blockStart: true, rounds: 4, position: 'seated' };
   assert.equal(spokenCue(bend, tg), 'Switchbacks, 4 rounds. Resistance 60, cadence 100.');
   const spin = { kind: 'drill', dur: 20, label: 'Spin-up 2 of 8', name: 'Spin-up', hold: true, block: 'Spin-ups', position: 'seated' };
-  assert.equal(spokenCue(spin, { knob: 23, cadence: 90, watts: 150 }, 'knob', { dur: 20 }), 'Cadence 90.');
-  assert.equal(spokenCue({ ...spin, hold: false, blockStart: true, rounds: 2 }, { knob: 23, cadence: 80, watts: 120 }), 'Spin-ups, 2 rounds. Resistance 23, cadence 80.');
+  assert.equal(spokenCue(spin, { resistance: 23, cadence: 90, watts: 150 }, 'resistance', { dur: 20 }), 'Cadence 90.');
+  assert.equal(spokenCue({ ...spin, hold: false, blockStart: true, rounds: 2 }, { resistance: 23, cadence: 80, watts: 120 }), 'Spin-ups, 2 rounds. Resistance 23, cadence 80.');
   const attack = { kind: 'work', dur: 15, label: 'Attack 1 of 4', name: 'Attack', hold: true, block: 'Climb with attacks', position: 'seated' };
   assert.equal(spokenCue(attack, tg), 'Same resistance, cadence 100. Attack.');
-  assert.equal(spokenCue(attack, tg, 'knob', null, true), 'Attack.');
+  assert.equal(spokenCue(attack, tg, 'resistance', null, true), 'Attack.');
   const last = { kind: 'sprint', dur: 60, label: 'Last push', name: 'Last push', block: 'Last push', blockStart: true, position: 'seated' };
   assert.equal(spokenCue(last, tg), 'Last push. All out.');
 });

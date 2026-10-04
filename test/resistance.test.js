@@ -12,13 +12,13 @@ test('default model gives plausible spin-bike watts', () => {
   assert.ok(Math.abs(p70 - 300) < 10, `p70=${p70}`);
 });
 
-test('power rises with knob and cadence', () => {
+test('power rises with resistance and cadence', () => {
   for (let r = 5; r < 100; r += 5) assert.ok(powerFor(DEFAULT_MODEL, r + 5, 85) > powerFor(DEFAULT_MODEL, r, 85));
   assert.ok(powerFor(DEFAULT_MODEL, 40, 95) > powerFor(DEFAULT_MODEL, 40, 80));
   assert.equal(powerFor(DEFAULT_MODEL, 40, 0), 0);
 });
 
-test('resistanceFor inverts powerFor across the knob range', () => {
+test('resistanceFor inverts powerFor across the resistance range', () => {
   for (const cad of [70, 85, 100]) {
     for (let r = 5; r <= 95; r += 10) {
       const p = powerFor(DEFAULT_MODEL, r, cad);

@@ -10,10 +10,10 @@ const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
 export const SHORT_STEP_S = 25;
 const CADENCE_TOLERANCE = 5;
-const KNOB_TOLERANCE = 2;
-export const DIFFICULTY_MIN = 0.5;
-export const DIFFICULTY_MAX = 1.5;
-export const DIFFICULTY_STEP = 0.05;
+const RESISTANCE_TOLERANCE = 2;
+export const EFFORT_MIN = 0.5;
+export const EFFORT_MAX = 1.5;
+export const EFFORT_STEP = 0.05;
 
 /**
  * What to aim for in a step: power, cadence, and the resistance that gives that
@@ -24,20 +24,20 @@ export const DIFFICULTY_STEP = 0.05;
 export function stepTargets(seg, segments, baselineW, model) {
   const cadence = seg.cadence ?? 85;
   let watts = targetWatts(seg, baselineW);
-  let knob = Math.round(resistanceFor(model, watts, cadence));
+  let resistance = Math.round(resistanceFor(model, watts, cadence));
   if (seg.hold) {
     // Back to the step that set the resistance, through any others that held it.
     let i = segments.indexOf(seg) - 1;
     while (i > 0 && segments[i].hold) i--;
     const base = segments[i];
     if (base && !base.hold) {
-      knob = stepTargets(base, segments, baselineW, model).knob;
-      watts = powerFor(model, knob, cadence);
+      resistance = stepTargets(base, segments, baselineW, model).resistance;
+      watts = powerFor(model, resistance, cadence);
     }
   }
-  if (seg.knobCap && knob > seg.knobCap) {
-    knob = seg.knobCap;
-    watts = powerFor(model, knob, cadence);
+  if (seg.resistanceCap && resistance > seg.resistanceCap) {
+    resistance = seg.resistanceCap;
+    watts = powerFor(model, resistance, cadence);
   }
   const wattsTol = Math.max(10, watts * 0.06);
   const sprint = seg.kind === 'sprint';
@@ -45,96 +45,14 @@ export function stepTargets(seg, segments, baselineW, model) {
   return {
     watts: Math.round(watts),
     cadence,
-    knob,
+    resistance,
     cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
-    knobRange: [Math.max(1, knob - KNOB_TOLERANCE), sprint ? null : Math.min(100, knob + KNOB_TOLERANCE)],
+    resistanceRange: [Math.max(1, resistance - RESISTANCE_TOLERANCE), sprint ? null : Math.min(100, resistance + RESISTANCE_TOLERANCE)],
     wattsRange: sprint ? [Math.round(baselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
   };
 }
 
-/**
- * The one-word instruction for a step, shown as a badge: what to do, as an
- * instructor would call it. `knobChange` is how far the resistance target moved
- * from the step before (for a creeping climb's "Add 2").
- * Returns { text, tone } where tone is 'push' | 'recover' | 'add', or null for
- * ordinary riding, which needs no badge.
- */
-export function stepAction(seg, knobChange = 0) {
-  if (seg.creep) return { text: knobChange > 0 ? `Add ${knobChange}` : 'Build', tone: 'add' };
-  switch (seg.kind) {
-    case 'sprint': return { text: 'All out', tone: 'push' };
-    case 'work': return { text: 'Push', tone: 'push' };
-    case 'recovery': return { text: 'Recover', tone: 'recover' };
-    default: return null;
-  }
-}
-
-/**
- * What to say out loud when a step begins. `targets` comes from stepTargets();
- * `mode` is 'knob' or 'watts'; `prev` is the step before.
- *
- * - An ordinary step: its name and the two numbers. "Hill. Resistance 56, cadence 68."
- * - The first step of a spin class block: the block and its rounds first, then
- *   the numbers, so they are heard once. "Cadence pushes, 3 rounds. Settle.
- *   Resistance 28, cadence 83."
- * - A step the block has already called (`repeat`): just its name. "Settle."
- * - Short steps: a single word, since there is no time for more. "Go.", "Up.",
- *   "Attack.", "Rest.", or the cadence in a spin-up.
- * - Getting out of the saddle, and back into it, is always called.
- */
-export function spokenCue(seg, targets, mode = 'knob', prev = null, repeat = false) {
-  const said = seg.label.split('·').pop().replace(/[\d/]+|\bof\b/g, '').replace(/\s+/g, ' ').trim();
-  const name = said.charAt(0).toUpperCase() + said.slice(1);
-  const standing = seg.position === 'standing';
-  const wasStanding = prev?.position === 'standing';
-  const saddle = standing === wasStanding ? '' : standing ? ' Out of the saddle.' : ' Back in the saddle.';
-  const numbers = seg.hold
-    ? `Same resistance, cadence ${targets.cadence}.`
-    : mode === 'watts'
-      ? `${targets.watts} watts, cadence ${targets.cadence}.`
-      : `Resistance ${targets.knob}, cadence ${targets.cadence}.`;
-
-  const opens = !!(seg.blockStart && seg.block && seg.block !== 'Recovery');
-  const intro = opens ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. ` : '';
-  // No need to say "Time trial. Time trial.", or "Switchbacks, 4 rounds. Switchback."
-  const named = opens && seg.block.toLowerCase().startsWith(name.toLowerCase()) ? '' : `${name}.`;
-  const short = seg.dur < SHORT_STEP_S;
-
-  if (seg.kind === 'sprint') return `${intro}${opens ? '' : 'Sprint. '}All out.${saddle}`;
-  // A creeping climb only moves the resistance, so after the first step that is all that is said.
-  if (seg.creep) return opens ? intro + numbers : mode === 'watts' ? `${targets.watts} watts.` : `Resistance ${targets.knob}.`;
-  if (short) {
-    const word = seg.kind === 'drill' ? `Cadence ${targets.cadence}.`
-      : seg.kind !== 'work' ? `${name}.`
-        : standing ? 'Up.'
-          : seg.name ? `${name}.` : 'Go.';
-    // The first of a run of short steps still needs its numbers, once.
-    const leads = opens || !(prev && prev.dur < SHORT_STEP_S);
-    if (!leads || repeat) return word;
-    return seg.kind === 'drill' ? intro + numbers : `${intro}${numbers} ${word}`;
-  }
-  if (repeat) return `${name}.${saddle}`;
-  return `${intro}${named}${saddle} ${numbers}`.replace(/\s+/g, ' ').trim();
-}
-
-/** Whether this step repeats one already ridden in the same spin class block. */
-export function repeatsInBlock(segments, index) {
-  const seg = segments[index];
-  if (!seg.block || seg.blockStart) return false;
-  for (let i = index - 1; i >= 0 && segments[i].block === seg.block; i--) {
-    const s = segments[i];
-    if (s.name === seg.name && s.cadence === seg.cadence && s.pct === seg.pct && !!s.hold === !!seg.hold) return true;
-    if (s.blockStart) break;
-  }
-  return false;
-}
-
-/** "80–90", or "105+" when there's no upper limit. */
-export function formatRange([lo, hi]) {
-  return hi === null ? `${lo}+` : `${lo}–${hi}`;
-}
-
-/** Power-based check, used when the knob position isn't known. */
+/** Power-based check, used when the resistance position isn't known. */
 export function isOnTarget(segment, baselineW, powerW, cadence) {
   if (segment.kind === 'sprint') return powerW >= baselineW * 1.2;
   if (segment.kind === 'drill' && segment.cadence) return Math.abs(cadence - segment.cadence) <= 5;
@@ -156,8 +74,8 @@ export class RideSession {
     this.model = model;
     this.ghost = ghost;
     // Effort multiplier the rider can change mid-ride; scales every power target.
-    this.difficulty = 1;
-    this._difficultyS = 0;
+    this.effort = 1;
+    this._effortS = 0;
 
     this.t = 0;
     this.dist = 0;
@@ -165,7 +83,7 @@ export class RideSession {
     this.input = { powerW: 0, cadence: 0, resistance: null, at: -Infinity };
     this.samples = { d: [0], p: [], c: [], r: [] };
     this.onTargetS = 0;
-    this.segOnTarget = workout.segments.map(() => ({ on: 0, total: 0, powerSum: 0, cadSum: 0, knobSum: 0, knobT: 0 }));
+    this.segOnTarget = workout.segments.map(() => ({ on: 0, total: 0, powerSum: 0, cadSum: 0, resistanceSum: 0, resistanceT: 0 }));
     this.gateResults = [];
     this._activeGate = null;
     this._lastSeg = 0;
@@ -202,18 +120,18 @@ export class RideSession {
 
     this.speed = stepSpeed(this.speed, powerW, realDt);
     this.dist += this.speed * realDt;
-    this._difficultyS += this.difficulty * realDt;
+    this._effortS += this.effort * realDt;
 
     const si = segmentIndexAt(this.workout, Math.max(0, this.t - 1e-6));
     const seg = this.workout.segments[si];
-    const knob = stale ? null : this.currentResistance();
-    const on = this.status(seg, powerW, cadence, knob).onTarget;
+    const resistance = stale ? null : this.currentResistance();
+    const on = this.status(seg, powerW, cadence, resistance).onTarget;
     if (on) this.onTargetS += realDt;
     const so = this.segOnTarget[si];
     so.total += realDt;
     so.powerSum += powerW * realDt;
     so.cadSum += cadence * realDt;
-    if (knob !== null) { so.knobSum += knob * realDt; so.knobT += realDt; }
+    if (resistance !== null) { so.resistanceSum += resistance * realDt; so.resistanceT += realDt; }
     if (on) so.on += realDt;
 
     // One sample per whole second, averaged over the second.
@@ -287,24 +205,24 @@ export class RideSession {
   }
 
   /** Set the effort multiplier (0.5-1.5, in 5% steps). Returns the new value. */
-  setDifficulty(value) {
-    const snapped = Math.round(value / DIFFICULTY_STEP) * DIFFICULTY_STEP;
-    this.difficulty = Math.round(Math.min(DIFFICULTY_MAX, Math.max(DIFFICULTY_MIN, snapped)) * 100) / 100;
-    return this.difficulty;
+  setEffort(value) {
+    const snapped = Math.round(value / EFFORT_STEP) * EFFORT_STEP;
+    this.effort = Math.round(Math.min(EFFORT_MAX, Math.max(EFFORT_MIN, snapped)) * 100) / 100;
+    return this.effort;
   }
 
   /** Make the ride easier (-1) or harder (+1) by one step. */
-  nudgeDifficulty(steps) {
-    return this.setDifficulty(this.difficulty + steps * DIFFICULTY_STEP);
+  nudgeEffort(steps) {
+    return this.setEffort(this.effort + steps * EFFORT_STEP);
   }
 
   /** Baseline with the current effort applied: what targets are built from. */
   get effectiveBaselineW() {
-    return this.baselineW * this.difficulty;
+    return this.baselineW * this.effort;
   }
 
   /**
-   * What to aim for in a step: power, cadence, and the knob level that gives
+   * What to aim for in a step: power, cadence, and the resistance level that gives
    * that power at that cadence (from the resistance model).
    */
   targetsFor(seg) {
@@ -313,9 +231,9 @@ export class RideSession {
 
   /**
    * How the rider is doing against the step's targets.
-   * Each of cadence/knob is 'on' | 'low' | 'high' (knob is null when unknown).
+   * Each of cadence/resistance is 'on' | 'low' | 'high' (resistance is null when unknown).
    */
-  status(seg, powerW, cadence, knob) {
+  status(seg, powerW, cadence, resistance) {
     const tg = this.targetsFor(seg);
     const sprint = seg.kind === 'sprint';
     const judge = (have, want, tol) => {
@@ -325,10 +243,10 @@ export class RideSession {
       return have < want ? 'low' : 'high';
     };
     const cadenceStatus = judge(cadence, tg.cadence, CADENCE_TOLERANCE);
-    const knobStatus = judge(knob === null ? null : Math.round(knob), tg.knob, KNOB_TOLERANCE);
-    // On target if the power is right, or if cadence and knob both match the plan.
-    const onTarget = isOnTarget(seg, this.effectiveBaselineW, powerW, cadence) || (cadenceStatus === 'on' && knobStatus === 'on');
-    return { targets: tg, cadenceStatus, knobStatus, onTarget };
+    const resistanceStatus = judge(resistance === null ? null : Math.round(resistance), tg.resistance, RESISTANCE_TOLERANCE);
+    // On target if the power is right, or if cadence and resistance both match the plan.
+    const onTarget = isOnTarget(seg, this.effectiveBaselineW, powerW, cadence) || (cadenceStatus === 'on' && resistanceStatus === 'on');
+    return { targets: tg, cadenceStatus, resistanceStatus, onTarget };
   }
 
   /** Everything the UI needs to draw a frame. */
@@ -344,24 +262,6 @@ export class RideSession {
 
     const st = this.status(seg, powerW, cadence, resistance);
     const tg = st.targets;
-    const res = formatRange(tg.knobRange);
-    const rpm = `${formatRange(tg.cadenceRange)} rpm`;
-    let cue;
-    if (resistance === null) {
-      cue = { type: 'up', text: `Set resistance to ${res}` };
-    } else if (st.knobStatus === 'low') {
-      cue = { type: 'up', text: `Resistance up to ${res}` };
-    } else if (st.knobStatus === 'high') {
-      cue = { type: 'down', text: `Resistance down to ${res}` };
-    } else if (st.cadenceStatus === 'low') {
-      cue = { type: 'up', text: `Pedal faster · ${rpm}` };
-    } else if (st.cadenceStatus === 'high') {
-      cue = { type: 'down', text: `Ease the cadence · ${rpm}` };
-    } else {
-      cue = { type: 'ok', text: 'Spot on, hold it' };
-    }
-    if (seg.kind === 'sprint') cue = { ...cue, type: 'gate', text: cue.type === 'ok' ? 'All out!' : cue.text };
-
     let gate = null;
     if (this._activeGate) {
       const g = this._activeGate;
@@ -391,18 +291,17 @@ export class RideSession {
       stepLeft: seg.start + seg.dur - this.t,
       targetW: tg.watts,
       targetCadence: tg.cadence,
-      targetKnob: tg.knob,
+      targetResistance: tg.resistance,
       cadenceRange: tg.cadenceRange,
-      knobRange: tg.knobRange,
+      resistanceRange: tg.resistanceRange,
       wattsRange: tg.wattsRange,
-      difficulty: this.difficulty,
+      effort: this.effort,
       powerW: Math.round(powerW),
       cadence: Math.round(cadence),
       resistance: resistance === null ? null : Math.round(resistance),
       cadenceStatus: st.cadenceStatus,
-      knobStatus: st.knobStatus,
+      resistanceStatus: st.resistanceStatus,
       onTarget: st.onTarget,
-      cue,
       gate,
       nextGate: upcoming ? { index: upcoming.index, count: w.gates.length, inS: upcoming.start - this.t } : null,
       noSignal: stale,
@@ -429,9 +328,9 @@ export class RideSession {
           label: s.label,
           avgW: so.total ? Math.round(so.powerSum / so.total) : 0,
           avgCadence: so.total ? Math.round(so.cadSum / so.total) : 0,
-          avgKnob: so.knobT ? Math.round(so.knobSum / so.knobT) : null,
+          avgResistance: so.resistanceT ? Math.round(so.resistanceSum / so.resistanceT) : null,
           targetCadence: tg.cadence,
-          targetKnob: tg.knob,
+          targetResistance: tg.resistance,
           onTargetPct: so.total ? Math.round((so.on / so.total) * 100) : 0,
         };
       });
@@ -442,7 +341,7 @@ export class RideSession {
       avgCadence: Math.round(avg(this.samples.c.filter((c) => c > 0))),
       onTargetS: this.onTargetS,
       onTargetPct: Math.round((this.onTargetS / Math.max(1, this.t)) * 100),
-      avgDifficulty: this.t ? Math.round((this._difficultyS / this.t) * 100) / 100 : 1,
+      avgEffort: this.t ? Math.round((this._effortS / this.t) * 100) / 100 : 1,
       ghostKind: this.ghost.kind,
       ghostFinal: this.ghost.distanceAt(this.t),
       gap: this.dist - this.ghost.distanceAt(this.t),

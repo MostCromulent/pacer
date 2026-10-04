@@ -94,7 +94,7 @@
         <fieldset class="group" data-step="2">
           <legend>Show targets as</legend>
           <div class="seg-toggle mode-toggle" role="group" aria-label="Show targets as">
-            <button id="mode-knob" class="seg" type="button" data-mode="knob">Cadence + resistance</button>
+            <button id="mode-resistance" class="seg" type="button" data-mode="resistance">Cadence + resistance</button>
             <button id="mode-watts" class="seg" type="button" data-mode="watts">Watts</button>
           </div>
           <p id="calib-nudge" class="nudge small" hidden>
@@ -232,9 +232,9 @@
               <p id="aside-line" class="aside-line"></p>
               <span class="effort" role="group" aria-label="Effort">
                 <span class="effort-lbl">Effort</span>
-                <button id="diff-down" class="icon-btn" type="button" aria-label="Easier" title="Easier (−)">−</button>
-                <span id="diff-val" class="effort-val" aria-live="polite">100%</span>
-                <button id="diff-up" class="icon-btn" type="button" aria-label="Harder" title="Harder (+)">+</button>
+                <button id="ride-effort-down" class="icon-btn" type="button" aria-label="Easier" title="Easier (−)">−</button>
+                <span id="ride-effort" class="effort-val" aria-live="polite">100%</span>
+                <button id="ride-effort-up" class="icon-btn" type="button" aria-label="Harder" title="Harder (+)">+</button>
               </span>
             </div>
           </div>
@@ -258,7 +258,7 @@
             <span class="muted small">Cadence</span>
             <span class="sim-ctrl"><button id="cad-down" class="icon-btn" type="button" aria-label="Slower cadence">−</button><span id="sim-cad" class="sim-val">0</span><button id="cad-up" class="icon-btn" type="button" aria-label="Faster cadence">+</button></span>
             <span class="muted small">Resistance</span>
-            <span class="sim-ctrl"><button id="knob-down" class="icon-btn" type="button" aria-label="Less resistance">−</button><span id="sim-knob" class="sim-val">0</span><button id="knob-up" class="icon-btn" type="button" aria-label="More resistance">+</button></span>
+            <span class="sim-ctrl"><button id="resistance-down" class="icon-btn" type="button" aria-label="Less resistance">−</button><span id="sim-resistance" class="sim-val">0</span><button id="resistance-up" class="icon-btn" type="button" aria-label="More resistance">+</button></span>
           </div>
           <p class="muted small">Keys: ↑ ↓ cadence, ← → resistance. − / + changes effort on any bike.</p>
         </div>
@@ -349,12 +349,12 @@
   <div class="calib-ask">
     <div>
       <span class="calib-ask-lbl">Resistance</span>
-      <span id="pace-r" class="knob-big">25</span>
+      <span id="pace-r" class="big-number">25</span>
       <span class="stepper"><button id="pace-r-down" class="icon-btn" type="button" aria-label="Lower resistance">−</button><button id="pace-r-up" class="icon-btn" type="button" aria-label="Higher resistance">+</button></span>
     </div>
     <div>
       <span class="calib-ask-lbl">Cadence</span>
-      <span class="knob-big"><span id="pace-c">75</span><small> rpm</small></span>
+      <span class="big-number"><span id="pace-c">75</span><small> rpm</small></span>
       <span class="stepper"><button id="pace-c-down" class="icon-btn" type="button" aria-label="Slower cadence">−</button><button id="pace-c-up" class="icon-btn" type="button" aria-label="Faster cadence">+</button></span>
     </div>
   </div>

@@ -426,8 +426,8 @@ main { padding: 0 32px 40px; }
 .calib-live .stat { background: var(--paper); }
 .calib-progress { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
 .calib-progress > i { display: block; height: 100%; width: 0; background: var(--sage); transition: width 0.3s; }
-.knob-big { display: block; font-family: var(--display); font-weight: 700; font-size: 56px; line-height: 1; }
-.knob-big small { font-size: 20px; color: var(--muted); }
+.big-number { display: block; font-family: var(--display); font-weight: 700; font-size: 56px; line-height: 1; }
+.big-number small { font-size: 20px; color: var(--muted); }
 .calib-ask { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 8px 0; }
 .calib-ask > div { background: var(--paper); border-radius: 16px; padding: 10px 14px; box-shadow: 0 2px 0 #EAD8C6; }
 .calib-ask .stepper { margin-top: 8px; }
