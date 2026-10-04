@@ -236,7 +236,7 @@ function makeBuilders(add, v, rand) {
       while (left >= style.climb[0] + 120) {
         const climb = Math.min(step(between(...style.climb)), left - 120);
         const pct = between(...style.pct);
-        add(climb, pct, 'work', { cadence: pct >= 92 ? 75 : 80, name: 'Hill' });
+        add(climb, pct, 'work', { cadence: pct >= 92 ? 65 : 72, name: 'Hill' });
         const descent = step(between(45, 90));
         add(descent, 56, 'recovery', { cadence: 95, name: 'Descent' });
         const flat = Math.min(step(between(60, 150)), left - climb - descent);
@@ -264,9 +264,9 @@ function makeBuilders(add, v, rand) {
         m++;
         add(approach, 70, 'steady', { cadence: 88, name: 'Approach' });
         for (let i = 0; i < steps; i++) {
-          add(style.stepS, style.start + i * style.rise, 'work', { cadence: 76 - i * 2, label: `Mountain ${m} · climb ${i + 1}/${steps}` });
+          add(style.stepS, style.start + i * style.rise, 'work', { cadence: Math.max(60, 72 - i * 3), label: `Mountain ${m} · climb ${i + 1}/${steps}` });
         }
-        add(summit, 108, 'work', { cadence: 80, label: `Mountain ${m} · summit` });
+        add(summit, 108, 'work', { cadence: 68, label: `Mountain ${m} · summit` });
         add(descent, 55, 'recovery', { cadence: 95, name: 'Descent' });
         left -= approach + steps * style.stepS + summit + descent;
       }
@@ -296,7 +296,7 @@ function makeBuilders(add, v, rand) {
     spinclass(budget) {
       const songs = {
         flat: () => [[240, 78, 'steady', { cadence: 95, name: 'Flat road' }]],
-        seated: () => [[120, 85, 'work', { cadence: 75, name: 'Seated climb' }], [120, 90, 'work', { cadence: 72, name: 'Seated climb' }]],
+        seated: () => [[120, 85, 'work', { cadence: 70, name: 'Seated climb' }], [120, 90, 'work', { cadence: 66, name: 'Seated climb' }]],
         standing: () => [[180, 95, 'work', { cadence: 65, name: 'Standing climb' }], [60, 58, 'recovery', { cadence: 90 }]],
         jumps: () => Array.from({ length: 4 }, () => [[30, 95, 'work', { cadence: 80, name: 'Jump' }], [30, 70, 'steady', { cadence: 85, hold: true, name: 'Settle' }]]).flat(),
         sprints: () => Array.from({ length: 2 }, () => [[30, 150, 'sprint', {}], [90, 55, 'recovery', { cadence: 90 }]]).flat(),
@@ -327,7 +327,7 @@ export function workoutFromCode(code) {
 }
 
 // Target cadence for each step, spin-class style: heavy climbs are ridden slower
-// with more resistance, short hard efforts and recoveries spin faster. Together
+// with more resistance (hills and mountains set their own, down to 60 rpm), short hard efforts and recoveries spin faster. Together
 // with the step's power this fixes the resistance for the step.
 function targetCadenceFor(s) {
   switch (s.kind) {

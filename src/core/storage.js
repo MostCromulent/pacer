@@ -10,6 +10,7 @@ const KEY_RIDES = 'ghostride.rides.v1';
 export const DEFAULT_SETTINGS = Object.freeze({
   baselineW: 200,
   effort: 1,
+  easyCadence: 80,
   model: DEFAULT_MODEL,
   muted: false,
   lastDuration: 30,

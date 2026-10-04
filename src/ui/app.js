@@ -243,7 +243,7 @@ function renderSetup() {
       ? `The saved calibration is for ${calibration.bike}. Until ${name} is calibrated, its resistance targets will be off. It takes about two and a half minutes of pedalling.`
       : `${name} hasn't been calibrated, so the resistance targets are a rough guess and probably won't match its screen. It takes about two and a half minutes of pedalling.`;
   }
-  $('baseline').value = settings.baselineW;
+  $('pace-chip').textContent = `${easyResistance()} at ${settings.easyCadence} rpm`;
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
     b.classList.toggle('on', on);
@@ -343,14 +343,61 @@ $('btn-shuffle').addEventListener('click', () => {
   renderSetup();
 });
 
-$('baseline').addEventListener('change', (e) => {
-  const v = Math.round(Number(e.target.value));
-  if (!(v >= 60 && v <= 600)) {
-    e.target.value = settings.baselineW;
-    toast('Baseline should be between 60 and 600 W.');
-    return;
-  }
-  saveSettings({ baselineW: v });
+// ---------------------------------------------------------------- easy pace
+//
+// Rides are scaled from a baseline in watts, which means nothing to most riders.
+// So it is set and shown as an easy spin on the bike: a resistance and a cadence.
+
+const EASY_PCT = 0.55; // an easy spin as a share of the baseline, as in recovery steps
+const PACE_EXAMPLES = [
+  { name: 'Recovery spin', pct: 0.55, cadence: 92 },
+  { name: 'Steady riding', pct: 0.7, cadence: 88 },
+  { name: 'Hard effort', pct: 1.05, cadence: 80 },
+];
+
+function baselineFor(resistance, cadence) {
+  return Math.min(900, Math.max(60, Math.round(powerFor(settings.model, resistance, cadence) / EASY_PCT)));
+}
+
+/** The easy-spin resistance that the current baseline stands for. */
+function easyResistance(baselineW = settings.baselineW) {
+  return Math.round(resistanceFor(settings.model, baselineW * EASY_PCT, settings.easyCadence));
+}
+
+const pace = { resistance: 25, cadence: 80 };
+
+function renderPace() {
+  $('pace-r').textContent = String(pace.resistance);
+  $('pace-c').textContent = String(pace.cadence);
+  const baselineW = baselineFor(pace.resistance, pace.cadence);
+  $('pace-rows').innerHTML = PACE_EXAMPLES.map(({ name, pct, cadence }) => {
+    const watts = baselineW * pct;
+    return `<tr><td>${name}</td><td>resistance ${Math.round(resistanceFor(settings.model, watts, cadence))} at ${cadence} rpm</td><td>${Math.round(watts)} W</td></tr>`;
+  }).join('');
+  $('pace-note').textContent = settings.model.calibrated
+    ? 'Watts are as the bike reports them. The same effort at a faster cadence needs less resistance.'
+    : "The bike isn't calibrated yet, so these resistances are rough.";
+}
+
+$('btn-pace').addEventListener('click', () => {
+  pace.resistance = easyResistance();
+  pace.cadence = settings.easyCadence;
+  renderPace();
+  $('pace-dialog').showModal();
+});
+for (const [id, key, step, lo, hi] of [
+  ['pace-r-down', 'resistance', -1, 1, 100], ['pace-r-up', 'resistance', 1, 1, 100],
+  ['pace-c-down', 'cadence', -5, 50, 110], ['pace-c-up', 'cadence', 5, 50, 110],
+]) {
+  $(id).addEventListener('click', () => {
+    pace[key] = Math.min(hi, Math.max(lo, pace[key] + step));
+    renderPace();
+  });
+}
+$('pace-cancel').addEventListener('click', () => $('pace-dialog').close());
+$('pace-save').addEventListener('click', () => {
+  saveSettings({ baselineW: baselineFor(pace.resistance, pace.cadence), easyCadence: pace.cadence });
+  $('pace-dialog').close();
   renderSetup();
 });
 
@@ -1010,23 +1057,23 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
         calib.start();
       };
     } else if (ratio > 1.04 || ratio < 0.9) {
-      $('btn-apply-baseline').textContent = 'Update baseline';
+      $('btn-apply-baseline').textContent = ratio > 1 ? 'Make rides harder' : 'Make rides easier';
       const cap = Math.max(0.08, Math.abs(sum.avgDifficulty - 1) + 0.02);
       const suggested = Math.round((session.baselineW * Math.min(1 + cap, Math.max(1 - cap, ratio))) / 5) * 5;
       if (suggested !== session.baselineW) {
         const changedEffort = Math.abs(sum.avgDifficulty - 1) >= 0.03;
         $('baseline-tip-text').textContent = ratio > 1
           ? changedEffort
-            ? `You turned the effort up to ${effortPct}% and held it. Make ${suggested} W your new baseline?`
-            : `You rode the hard efforts ${Math.round((ratio - 1) * 100)}% above target. Raise your baseline to ${suggested} W?`
+            ? `You turned the effort up to ${effortPct}% and held it. Make that your normal?`
+            : `You rode the hard efforts ${Math.round((ratio - 1) * 100)}% above target. Make rides harder from now on?`
           : changedEffort
-            ? `You eased the effort to ${effortPct}% today. Lower your baseline to ${suggested} W?`
-            : `The hard efforts were tough today (${Math.round((1 - ratio) * 100)}% under target). Lower your baseline to ${suggested} W?`;
+            ? `You eased the effort to ${effortPct}% today. Make that your normal?`
+            : `The hard efforts were tough today (${Math.round((1 - ratio) * 100)}% under target). Make rides easier from now on?`;
         tip.hidden = false;
         $('btn-apply-baseline').onclick = () => {
           saveSettings({ baselineW: suggested, effort: 1 });
           tip.hidden = true;
-          toast(`Baseline set to ${suggested} W.`);
+          toast(`Your easy pace is now resistance ${easyResistance(suggested)} at ${settings.easyCadence} rpm.`);
         };
       }
     }

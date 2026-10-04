@@ -74,10 +74,8 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: #D6C7B8; }
 .chip.ok .dot { background: #6FA67E; }
 .chip.warn .dot { background: var(--mustard); }
-.baseline input {
-  width: 64px; border: 2px solid var(--track); border-radius: 10px; padding: 3px 6px;
-  font: inherit; color: var(--ink); background: var(--cream); text-align: right;
-}
+.chip-btn { border: 0; color: var(--ink); font-family: inherit; cursor: pointer; }
+.chip-btn b { color: var(--lavender-text); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- buttons ---------- */
 .btn {
@@ -356,6 +354,7 @@ main { padding: 0 32px 40px; }
 .knob-big small { font-size: 20px; color: var(--muted); }
 .calib-ask { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 8px 0; }
 .calib-ask > div { background: var(--paper); border-radius: 16px; padding: 10px 14px; box-shadow: 0 2px 0 #EAD8C6; }
+.calib-ask .stepper { margin-top: 8px; }
 .calib-ask-lbl { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .calib-live .stat.good { background: var(--sage); }
 .calib-live .stat.off { background: var(--mustard); }

@@ -45,8 +45,8 @@ arrow keys (↑ ↓ cadence, ← → resistance).
 ### Targets are cadence and resistance
 
 Each step gives you two ranges to stay in, the way a spin class does: a
-**cadence** range (rpm) and a **resistance** range. Heavy climbs are ridden at
-75–85 rpm with more resistance, recoveries spin at 87–97 rpm, and sprints at
+**cadence** range (rpm) and a **resistance** range. Hills and climbs are ridden slow and
+heavy, at 60–75 rpm with more resistance, recoveries spin at 87–97 rpm, and sprints at
 100+. Each tile shows the range big and what you're doing now underneath, and
 turns sage when you're in it, mustard when you're under, and blue when you're
 over. The line underneath says which to change first, e.g.
@@ -57,12 +57,14 @@ mini window (or the `-` and `+` keys) to make the ride easier or harder in 5%
 steps, from 70% to 130%. It scales the power behind every step, so the
 resistance ranges move while cadence stays the same. The summary notes the
 effort you rode at, and if you held a higher (or lower) effort it offers to
-make that your new baseline.
+make that your normal.
 
 **How hard?** on the setup screen sets the effort a ride starts at, and shows
 what that means on the bike: the resistance and cadence of the easiest and
-hardest steps. If the easiest step is far from what an easy spin feels like to
-you, change the **Baseline** in the top bar until it matches.
+hardest steps. Rides are sized from your **easy pace**, in the top bar: the resistance and
+cadence you could ride at while holding a conversation. Easy steps sit around
+it and hard ones are scaled up from it. (Underneath it is a baseline in watts,
+which you never need to see.)
 
 Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 
@@ -137,7 +139,7 @@ level over Bluetooth, the app reads it directly.
   - soft chimes before each change (mute button in the corner).
 - **Summary**: the gap to the ghost minute by minute, each hard effort compared
   with last time, and every ride of that workout. If the hard efforts were
-  clearly too easy or too hard, it offers to adjust your baseline.
+  clearly too easy or too hard, it offers to make rides harder or easier.
 - **Your data stays local**: rides are kept in this browser. Use *Export rides*
   / *Import rides* to back them up or move to another computer.
 

@@ -28,8 +28,8 @@ const MIN_SLOPE = 0.004; // ln(watts) per level; keeps extrapolation increasing
 /**
  * The calibration ride. Two levels are ridden at both a slow and a fast cadence:
  * that's what pins down how watts change with cadence, which a ride at one
- * steady cadence can't tell us. Heavy levels pair with slow cadences so no step
- * asks for silly watts.
+ * steady cadence can't tell us. Heavy levels pair with slow cadences, down to the
+ * 60 rpm that climbs are ridden at, so no step asks for silly watts.
  */
 export const CALIBRATION_STEPS = Object.freeze([
   { resistance: 20, cadence: 85 },
@@ -39,8 +39,8 @@ export const CALIBRATION_STEPS = Object.freeze([
   { resistance: 50, cadence: 70 },
   { resistance: 50, cadence: 100 },
   { resistance: 60, cadence: 85 },
-  { resistance: 70, cadence: 75 },
-  { resistance: 80, cadence: 70 },
+  { resistance: 70, cadence: 65 },
+  { resistance: 80, cadence: 60 },
 ]);
 
 function g(model, r) {
