@@ -688,6 +688,9 @@ function startRide(workout) {
   updatePauseButton();
   showScreen('ride');
   state.lastDom = 0;
+  // Rides open in the mini window. The browser only allows that straight from
+  // a click, which starting a ride always is.
+  if (pipSupported() && !(state.pipWin && !state.pipWin.closed)) togglePip();
 }
 
 function applyTerrain() {

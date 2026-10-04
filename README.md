@@ -39,7 +39,7 @@ arrow keys (↑ ↓ cadence, ← → resistance).
 3. Choose a length (sitcom 22, half hour 30, drama 45, double 60, or any length
    from 10 to 120 minutes), a workout type and who to race, then **Start ride**.
    The ride clock starts when you start pedalling.
-4. Click **Pop out the mini window**. The ride moves into a small always-on-top
+4. The ride opens in the mini window: a small always-on-top
    window, so you can put your show full screen. Drag the window bigger and
    everything in it scales up, which helps if the screen is across the room.
 
