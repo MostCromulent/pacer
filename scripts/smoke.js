@@ -152,7 +152,7 @@ try {
     await click('.step[data-go="0"]');
     // Tapping a part of the preview says what it is.
     await run(`document.querySelector('#preview-chart rect[data-seg="0"]').dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
-    expect(/^Warm-up · .*resistance/.test(await text('#preview-pick')), 'tapping the preview did not describe the warm-up');
+    expect(/^Warm-up.*resistance/.test(await text('#preview-pick')), 'tapping the preview did not describe the warm-up');
     await press('#btn-start');
     await until('the ride to start', `window.pacer.state.screen === 'ride' && window.pacer.state.started`);
     expect(await run(`!!window.pacer.state.pipWin`), 'the mini window did not open');

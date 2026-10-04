@@ -39,7 +39,7 @@ export function pickGhost(workout) {
 // The part of the ride picked on the preview chart, remembered while the ride stays the same.
 const picked = { code: null, span: null };
 
-/** Tap or hover a part of the preview to read what it is: its name, length and targets. */
+/** Tap or hover a part of the preview for a tooltip saying what it is: its name, length and targets. */
 function showPicked(w) {
   if (picked.code !== w.code) Object.assign(picked, { code: w.code, span: null });
   const spans = rideSpans(w);
@@ -47,10 +47,9 @@ function showPicked(w) {
   const svg = $('preview-chart').querySelector('svg');
   svg.classList.toggle('picked', !!span);
   for (const bar of svg.querySelectorAll('.step-bar')) bar.classList.toggle('on', !!span && span.segs.includes(Number(bar.dataset.seg)));
-  if (!span) {
-    $('preview-pick').textContent = 'Tap a part of the ride to see what it is.';
-    return;
-  }
+  const tip = $('preview-pick');
+  tip.hidden = !span;
+  if (!span) return;
   const steps = span.segs.map((i) => w.segments[i]);
   const targets = steps.map((seg) => stepTargets(seg, w.segments, settings.baselineW * settings.effort, activeModel()));
   const cadences = targets.map((t) => t.cadence);
@@ -64,7 +63,13 @@ function showPicked(w) {
     `cadence ${span2(Math.min(...cadences), Math.max(...cadences))}`,
     steps.every((x) => x.position === 'standing') ? 'out of the saddle' : steps.some((x) => x.position === 'standing') ? 'in and out of the saddle' : '',
   ];
-  $('preview-pick').innerHTML = `<b>${esc(span.name)}</b> · ${facts.filter(Boolean).join(' · ')}`;
+  tip.innerHTML = `<b>${esc(span.name)}</b>${facts.filter(Boolean).join(' · ')}`;
+  // Over the middle of the part picked, but kept inside the chart.
+  const box = svg.getBoundingClientRect();
+  const half = tip.offsetWidth / 2;
+  const wrap = tip.parentElement.getBoundingClientRect();
+  const mid = box.left - wrap.left + (((span.from + span.to) / 2) / w.totalS) * box.width;
+  tip.style.left = `${Math.min(wrap.width - half - 6, Math.max(half + 6, mid))}px`;
 }
 
 function pickAt(e) {
@@ -78,6 +83,11 @@ function pickAt(e) {
 }
 $('preview-chart').addEventListener('click', pickAt);
 $('preview-chart').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') pickAt(e); });
+$('preview-chart').addEventListener('pointerleave', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  picked.span = null;
+  showPicked(currentWorkout());
+});
 
 const TYPE_COLORS = {
   endurance: '#9CC5A1', recovery: '#C3DDC6', lowimpact: '#A9D3D0', sweetspot: '#F2C14E', progression: '#F0B35A',
