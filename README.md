@@ -173,6 +173,5 @@ warranty.
 
 ## 🤖 How this was made
 
-Pacer was written with AI assistance. The code, tests and this README were
-produced by [Claude Code](https://claude.com/claude-code), Anthropic's coding
-assistant, directed and tested on a real bike by the repository's owner.
+Written with [Claude Code](https://claude.com/claude-code), and tested on a
+real bike.
