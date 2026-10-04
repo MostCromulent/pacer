@@ -6,6 +6,8 @@
 //
 // - The class has an arc: blocks are ranked by how hard they are and ridden in
 //   rising waves, with a recovery between waves.
+// - Two blocks of repeated pushes never run back to back: an easier spell goes
+//   between them, a recovery after a hard one and flat road otherwise.
 // - It finishes on one of its hardest blocks, straight into the cool-down.
 // - Blocks join up: one that starts from a base effort picks that base near the
 //   resistance the last block ended on, to save turning the dial back and forth.
@@ -44,6 +46,8 @@ export const SPIN_BLOCKS = Object.freeze([
 const STAND_SHARE = 0.22; // most of a class that may be ridden out of the saddle
 const ALL_OUT_SHARE = 0.08; // most of a class that may be flat out
 const LOW_RESISTANCE_CAP = 50;
+const REST_S = 60; // a recovery this long at the end of a block counts as a break before the next
+const BREATHER_S = 90; // the least easy riding between a block of pushes and a finale of them
 
 /** Left-out block ids -> a number for the workout code, and back. */
 export function excludeMask(ids = []) {
@@ -77,6 +81,9 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   const makers = {
     flat: () => ({ parts: [[step(between(180, 270), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road' }]] }),
     recover: () => ({ parts: [[step(between(150, 210), 30), 55, 'recovery', { cadence: 75 }]] }),
+    // The short spells that keep two blocks of pushes apart.
+    rest: () => ({ parts: [[step(between(75, 105)), 55, 'recovery', { cadence: 75 }]] }),
+    ease: () => ({ parts: [[step(between(75, 105)), between(66, 72), 'steady', { cadence: int(85, 92), name: 'Flat road' }]] }),
     seated: () => {
       const cadence = int(68, 73);
       const pct = near(82, 87, cadence);
@@ -173,7 +180,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     lastPush: () => ({ parts: [[60, 150, 'sprint', { name: 'Last push' }]] }),
   };
 
-  const title = (id) => SPIN_BLOCKS.find((b) => b.id === id)?.title ?? 'Recovery';
+  const title = (id) => SPIN_BLOCKS.find((b) => b.id === id)?.title ?? (id === 'ease' ? 'Flat road' : 'Recovery');
   const allowed = SPIN_BLOCKS.filter((b) => b.always || (!exclude.includes(b.id) && (!low || b.gentle)));
 
   // Low impact: efforts above an easy pace are pulled 40% of the way back
@@ -197,6 +204,8 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   let standLeft = budget * STAND_SHARE;
   let allOutLeft = Math.max(60, budget * ALL_OUT_SHARE);
   let lastKind = null;
+  let rested = true; // the last block ended on a proper recovery (or nothing has been ridden yet)
+  let needsBreak = false; // the last block was rounds of pushes and didn't end on one
   const emit = ({ id, rounds, steps }) => {
     steps.forEach(([dur, pct, kind, opts], i) => {
       add(dur, pct, kind, { ...opts, block: title(id), ...(i === 0 ? { blockStart: true, ...(rounds ? { rounds } : {}) } : {}) });
@@ -206,6 +215,8 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     standLeft -= c.stand;
     allOutLeft -= c.allOut;
     lastKind = steps.at(-1)[2];
+    rested = lastKind === 'recovery' && steps.at(-1)[0] >= REST_S;
+    needsBreak = !!rounds && !rested;
     return c.len;
   };
 
@@ -249,20 +260,32 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   };
 
   let left = finale ? budget - cost(finale.steps).len : budget;
+  // A finale of pushes is kept apart from the block before it by a short cruise.
+  const breather = finale?.rounds && left > BREATHER_S + 240 ? BREATHER_S : 0;
+  left -= breather;
+  const levelOf = (id) => SPIN_BLOCKS.find((b) => b.id === id)?.level ?? 0;
+  let lastLevel = 0;
   // Keep making passes until several in a row add nothing: one random handful
   // of blocks may all be too long, or over a cap, when the next would fit.
   for (let pass = 0, empty = 0; pass < 40 && empty < 5; pass++) {
     let added = 0;
     for (const id of arc(pass === 0, left)) {
-      if (id === 'recover' && (lastKind === 'recovery' || lastKind === null)) continue;
+      if (id === 'recover' && rested) continue;
       const made = build(id);
       const c = cost(made.steps);
       if (c.len > left || c.stand > standLeft || c.allOut > allOutLeft) continue;
+      if (made.rounds && needsBreak) {
+        const spell = build(lastLevel >= 4 ? 'rest' : 'ease');
+        if (cost(spell.steps).len + c.len > left) continue;
+        left -= emit(spell);
+      }
       left -= emit(made);
+      lastLevel = levelOf(id);
       added += 1;
     }
     empty = added ? 0 : empty + 1;
   }
+  left += breather;
   if (left > 0) add(left, 62, 'steady', { name: 'Cruise', ...(low ? { resistanceCap: LOW_RESISTANCE_CAP } : {}) });
   if (finale) emit(finale);
 }

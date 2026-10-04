@@ -200,3 +200,23 @@ test('blocks that open on a short step still say their numbers, and titles are n
   const last = { kind: 'sprint', dur: 60, label: 'Last push', name: 'Last push', block: 'Last push', blockStart: true, position: 'seated' };
   assert.equal(spokenCue(last, tg), 'Last push. All out.');
 });
+
+test('two blocks of pushes never run back to back', () => {
+  for (const type of ['spinclass', 'spinlow']) {
+    for (const minutes of [22, 30, 45, 60]) {
+      for (let variant = 0; variant < 40; variant++) {
+        const w = generateWorkout(type, minutes, variant);
+        const blocks = [];
+        for (const seg of w.segments) {
+          if (!blocks.length || seg.blockStart || seg.block !== blocks.at(-1).name) blocks.push({ name: seg.block, rounds: seg.rounds, steps: [] });
+          blocks.at(-1).steps.push(seg);
+        }
+        for (let i = 1; i < blocks.length; i++) {
+          const before = blocks[i - 1], last = before.steps.at(-1);
+          if (!before.rounds || !blocks[i].rounds) continue;
+          assert.ok(last.kind === 'recovery' && last.dur >= 60, `${w.code}: ${before.name} runs straight into ${blocks[i].name}`);
+        }
+      }
+    }
+  }
+});
