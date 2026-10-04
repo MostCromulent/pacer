@@ -237,12 +237,13 @@ function renderSetup() {
       <span class="type-group-arrow" aria-hidden="true"></span>
     </button>`;
     if (!open) return head;
-    return head + list.map((t, i) => `
+    // An open group is one shaded box in the group's colour, holding its rides.
+    return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-list">` + list.map((t, i) => `
     <button type="button" class="type${list.length % 2 && i === list.length - 1 ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
       <span><span class="name">${esc(t.name)}</span><span class="hint">${esc(t.hint)}</span></span>
-    </button>`).join('');
+    </button>`).join('') + '</div></div>';
   }).join('');
 
   const choices = ghostChoices(w.code);

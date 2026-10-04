@@ -163,6 +163,12 @@ main { padding: 0 32px 40px; }
   border: 2px dashed var(--lavender-deep); border-radius: 14px; background: var(--lavender-soft); color: var(--lavender-text);
   font-family: inherit; font-weight: 800; font-size: 15px; cursor: pointer;
 }
+.type-open {
+  grid-column: 1 / -1; border-radius: 16px; border: 2px solid var(--group);
+  background: color-mix(in srgb, var(--group) 28%, var(--cream));
+}
+.type-open .type-group { width: 100%; border-radius: 12px 12px 0 0; }
+.type-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px; }
 .type-group {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px;
   border: 0; border-radius: 14px; background: var(--sand); color: var(--ink); font-family: inherit; cursor: pointer; text-align: left;
