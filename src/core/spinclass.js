@@ -24,11 +24,13 @@
 //   of becoming a spell of riding with nothing to do.
 // - Blocks join up: one that starts from a base effort picks that base near the
 //   resistance the last block ended on, to save turning the dial back and forth.
+// - A step that holds the resistance and changes only the cadence is planned at
+//   the effort that really comes to, since watts rise steeply with cadence.
 // - Time out of the saddle and time flat out are capped as a share of the class.
 // - Blocks can be left out (`exclude`).
 // - The low impact class is the same class kept gentle: every effort is eased,
-//   cadence stays at 100 rpm or less and resistance at 50 or less, and nobody
-//   leaves the saddle. Blocks that can be ridden that way build a gentle form
+//   cadence stays between 75 and 100 rpm and resistance at 50 or less, and
+//   nobody leaves the saddle. Blocks that can be ridden that way build a gentle form
 //   of themselves; the rest are left out.
 
 import { clamp, draws, roundTo, seededRandom, stretchFor } from './util.js';
@@ -86,9 +88,9 @@ const PEAK_WEIGHT = 0.3; // how far a block's hardest step lifts it above its av
 // Rests. A block earns a second of rest for every REST_EARNED effort-seconds above easy.
 const REST_EARNED = 47;
 const SHORTEST_REST_S = 60; // less than this isn't worth stopping for
-const LONGEST_REST_S = 240;
+const LONGEST_REST_S = 150;
 const RECOVERY_FROM_S = 90; // a rest this long is a proper recovery; a shorter one is flat road
-const BETWEEN_ROUNDS_S = 75; // the least rest after a block of repeated pushes
+const BETWEEN_ROUNDS_S = 75; // the least rest after a block of repeated pushes, or one that ends hard
 const OWN_REST_S = 60; // a block ending on a recovery this long has already rested
 const LEAD_IN_S = 90; // the least easy riding before the finale
 
@@ -97,6 +99,10 @@ const SHORTEST_BODY_S = 180; // a finale must leave at least this for the rest o
 const MOST_EXTRA_ROUNDS = 1.3; // a long class has up to this many times the rounds
 const MOST_STRETCH = 0.25; // how much longer left-over time may make a steady step
 const LOW_RESISTANCE_CAP = 50;
+const LOW_CADENCES = [75, 100]; // a gentle class neither grinds nor spins out
+// Watts rise with about this power of cadence at a fixed resistance. Bikes
+// differ a little; this is only for planning how hard a held step is.
+const CADENCE_POWER = 1.6;
 
 /** Left-out block ids -> a number for the workout code, and back. */
 export function excludeMask(ids = []) {
@@ -117,43 +123,48 @@ function blockMakers({ between, int, near, reps, low }) {
   const step = roundTo;
   const times = (n, make) => Array.from({ length: n }, (_, i) => make(i)).flat();
   return {
-    flat: () => ({ parts: [[step(between(180, 270), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road' }]] }),
+    flat: () => ({ parts: [[step(between(120, 180), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road', most: 180 }]] }),
     seated: () => {
       const cadence = int(68, 73);
       const pct = near(82, 87, cadence);
       return { parts: [[120, pct, 'work', { cadence, name: 'Seated climb' }], [120, pct + between(4, 7), 'work', { cadence: cadence - int(3, 5), name: 'Seated climb' }]] };
     },
-    standing: () => ({ parts: [[step(between(150, 210), 30), between(92, 98), 'work', { cadence: int(62, 67), name: 'Standing climb', stand: true }], [60, 55, 'recovery', { cadence: 75 }]] }),
+    standing: () => ({ parts: [[step(between(120, 165), 15), between(92, 98), 'work', { cadence: int(62, 67), name: 'Standing climb', stand: true, most: 180 }], [60, 55, 'recovery', { cadence: 75 }]] }),
+    // Up out of the saddle and back down on one resistance, sitting at an easier cadence.
     jumps: () => {
       const rounds = reps(3, 5);
-      const pct = between(92, 98);
+      const pct = between(86, 92);
       const up = [20, 30][int(0, 1)];
-      return { rounds, parts: times(rounds, () => [[up, pct, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, 70, 'steady', { cadence: 85, hold: true, name: 'Settle' }]]) };
+      return { rounds, parts: times(rounds, () => [[up, pct, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, pct, 'steady', { cadence: 72, hold: true, name: 'Settle' }]]) };
     },
     // Flat out, with a recovery after each. Gentle: a fast seated surge instead.
     sprints: () => {
+      if (low) {
+        const rounds = reps(3, 4);
+        const [on, off] = [step(between(30, 40), 5), step(between(45, 60))];
+        return { rounds, parts: times(rounds, () => [[on, 115, 'work', { cadence: 100, name: 'Surge' }], [off, 55, 'recovery', { cadence: 75 }]]) };
+      }
       const rounds = reps(2, 3);
-      const effort = low ? [115, 'work', { cadence: 100, name: 'Surge' }] : [150, 'sprint', {}];
-      return { rounds, parts: times(rounds, () => [[[20, 30][int(0, 1)], ...effort], [step(between(75, 105)), 55, 'recovery', { cadence: 75 }]]) };
+      return { rounds, parts: times(rounds, () => [[[20, 30][int(0, 1)], 150, 'sprint', {}], [step(between(60, 75)), 55, 'recovery', { cadence: 75 }]]) };
     },
-    // Out of the saddle for longer each time, sitting between at the same
-    // resistance. Gentle: the same ladder of pushes, seated.
+    // Out of the saddle for longer each time, taking some resistance off to
+    // sit between. Gentle: the same ladder of pushes, seated.
     ladder: () => {
       const rounds = reps(3, 4);
       const first = [20, 30][int(0, 1)];
       const pct = between(95, 101);
       const cadence = int(68, 74);
-      return { rounds, parts: times(rounds, (i) => [[first + i * 15, pct, 'work', { cadence, name: low ? 'Push' : 'Stand', stand: true }], [30, 70, 'recovery', { cadence: Math.max(60, cadence - 10), hold: true, name: low ? 'Settle' : 'Sit' }]]) };
+      return { rounds, parts: times(rounds, (i) => [[first + i * 15, pct, 'work', { cadence, name: low ? 'Push' : 'Stand', stand: true }], [30, 68, 'recovery', { cadence: 75, name: low ? 'Settle' : 'Sit' }]]) };
     },
     // Pushes go up and back several times, changing one thing and holding the other.
-    // Cadence: 15-25 rpm faster on the same resistance.
+    // Cadence: 12-20 rpm faster on the same resistance.
     cadencePush: () => {
       const rounds = reps(3, 4);
       const base = int(78, 85);
-      const fast = base + int(15, 25);
+      const fast = base + int(12, 20);
       const [settle, push] = [step(between(40, 60)), step(between(25, 40), 5)];
-      const pct = near(70, 77, base);
-      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence: base, name: 'Settle' }], [push, pct * 1.3, 'work', { cadence: fast, hold: true, name: 'Cadence push' }]]) };
+      const pct = near(68, 74, base);
+      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence: base, name: 'Settle' }], [push, pct, 'work', { cadence: fast, hold: true, name: 'Cadence push' }]]) };
     },
     // Resistance: about eight to twelve levels heavier at the same cadence.
     resistancePush: () => {
@@ -181,8 +192,8 @@ function blockMakers({ between, int, near, reps, low }) {
       const rise = between(3, 4.5);
       return { parts: times(n, (i) => [[20, from + i * rise, 'work', { cadence, creep: true, label: `Creep ${i + 1}/${n}` }]]) };
     },
-    // Eight rounds of 20 seconds flat out and 10 seconds off, on one resistance.
-    tabata: () => ({ rounds: 8, parts: times(8, (i) => [[20, 145, 'work', { cadence: 100, label: `Tabata ${i + 1}/8` }], [10, 45, 'recovery', { cadence: 70, hold: true, name: 'Rest' }]]) }),
+    // Eight rounds of 20 seconds very hard and 10 seconds of easy legs, on one resistance.
+    tabata: () => ({ rounds: 8, parts: times(8, (i) => [[20, 125, 'work', { cadence: 100, label: `Tabata ${i + 1}/8` }], [10, 125, 'recovery', { cadence: 65, hold: true, name: 'Rest' }]]) }),
     // The cadence climbs in stages on a light resistance, then settles.
     spinups: () => {
       const rounds = reps(2, 3);
@@ -191,8 +202,8 @@ function blockMakers({ between, int, near, reps, low }) {
       const stages = [[80, 1], [90, 1.2], [100, 1.42], [110, 1.65]];
       return {
         rounds,
-        parts: times(rounds, () => [
-          ...stages.map(([cadence, more], i) => [stage, pct * more, 'drill', { cadence, hold: i > 0, name: 'Spin-up' }]),
+        parts: times(rounds, (round) => [
+          ...stages.map(([cadence, more], i) => [stage, pct * more, 'drill', { cadence, hold: i > 0, label: `Spin-up ${round + 1}/${rounds}` }]),
           [40, pct, 'steady', { cadence: 80, hold: true, name: 'Settle' }],
         ]),
       };
@@ -212,9 +223,9 @@ function blockMakers({ between, int, near, reps, low }) {
       return { rounds, parts: times(rounds, () => [[30, pct, 'work', { cadence, name: 'Switchback' }], [30, pct * 0.92, 'work', { cadence: cadence - 5, hold: true, name: 'Stand up', stand: true }]]) };
     },
     // One hard, steady, seated effort.
-    timeTrial: () => ({ parts: [[step(between(240, 360), 30), between(92, 97), 'work', { cadence: int(88, 94), name: 'Time trial' }]] }),
-    // A single flat-out minute to finish on.
-    lastPush: () => ({ parts: [[60, 150, 'sprint', { name: 'Last push' }]] }),
+    timeTrial: () => ({ parts: [[step(between(240, 360), 30), between(92, 97), 'work', { cadence: int(88, 94), name: 'Time trial', most: 420 }]] }),
+    // A last minute to finish on: one resistance, faster every 20 seconds, flat out at the end.
+    lastPush: () => ({ parts: [[20, 105, 'work', { cadence: 85, name: 'Build' }], [20, 105, 'work', { cadence: 95, hold: true, name: 'Faster' }], [20, 105, 'sprint', { cadence: 105, hold: true, name: 'Last push' }]] }),
   };
 }
 
@@ -232,7 +243,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   // towards it, seated, with a ceiling on cadence and on resistance.
   const ease = (pct) => (low && pct > 60 ? 60 + (pct - 60) * 0.6 : pct);
   const gentle = ([dur, pct, kind, { stand, ...opts }]) => (low
-    ? [dur, ease(pct), kind, { ...opts, cadence: Math.min(100, opts.cadence ?? 100), resistanceCap: LOW_RESISTANCE_CAP }]
+    ? [dur, ease(pct), kind, { ...opts, cadence: clamp(opts.cadence ?? LOW_CADENCES[1], ...LOW_CADENCES), resistanceCap: LOW_RESISTANCE_CAP }]
     : [dur, pct, kind, { ...opts, ...(stand ? { stand } : {}) }]);
 
   /** What a run of steps asks of the rider. */
@@ -261,11 +272,20 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     const { between, int } = draws(seededRandom(seed));
     const near = (lo, hi, cadence) => {
       const drawn = between(lo, hi);
-      return load === null ? drawn : clamp(load * (cadence / 80) ** 1.5 + (drawn - (lo + hi) / 2) / 2, lo, hi);
+      return load === null ? drawn : clamp(load * (cadence / 80) ** CADENCE_POWER + (drawn - (lo + hi) / 2) / 2, lo, hi);
     };
     const reps = (lo, hi) => Math.round(int(lo, hi) * roundsScale);
     const made = blockMakers({ between, int, near, reps, low })[id]();
-    const steps = made.parts.map(([dur, ...rest]) => gentle([dur >= 120 ? roundTo(dur * stretch, 30) : dur, ...rest]));
+    // Long steps grow with the class, up to the most a step of that kind should last.
+    const steps = made.parts.map(([dur, pct, kind, { most = Infinity, ...opts }]) => gentle([dur >= 120 ? Math.min(most, roundTo(dur * stretch, 30)) : dur, pct, kind, opts]));
+    // A held step is ridden on the resistance of the step it holds, so its
+    // effort follows from the change of cadence, whatever was written for it.
+    let base = null;
+    for (const st of steps) {
+      // (Cadences are called to the nearest five, as the ride does.)
+      if (st[3].hold && base) st[1] = base[1] * (roundTo(st[3].cadence, 5) / roundTo(base[3].cadence, 5)) ** CADENCE_POWER;
+      else base = st;
+    }
     return { id, seed, title: titleOf(id), rounds: made.rounds, steps };
   };
 
@@ -274,7 +294,8 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     const last = block.steps.at(-1);
     const own = last[2] === 'recovery' ? last[0] : 0;
     let rest = roundTo(m.strain / REST_EARNED) - own;
-    if (block.rounds && own < OWN_REST_S) rest = Math.max(rest, BETWEEN_ROUNDS_S);
+    const endsHard = last[1] >= ease(HARD_PCT);
+    if ((block.rounds || endsHard) && own < OWN_REST_S) rest = Math.max(rest, BETWEEN_ROUNDS_S);
     return rest < SHORTEST_REST_S ? 0 : Math.min(rest, LONGEST_REST_S);
   };
   /** An easy spell: a recovery if it's long enough to be one, otherwise flat road. */
@@ -354,19 +375,34 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     }
 
     // In that order, each block is built again to start near the resistance
-    // the one before it ended on, which can shift its efforts a little.
-    let load = null;
-    const blocks = [opener, ...inWaves(body), ...(finale ? [finale] : [])].map((b) => {
-      const joined = make(b.id, b.seed, load);
-      for (const [, pct, kind, opts] of joined.steps) {
-        if (kind !== 'recovery' && !opts.hold && opts.cadence) load = pct / (opts.cadence / 80) ** 1.5;
-      }
-      const block = b.finale ? asFinale(joined) : { ...joined, m: measure(joined.steps) };
-      return { ...block, rest: b.rest, fixed: !!block.rounds || !!b.finale };
-    });
-    // The rest before the finale is at least a short lead-in.
-    const rests = blocks.map((b, i) => (finale && i === blocks.length - 2 ? Math.max(b.rest, LEAD_IN_S) : b.rest));
-    const filled = blocks.reduce((a, b) => a + b.m.len, 0) + rests.reduce((a, r) => a + r, 0);
+    // the one before it ended on. That can shift its efforts a little, so it
+    // is measured again and its rest worked out afresh. If the class no longer
+    // fits, a block is dropped and the rest are laid out again.
+    const ownRest = (b) => (b.steps.at(-1)[2] === 'recovery' ? b.steps.at(-1)[0] : 0);
+    let blocks, rests, filled;
+    for (;;) {
+      let load = null;
+      blocks = [opener, ...inWaves(body), ...(finale ? [finale] : [])].map((b) => {
+        const joined = make(b.id, b.seed, load);
+        for (const [, pct, kind, opts] of joined.steps) {
+          if (kind !== 'recovery' && !opts.hold && opts.cadence) load = pct / (opts.cadence / 80) ** CADENCE_POWER;
+        }
+        if (b.finale) return { ...asFinale(joined), fixed: true };
+        const m = measure(joined.steps);
+        return { ...joined, m, rest: b === opener ? 0 : restAfter(joined, m), fixed: !!joined.rounds };
+      });
+      // The easy riding before the finale, a block's own recovery included,
+      // is at least a short lead-in.
+      // (A few seconds more aren't worth a spell of their own.)
+      const leadIn = (b) => {
+        const more = LEAD_IN_S - ownRest(b);
+        return more >= SHORTEST_REST_S || ownRest(b) < OWN_REST_S ? Math.max(more, SHORTEST_REST_S) : 0;
+      };
+      rests = blocks.map((b, k) => (finale && k === blocks.length - 2 ? Math.max(b.rest, leadIn(b)) : b.rest));
+      filled = blocks.reduce((a, b) => a + b.m.len, 0) + rests.reduce((a, r) => a + r, 0);
+      if (filled <= budget || !body.length) break;
+      body.pop();
+    }
     const whole = measure(blocks.flatMap((b, i) => [...b.steps, ...(rests[i] ? spell(rests[i]).steps : [])]));
     const upstaged = finale && blocks.slice(0, -1).some((b) => b.m.hardness > blocks.at(-1).m.hardness);
     // How far from the target, in rough units of "a noticeable difference".

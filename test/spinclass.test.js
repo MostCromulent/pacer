@@ -4,7 +4,7 @@ import { generateWorkout, parseWorkoutCode, SPIN_BLOCKS } from '../src/core/work
 import { excludeMask, excludeFromMask } from '../src/core/spinclass.js';
 import { stepTargets } from '../src/core/ride.js';
 import { spokenCue, repeatsInBlock } from '../src/core/cues.js';
-import { DEFAULT_MODEL } from '../src/core/resistance.js';
+import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
 
 const main = (w) => w.segments.filter((s) => s.kind !== 'warmup' && s.kind !== 'cooldown');
 
@@ -60,7 +60,9 @@ test('a class ends on its hardest block, straight into the cool-down', () => {
         // Joining a block on to the one before can shift its efforts by a point or two.
         for (const b of blocks.slice(0, -1)) assert.ok(hardness(b.steps) <= hardness(finale.steps) + 3, `${w.code}: ${b.name} is harder than the finale, ${finale.name}`);
         assert.equal(w.segments[w.segments.indexOf(finale.steps.at(-1)) + 1].kind, 'cooldown');
-        assert.ok(['Recovery', 'Flat road'].includes(blocks.at(-2).name), `${w.code}: no lead-in before ${finale.name}`);
+        // Easy riding leads in to it: a spell of its own, or the recovery the block before ends on.
+        const before = blocks.at(-2).steps.at(-1);
+        assert.ok(before.pct <= 70 && before.dur >= 60, `${w.code}: no lead-in before ${finale.name}`);
       }
     }
   }
@@ -158,7 +160,7 @@ test('cadence pushes hold the resistance and spin faster', () => {
   const { w, steps } = findBlock('Cadence pushes');
   const [settle, push] = steps;
   assert.equal(push.hold, true);
-  assert.ok(push.cadence - settle.cadence >= 15 && push.cadence - settle.cadence <= 25);
+  assert.ok(push.cadence - settle.cadence >= 10 && push.cadence - settle.cadence <= 20);
   assert.equal(stepTargets(push, w.segments, 300, DEFAULT_MODEL).resistance, stepTargets(settle, w.segments, 300, DEFAULT_MODEL).resistance);
   assert.equal(steps.length, steps[0].rounds * 2);
 });
@@ -183,14 +185,16 @@ test('the standing ladder gets 15 seconds longer each time', () => {
   const stands = steps.filter((s) => s.position === 'standing');
   assert.ok(stands.length >= 3);
   for (let i = 1; i < stands.length; i++) assert.equal(stands[i].dur - stands[i - 1].dur, 15);
-  assert.ok(steps.filter((s) => s.position === 'seated').every((s) => s.hold));
+  // Sitting between is a real let-up: resistance comes off and the legs keep turning.
+  const sits = steps.filter((s) => s.position === 'seated');
+  assert.ok(sits.every((s) => s.cadence >= 70 && s.pct <= 70));
 });
 
 test('tabata is eight rounds of 20 on, 10 off', () => {
   const { steps } = findBlock('Tabata');
   const on = steps.filter((s) => s.kind === 'work');
   assert.equal(on.length, 8);
-  assert.ok(on.every((s) => s.dur === 20 && s.pct >= 130));
+  assert.ok(on.every((s) => s.dur === 20 && s.pct >= 120 && s.pct < 130));
   assert.ok(steps.filter((s) => s.kind === 'recovery').every((s) => s.dur === 10 && s.hold));
 });
 
@@ -279,5 +283,68 @@ test('two blocks of pushes never run back to back', () => {
         }
       }
     }
+  }
+});
+
+test('a step that holds the resistance is planned at the effort it really takes', () => {
+  // Checked on a bike like the one the planner assumes, where watts rise with cadence to the power 1.6.
+  const bike = { ...DEFAULT_MODEL, b: 1.6 };
+  const real = (w, seg, baselineW = 300) => (stepTargets(seg, w.segments, baselineW, bike).watts / baselineW) * 100;
+  for (const title of ['Cadence pushes', 'Jumps', 'Tabata', 'Climb with attacks', 'Switchbacks', 'Spin-ups']) {
+    const { w, steps } = findBlock(title);
+    for (const seg of steps.filter((x) => x.hold)) {
+      assert.ok(Math.abs(real(w, seg) - seg.pct) <= 6, `${title} ${seg.label}: planned ${seg.pct}%, really ${real(w, seg).toFixed(0)}%`);
+    }
+  }
+  // So a jump's settle and a Tabata's rest are easier than the work, not harder.
+  const jumps = findBlock('Jumps').steps;
+  assert.ok(jumps[1].pct < jumps[0].pct - 8);
+  const tabata = findBlock('Tabata').steps;
+  assert.ok(tabata[1].pct < 70);
+});
+
+test('no single step outstays its welcome, however long the class', () => {
+  for (const type of ['spinclass', 'spinlow']) {
+    for (let variant = 0; variant < 40; variant++) {
+      const w = generateWorkout(type, 90, variant);
+      for (const seg of main(w)) {
+        if (seg.position === 'standing') assert.ok(seg.dur <= 180, `${w.code}: ${seg.dur}s standing in ${seg.block}`);
+        if (seg.kind === 'recovery') assert.ok(seg.dur <= 300, `${w.code}: ${seg.dur}s recovery`);
+      }
+      const opener = blocksOf(w)[0];
+      assert.ok(opener.steps[0].dur <= 240, `${w.code}: opens with ${opener.steps[0].dur}s of flat road`);
+    }
+  }
+});
+
+test('a block that ends hard is followed by something easier', () => {
+  for (let variant = 0; variant < 60; variant++) {
+    const w = generateWorkout('spinclass', 60, variant);
+    const blocks = blocksOf(w);
+    for (let i = 0; i < blocks.length - 1; i++) {
+      const last = blocks[i].steps.at(-1);
+      if (last.pct < 95) continue;
+      assert.ok(['Recovery', 'Flat road'].includes(blocks[i + 1].name), `${w.code}: ${blocks[i].name} ends at ${last.pct}% and runs into ${blocks[i + 1].name}`);
+    }
+  }
+});
+
+test('the last push builds on one resistance to a flat-out finish', () => {
+  const { steps } = findBlock('Last push');
+  assert.deepEqual(steps.map((s) => s.dur), [20, 20, 20]);
+  assert.deepEqual(steps.map((s) => s.cadence), [85, 95, 105]);
+  assert.ok(steps[1].hold && steps[2].hold && steps[2].kind === 'sprint');
+  assert.ok(steps[0].pct < steps[1].pct && steps[1].pct < steps[2].pct);
+});
+
+test('gentle climbs keep turning, so a push is still a push under the resistance cap', () => {
+  const easyPace = powerFor(DEFAULT_MODEL, 35, 80) / 0.7; // a rider whose easy pace is resistance 35 at 80 rpm
+  for (let variant = 0; variant < 40; variant++) {
+    const w = generateWorkout('spinlow', 60, variant);
+    assert.ok(main(w).every((s) => s.cadence >= 75), w.code);
+    const heavy = blocksOf(w).find((b) => b.name === 'Heavy pushes');
+    if (!heavy) continue;
+    const [climb, push] = heavy.steps.map((s) => stepTargets(s, w.segments, easyPace, DEFAULT_MODEL));
+    assert.ok(push.resistance >= climb.resistance + 3, `${w.code}: climb ${climb.resistance}, push ${push.resistance}`);
   }
 });
