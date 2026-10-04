@@ -398,22 +398,34 @@ main { padding: 0 32px 40px; }
 .tile-sub { font-size: 13px; font-weight: 800; color: var(--muted); }
 .tile-sub.good { color: var(--teal-text); }
 .chart-card { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-.chart-head { display: flex; align-items: center; justify-content: space-between; }
 .card-title { font-family: var(--display); font-weight: 700; font-size: 20px; margin: 0 0 8px; }
 .legend { display: inline-flex; gap: 16px; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .sw { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
-.sw.teal { background: var(--teal); }
-.sw.coral { background: var(--coral); }
+/* The ride chart is drawn for a wide card; on a phone it scrolls sideways rather than shrinking. */
+.ride-chart { overflow-x: auto; }
+.ride-chart-plot { position: relative; min-width: 640px; }
+.ride-chart-plot svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.ride-chart-plot text { font-weight: 800; }
+.ride-readout {
+  position: absolute; transform: translateX(-50%); pointer-events: none; display: flex; gap: 16px;
+  background: var(--ink); color: var(--cream); padding: 5px 14px; border-radius: 14px; font-size: 12px; font-weight: 800; white-space: nowrap;
+}
+.ride-readout i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+#ride-blocks { overflow-x: auto; }
+.block-table { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 700; }
+.block-table th { text-align: right; font-size: 12px; font-weight: 800; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--line); }
+.block-table td { text-align: right; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.block-table th:first-child, .block-table td:first-child { text-align: left; white-space: normal; }
+.block-table small { color: var(--muted); font-weight: 700; }
+.block-table small.miss { color: var(--coral-text); }
+.block-table .bar { display: inline-block; width: 90px; vertical-align: middle; margin-right: 8px; }
+.block-table .bar > i { background: #F2C14E; }
+.block-table .bar > i.good { background: #9CC5A1; }
 .sum-bottom { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
 .sum-bottom > .card { padding: 20px 24px; }
-.climbs { display: flex; flex-direction: column; gap: 10px; }
-.climb { display: grid; grid-template-columns: 96px 140px minmax(0, 1fr) 42px 64px; align-items: center; gap: 12px; font-size: 14px; font-weight: 800; }
 .bar { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 6px; background: #F6A96B; }
-.delta { text-align: center; padding: 4px 0; border-radius: 8px; font-size: 12px; background: var(--sand); }
-.delta.up { background: var(--mint); }
-.delta.down { background: #F7B3A4; }
 .card-lilac { background: var(--lavender); border-radius: 24px; padding: 20px 24px; box-shadow: 0 3px 0 var(--lavender-deep), 0 10px 22px rgba(122, 78, 58, 0.14); }
 .hist { display: flex; flex-direction: column; gap: 10px; }
 .hist-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 70px; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; }
@@ -492,6 +504,9 @@ main { padding: 0 32px 40px; }
   .topbar { padding-top: 12px; padding-bottom: 12px; gap: 10px; }
   .top-nav { padding-left: 0; order: 3; flex-basis: 100%; }
   .title { font-size: 30px; }
+  .block-table .bar { display: none; }
+  .block-table td, .block-table th { padding-left: 4px; padding-right: 4px; }
+  .sum-bottom > .card, .chart-card { padding: 16px; }
 
   /* Build a ride: one column, with Start always in reach at the bottom of the screen. */
   .types, .type-list { grid-template-columns: 1fr; }

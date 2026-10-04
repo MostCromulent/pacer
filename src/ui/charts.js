@@ -73,28 +73,106 @@ export function updateRoute(root, workout, t, width = 328, height = 56, heightOf
   dot.setAttribute('cy', (height - (6 + clamp01(heightOf(workout.segments[si])) * (height - 12))).toFixed(1));
 }
 
-/** Gap to the ghost per minute: teal bars up when ahead, coral bars down when behind. */
-export function gapChartSvg(gaps, width = 960, height = 150) {
-  if (!gaps.length) return '<p class="muted">Ride a full minute to see the race chart.</p>';
-  const maxUp = Math.max(1, ...gaps.map((g) => Math.max(0, g)));
-  const maxDown = Math.max(1, ...gaps.map((g) => Math.max(0, -g)));
-  const upH = Math.round(height * (maxUp / (maxUp + maxDown)) * 0.9 + height * 0.05);
-  const zero = Math.max(12, Math.min(height - 12, upH));
-  const bw = width / gaps.length;
-  const bars = gaps
-    .map((g, i) => {
-      const x = (i * bw + 2).toFixed(1);
-      const w = Math.max(2, bw - 4).toFixed(1);
-      if (g >= 0) {
-        const h = Math.max(1, (g / maxUp) * (zero - 4));
-        return `<rect x="${x}" y="${(zero - h).toFixed(1)}" width="${w}" height="${h.toFixed(1)}" rx="3" fill="${P.teal}"/>`;
-      }
-      const h = Math.max(1, (-g / maxDown) * (height - zero - 4));
-      return `<rect x="${x}" y="${zero}" width="${w}" height="${h.toFixed(1)}" rx="3" fill="${P.coral}"/>`;
-    })
-    .join('');
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Gap to the ghost each minute">
-    ${bars}<rect x="0" y="${zero - 1}" width="${width}" height="2" fill="#E3D3C3"/></svg>`;
+// The ride chart on the summary: cadence and resistance as lines in the top
+// panel, power as a filled area in the bottom one. The geometry is shared with
+// the hover readout in summary.js.
+export const RIDE_PLOT = { width: 1040, height: 452, left: 44, right: 915, top: 46, split: 222, powerTop: 283, base: 384 };
+export const RIDE_COLORS = { cadence: '#12898B', resistance: '#6A55B8', watts: '#EFA58E', wattsText: '#B9705C', miss: '#F2B13C' };
+
+/** A running average over `half` seconds either side. */
+function smoothed(values, half) {
+  return values.map((_, i) => {
+    const from = Math.max(0, i - half), to = Math.min(values.length - 1, i + half);
+    let sum = 0;
+    for (let j = from; j <= to; j++) sum += values[j];
+    return sum / (to - from + 1);
+  });
+}
+
+/** The scales of a ride chart: x for a second, y for cadence and resistance, y for watts. */
+export function rideScales(review) {
+  const { left, right, top, split, powerTop, base } = RIDE_PLOT;
+  const levelMax = Math.max(110, Math.ceil((Math.max(0, ...review.cadence) + 5) / 20) * 20);
+  const wattsMax = Math.max(200, Math.ceil((Math.max(0, ...smoothed(review.watts, 5)) + 1) / 100) * 100);
+  return {
+    levelMax,
+    wattsMax,
+    x: (sec) => left + (sec / Math.max(1, review.seconds)) * (right - left),
+    yLevel: (v) => split - (Math.min(v, levelMax) / levelMax) * (split - top),
+    yWatts: (v) => base - (Math.min(v, wattsMax) / wattsMax) * (base - powerTop),
+  };
+}
+
+/** @param review what rideReview() returns */
+export function rideChartSvg(review) {
+  const { width, height, left, right, top, split, powerTop, base } = RIDE_PLOT;
+  const n = review.seconds;
+  if (n < 30) return '<p class="muted">Ride for half a minute to see the chart.</p>';
+  const { levelMax, wattsMax, x, yLevel, yWatts } = rideScales(review);
+  const every = Math.max(1, Math.ceil(n / 600)); // enough points for the width, however long the ride
+  const points = (values, y) => {
+    const pts = [];
+    for (let i = 0; i < n; i += every) pts.push(`${x(i + 0.5).toFixed(1)},${y(values[i]).toFixed(1)}`);
+    return pts.join('L');
+  };
+  const grid = (y) => `<line x1="${left}" x2="${right}" y1="${y}" y2="${y}" stroke="${P.ink}" opacity=".08"/>`;
+  const tick = (y, text) => `<text x="${left - 7}" y="${y + 4}" text-anchor="end" font-size="11" fill="${P.muted}">${text}</text>`;
+  let s = '';
+
+  // Block names along the top, and a faint divider down each panel. A ride of
+  // many short steps has too many to name.
+  if (review.spans.length <= 16) {
+    review.spans.forEach((sp, i) => {
+      if (sp.from >= n) return;
+      const x0 = x(sp.from), x1 = x(Math.min(sp.to, n));
+      s += `<rect x="${(x0 + 1.5).toFixed(1)}" y="6" width="${Math.max(0, x1 - x0 - 3).toFixed(1)}" height="22" rx="11" fill="${i % 2 ? '#F1E4D6' : '#F8EEE3'}"/>`;
+      if (sp.name.length * 6.4 + 12 <= x1 - x0) s += `<text x="${((x0 + x1) / 2).toFixed(1)}" y="21" text-anchor="middle" font-size="11" fill="${P.inkSoft}">${esc(sp.name)}</text>`;
+      if (i) for (const [y1, y2] of [[top, split], [powerTop - 8, base]]) s += `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${y1}" y2="${y2}" stroke="#EDE2D6" stroke-dasharray="2 4"/>`;
+    });
+  }
+
+  // Power: a filled area on its own scale, smoothed over ten seconds.
+  const watts = smoothed(review.watts, 5);
+  s += `<path d="M${x(0.5).toFixed(1)},${base}L${points(watts, yWatts)}L${x(n - 0.5).toFixed(1)},${base}Z" fill="${RIDE_COLORS.watts}"/>`;
+  const wattsStep = wattsMax <= 300 ? 100 : wattsMax <= 600 ? 200 : Math.ceil(wattsMax / 300) * 100;
+  for (let v = wattsStep; v <= wattsMax; v += wattsStep) s += grid(yWatts(v)) + tick(yWatts(v), `${v} W`);
+  s += `<text x="${left}" y="${powerTop - 18}" font-size="12" fill="${P.ink}">Power</text>`;
+  s += `<text x="${right + 10}" y="${(yWatts(watts[n - 1]) + 4).toFixed(1)}" font-size="12" fill="${RIDE_COLORS.wattsText}">Watts</text>`;
+
+  // Cadence and resistance: the target as a thin dashed line, what you did as a solid one.
+  for (let v = 20; v < levelMax; v += 20) s += grid(yLevel(v)) + tick(yLevel(v), v);
+  s += `<line x1="${left}" x2="${right}" y1="${split}" y2="${split}" stroke="#E3D3C3" stroke-width="2"/>${tick(split, 0)}`;
+  for (const [key, name] of [['cadence', 'Cadence'], ['resistance', 'Resistance']]) {
+    const color = RIDE_COLORS[key];
+    let aim = '';
+    for (let i = 0; i < n; i++) {
+      const v = review.targets[i][key];
+      if (i && v === review.targets[i - 1][key]) continue;
+      aim += i ? `H${x(i).toFixed(1)}V${yLevel(v).toFixed(1)}` : `M${x(0).toFixed(1)},${yLevel(v).toFixed(1)}`;
+    }
+    const did = smoothed(review[key], 2);
+    s += `<path d="${aim}H${x(n).toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3" opacity=".55"/>`;
+    s += `<path d="M${points(did, yLevel)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += `<text x="${right + 10}" y="${(yLevel(did[n - 1]) + 4).toFixed(1)}" font-size="12" fill="${color}">${name}</text>`;
+  }
+
+  // Where you were off target: a strip under the chart.
+  s += `<rect x="${left}" y="${base + 5}" width="${right - left}" height="6" rx="3" fill="#F1E4D6"/>`;
+  for (const [from, to] of review.misses) s += `<rect x="${x(from).toFixed(1)}" y="${base + 5}" width="${Math.max(3, x(to) - x(from)).toFixed(1)}" height="6" rx="3" fill="${RIDE_COLORS.miss}"/>`;
+
+  // Time along the bottom, and a key for the two marks that need one.
+  const minutes = n / 60;
+  const minuteStep = minutes <= 6 ? 1 : minutes <= 14 ? 2 : minutes <= 65 ? 5 : 10;
+  for (let m = 0; m <= minutes; m += minuteStep) s += `<text x="${x(m * 60).toFixed(1)}" y="${base + 30}" text-anchor="middle" font-size="11" fill="${P.muted}">${m ? `${m} min` : '0'}</text>`;
+  const keyY = base + 56;
+  s += `<line x1="${left}" x2="${left + 22}" y1="${keyY}" y2="${keyY}" stroke="${P.inkSoft}" stroke-width="1.2" stroke-dasharray="4 3"/><text x="${left + 28}" y="${keyY + 4}" font-size="11" fill="${P.muted}">target</text>`;
+  s += `<rect x="${left + 80}" y="${keyY - 3}" width="22" height="6" rx="3" fill="${RIDE_COLORS.miss}"/><text x="${left + 108}" y="${keyY + 4}" font-size="11" fill="${P.muted}">off target</text>`;
+
+  // The hover cursor, moved by summary.js.
+  s += `<line id="ride-cursor" x1="0" x2="0" y1="${top}" y2="${base}" stroke="${P.ink}" stroke-width="1" visibility="hidden"/>`;
+  for (const key of ['cadence', 'resistance']) s += `<circle id="ride-dot-${key}" r="5" fill="${RIDE_COLORS[key]}" stroke="#fff" stroke-width="2" visibility="hidden"/>`;
+
+  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Cadence, resistance and power over the ride, against the targets">${s}</svg>`;
 }
 
 // Plot area of the bike model chart, shared with the hover readout in app.js.

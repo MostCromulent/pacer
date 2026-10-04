@@ -31,6 +31,7 @@ src/core/      logic with no page code, covered by unit tests
   spinclass.js   the spin class generator: blocks, arc, finale
   ride.js        the ride engine: targets, distance, gates, events, summary
   cues.js        wording for a step: the voice cue and the badge
+  review.js      a finished ride looked back on: misses, and how each block went
   resistance.js  the resistance/cadence/watts model and its calibration fit
   learn.js       pools ride readings and refits the model from them
   ghost.js       ghost riders

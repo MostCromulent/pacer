@@ -160,6 +160,8 @@ try {
     await run(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))`);
     await until('the ride to finish', `window.pacer.state.screen === 'summary'`, 40000);
     expect((await text('#sum-eyebrow')) === 'Ride complete', 'the ride did not complete');
+    expect(await run(`!!document.querySelector('#ride-chart svg path')`), 'the ride chart was not drawn');
+    expect((await run(`document.querySelectorAll('#ride-blocks tbody tr').length`)) >= 3, 'expected a line for each part of the ride');
   });
 
   await check('the ride is saved, backed up and can be deleted', async () => {

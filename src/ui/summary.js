@@ -2,10 +2,12 @@
 
 import { generateWorkout } from '../core/workout.js';
 import { targetWatts } from '../core/ghost.js';
+import { rideReview } from '../core/review.js';
+import { formatRange } from '../core/cues.js';
 import { storage, settings, saveSettings, state, voice } from './store.js';
 import { $, toast, showScreen } from './dom.js';
 import { fmtClock, fmtKm, fmtGap, fmtDate } from './format.js';
-import { gapChartSvg, esc } from './charts.js';
+import { rideChartSvg, rideScales, RIDE_PLOT, RIDE_COLORS, esc } from './charts.js';
 import { renderSetup, resistanceIsEstimate } from './setup.js';
 import { easyResistance } from './pace.js';
 import { saveLearning } from './learning.js';
@@ -18,7 +20,7 @@ export function finishRide(completed) {
   if (state.pipWin && !state.pipWin.closed) state.pipWin.close();
   storage.clearResume();
   const sum = s.summary();
-  const { workout, prevBest, prevLast } = state.ride;
+  const { workout, prevBest } = state.ride;
 
   let saved = false;
   if (completed) {
@@ -38,7 +40,7 @@ export function finishRide(completed) {
     saved = storage.saveRide(ride);
     if (!saved) toast('Storage is full, so this ride could not be saved. Export your rides to free space.', 7000);
   }
-  renderSummary({ sum, workout, prevBest, prevLast, completed, saved, session: s });
+  renderSummary({ sum, workout, prevBest, completed, saved, session: s });
   state.session = null;
   showScreen('summary');
   letScreenSleep();
@@ -46,7 +48,7 @@ export function finishRide(completed) {
   saveLearning();
 }
 
-function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, session }) {
+function renderSummary({ sum, workout, prevBest, completed, saved, session }) {
   const ahead = sum.gap >= 0;
   $('sum-eyebrow').textContent = completed ? 'Ride complete' : 'Ride ended early';
   const who = sum.ghostKind === 'pacer' ? 'the pacer' : 'your ghost';
@@ -91,27 +93,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
       : 'won against the ghost';
   }
 
-  $('gap-chart').innerHTML = gapChartSvg(sum.gapPerMinute);
-  $('sum-axis-end').textContent = `${Math.floor(sum.durationS / 60)} min`;
-
-  // Lots of short efforts (HIIT, fartlek): one row per kind of effort.
-  const many = sum.climbs.length > 8;
-  const climbs = many ? groupEfforts(sum.climbs) : sum.climbs;
-  const prevClimbs = many ? groupEfforts(prevLast?.climbs ?? []) : prevLast?.climbs ?? [];
-  $('climbs').innerHTML = climbs.length
-    ? climbs.map((c, i) => {
-      const p = prevClimbs[i];
-      const d = p ? c.avgW - p.avgW : null;
-      const cls = d === null ? '' : d >= 0 ? 'up' : 'down';
-      const txt = d === null ? 'new' : `${d >= 0 ? '+' : '−'}${Math.abs(d)} W`;
-      const metric = settings.targetMode === 'watts'
-        ? `${c.avgW} W`
-        : `resistance ${c.avgResistance ?? '–'} · ${c.avgCadence} rpm`;
-      return `<div class="climb"><span>${esc(many ? c.label : c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${metric}</span>
-        <span class="bar"><i style="width:${c.onTargetPct}%"></i></span><span class="muted">${c.onTargetPct}%</span>
-        <span class="delta ${cls}">${txt}</span></div>`;
-    }).join('')
-    : '<p class="muted">This workout has no hard efforts to compare.</p>';
+  renderReview(session);
 
   const rides = storage.ridesFor(workout.code).slice(-6);
   const max = Math.max(1, ...rides.map((r) => r.distanceM), sum.distanceM);
@@ -170,27 +152,55 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
   }
 }
 
-function effortKind(label) {
-  return label.replace(/·.*$/, '').replace(/\bof\b/g, '').replace(/[\d/]+/g, '').replace(/\s+/g, ' ').trim();
-}
+/** The chart of the ride and the table of how each block went. */
+function renderReview(session) {
+  const review = rideReview(session);
+  $('ride-chart').innerHTML = rideChartSvg(review);
+  $('ride-readout').hidden = true;
 
-function groupEfforts(list) {
-  const groups = new Map();
-  for (const c of list) {
-    const k = effortKind(c.label);
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(c);
-  }
-  const avg = (xs) => Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
-  return [...groups.entries()].map(([k, xs]) => {
-    const resistances = xs.map((x) => x.avgResistance).filter((x) => x !== null && x !== undefined);
-    return {
-      label: `${k} ×${xs.length}`,
-      avgW: avg(xs.map((x) => x.avgW)),
-      avgCadence: avg(xs.map((x) => x.avgCadence)),
-      avgResistance: resistances.length ? avg(resistances) : null,
-      onTargetPct: avg(xs.map((x) => x.onTargetPct)),
-    };
+  // "on" where the target was held, otherwise how far out it was on average.
+  const versus = (d) => (d ? `<small class="miss">${d > 0 ? '+' : '−'}${Math.abs(d)}</small>` : '<small>on</small>');
+  $('ride-blocks').innerHTML = `<table class="block-table">
+    <thead><tr><th>Block</th><th>On target</th><th>Watts</th><th>Cadence</th><th>Resistance</th></tr></thead>
+    <tbody>${review.rows.map((r) => `<tr><td>${esc(r.name)}</td>
+      <td><span class="bar"><i class="${r.onTargetPct >= 75 ? 'good' : ''}" style="width:${r.onTargetPct}%"></i></span>${r.onTargetPct}%</td>
+      <td>${r.avgW} W</td><td>${r.avgCadence} ${versus(r.cadenceOff)}</td><td>${r.avgResistance} ${versus(r.resistanceOff)}</td></tr>`).join('')}</tbody></table>`;
+
+  // Hover: a line through both panels and a readout of that moment between them.
+  const svg = $('ride-chart').querySelector('svg');
+  if (!svg) return;
+  const { width, height, left, right, split } = RIDE_PLOT;
+  const { x, yLevel } = rideScales(review);
+  const cursor = svg.querySelector('#ride-cursor'), readout = $('ride-readout');
+  const dots = { cadence: svg.querySelector('#ride-dot-cadence'), resistance: svg.querySelector('#ride-dot-resistance') };
+  const marks = [cursor, dots.cadence, dots.resistance];
+  svg.addEventListener('pointermove', (e) => {
+    const box = svg.getBoundingClientRect();
+    const px = ((e.clientX - box.left) / box.width) * width;
+    const sec = Math.min(review.seconds - 1, Math.max(0, Math.floor(((px - left) / (right - left)) * review.seconds)));
+    const at = x(sec + 0.5);
+    cursor.setAttribute('x1', at);
+    cursor.setAttribute('x2', at);
+    for (const key of ['cadence', 'resistance']) {
+      dots[key].setAttribute('cx', at);
+      dots[key].setAttribute('cy', yLevel(review[key][sec]));
+    }
+    for (const m of marks) m.setAttribute('visibility', 'visible');
+    const tg = review.targets[sec];
+    const dot = (color) => `<i style="background:${color}"></i>`;
+    readout.innerHTML = `<span>${fmtClock(sec)} · ${esc(review.spans[review.spanAt[sec]].name)}</span>
+      <span>${dot(RIDE_COLORS.cadence)}Cadence ${review.cadence[sec]} · aim ${tg.cadence}</span>
+      <span>${dot('#A99BE0')}Resistance ${review.resistance[sec]} · aim ${tg.resistanceIsExact ? tg.resistance : formatRange(tg.resistanceRange)}</span>
+      <span>${dot(RIDE_COLORS.watts)}${review.watts[sec]} W</span>`;
+    readout.hidden = false;
+    // Centred on the cursor, but kept inside the chart.
+    const half = readout.offsetWidth / 2;
+    readout.style.top = `${((split + 12) / height) * 100}%`;
+    readout.style.left = `${Math.min(box.width - half, Math.max(half, (at / width) * box.width))}px`;
+  });
+  svg.addEventListener('pointerleave', () => {
+    for (const m of marks) m.setAttribute('visibility', 'hidden');
+    readout.hidden = true;
   });
 }
 

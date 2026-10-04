@@ -103,7 +103,7 @@ export class RideSession {
     this.dist = 0;
     this.speed = 0;
     this.input = { powerW: 0, cadence: 0, resistance: null, at: -Infinity };
-    this.samples = { d: [0], p: [], c: [], r: [] };
+    this.samples = { d: [0], p: [], c: [], r: [], e: [] }; // per second: distance, power, cadence, resistance, effort
     this.onTargetS = 0;
     this.segOnTarget = workout.segments.map(() => ({ on: 0, total: 0, powerSum: 0, cadSum: 0, resistanceSum: 0, resistanceT: 0 }));
     this.gateResults = [];
@@ -167,6 +167,7 @@ export class RideSession {
       this.samples.p.push(Math.round(this._accum.p / n));
       this.samples.c.push(Math.round(this._accum.c / n));
       this.samples.r.push(Math.round(this._accum.r / n));
+      this.samples.e.push(this.effort);
       this._accum = { p: 0, c: 0, r: 0, n: 0 };
     }
 
@@ -229,6 +230,7 @@ export class RideSession {
     const { warned, ...rest } = saved;
     Object.assign(this, rest);
     this._warned = new Set(warned);
+    this.samples.e ??= this.samples.p.map(() => this.effort); // saved before effort was recorded
     this.input.at = -Infinity;
     return this;
   }

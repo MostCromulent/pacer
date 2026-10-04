@@ -307,15 +307,18 @@
       </div>
     </div>
     <div class="card chart-card">
-      <div class="chart-head"><h2 class="card-title">Race vs ghost</h2>
-        <span class="legend"><span><i class="sw teal"></i>Ahead</span><span><i class="sw coral"></i>Behind</span></span></div>
-      <div id="gap-chart"></div>
-      <div class="axis"><span>0</span><span id="sum-axis-end"></span></div>
+      <h2 class="card-title">Your ride</h2>
+      <div class="ride-chart">
+        <div class="ride-chart-plot">
+          <div id="ride-chart"></div>
+          <div id="ride-readout" class="ride-readout" hidden></div>
+        </div>
+      </div>
     </div>
     <div class="sum-bottom">
       <div class="card">
-        <h2 class="card-title">Hard efforts</h2>
-        <div id="climbs" class="climbs"></div>
+        <h2 class="card-title">Block by block</h2>
+        <div id="ride-blocks"></div>
       </div>
       <div class="history card-lilac">
         <h2 class="card-title">Every time you've ridden this</h2>
