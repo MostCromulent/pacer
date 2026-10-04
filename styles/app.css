@@ -200,10 +200,10 @@ main { padding: 0 32px 40px; }
 .total-bar > i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--lavender); }
 .panel-buttons { display: inline-flex; gap: 6px; }
 .scene-wrap {
-  position: relative; width: 360px; height: 236px; flex-shrink: 0; border-radius: 22px; overflow: hidden;
+  position: relative; width: 360px; height: 222px; flex-shrink: 0; border-radius: 22px; overflow: hidden;
   background: var(--peach); box-shadow: 0 2px 0 #EAD8C6, 0 8px 18px rgba(122, 78, 58, 0.12);
 }
-#scene { width: 360px; height: 236px; display: block; }
+#scene { width: 360px; height: 222px; display: block; }
 .scene-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none; }
 .pill { padding: 6px 10px; border-radius: 10px; font-weight: 800; font-size: 14px; white-space: nowrap; box-shadow: 0 3px 8px rgba(122, 78, 58, 0.2); }
 .pill:empty { display: none; }
@@ -249,7 +249,16 @@ main { padding: 0 32px 40px; }
 .num-col.low { background: var(--mustard); }
 .num-col.high { background: #9DB9F2; }
 .num-col.on .num-lbl, .num-col.low .num-lbl, .num-col.high .num-lbl { color: var(--ink-soft); }
-.aside-line { margin: 0 4px; font-size: 12px; font-weight: 800; color: var(--muted); text-align: center; min-height: 15px; }
+.stage-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.aside-line { margin: 0 2px; font-size: 12px; font-weight: 800; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.effort { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.effort-lbl { font-size: 12px; font-weight: 800; color: var(--muted); }
+.effort .icon-btn { width: 34px; height: 34px; background: var(--sand); box-shadow: 0 2px 0 #E6D5C3; font-size: 20px; }
+.effort-val { min-width: 52px; text-align: center; padding: 4px 6px; border-radius: 9px; font-family: var(--display); font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; background: var(--sand); }
+.effort-val.up { background: #F7B3A4; }
+.effort-val.down { background: #C9D8F7; }
+.effort-val.flash { animation: effort-flash 0.5s ease-out; }
+@keyframes effort-flash { from { transform: scale(1.25); } to { transform: scale(1); } }
 .cue {
   display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
   font-weight: 800; font-size: 18px; white-space: nowrap; box-shadow: 0 2px 0 rgba(59, 51, 69, 0.15);

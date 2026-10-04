@@ -10,6 +10,9 @@ const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
 const CADENCE_TOLERANCE = 5;
 const KNOB_TOLERANCE = 2;
+export const DIFFICULTY_MIN = 0.7;
+export const DIFFICULTY_MAX = 1.3;
+export const DIFFICULTY_STEP = 0.05;
 
 /** "80–90", or "105+" when there's no upper limit. */
 export function formatRange([lo, hi]) {
@@ -37,6 +40,9 @@ export class RideSession {
     this.baselineW = baselineW;
     this.model = model;
     this.ghost = ghost;
+    // Effort multiplier the rider can change mid-ride; scales every power target.
+    this.difficulty = 1;
+    this._difficultyS = 0;
 
     this.t = 0;
     this.dist = 0;
@@ -81,6 +87,7 @@ export class RideSession {
 
     this.speed = stepSpeed(this.speed, powerW, realDt);
     this.dist += this.speed * realDt;
+    this._difficultyS += this.difficulty * realDt;
 
     const si = segmentIndexAt(this.workout, Math.max(0, this.t - 1e-6));
     const seg = this.workout.segments[si];
@@ -163,12 +170,29 @@ export class RideSession {
     return null;
   }
 
+  /** Set the effort multiplier (0.7-1.3, in 5% steps). Returns the new value. */
+  setDifficulty(value) {
+    const snapped = Math.round(value / DIFFICULTY_STEP) * DIFFICULTY_STEP;
+    this.difficulty = Math.round(Math.min(DIFFICULTY_MAX, Math.max(DIFFICULTY_MIN, snapped)) * 100) / 100;
+    return this.difficulty;
+  }
+
+  /** Make the ride easier (-1) or harder (+1) by one step. */
+  nudgeDifficulty(steps) {
+    return this.setDifficulty(this.difficulty + steps * DIFFICULTY_STEP);
+  }
+
+  /** Baseline with the current effort applied: what targets are built from. */
+  get effectiveBaselineW() {
+    return this.baselineW * this.difficulty;
+  }
+
   /**
    * What to aim for in a step: power, cadence, and the knob level that gives
    * that power at that cadence (from the resistance model).
    */
   targetsFor(seg) {
-    const watts = targetWatts(seg, this.baselineW);
+    const watts = targetWatts(seg, this.effectiveBaselineW);
     const cadence = seg.cadence ?? 85;
     const knob = Math.round(resistanceFor(this.model, watts, cadence));
     const wattsTol = Math.max(10, watts * 0.06);
@@ -180,7 +204,7 @@ export class RideSession {
       knob,
       cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
       knobRange: [Math.max(1, knob - KNOB_TOLERANCE), sprint ? null : Math.min(100, knob + KNOB_TOLERANCE)],
-      wattsRange: sprint ? [Math.round(this.baselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
+      wattsRange: sprint ? [Math.round(this.effectiveBaselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
     };
   }
 
@@ -200,7 +224,7 @@ export class RideSession {
     const cadenceStatus = judge(cadence, tg.cadence, CADENCE_TOLERANCE);
     const knobStatus = judge(knob === null ? null : Math.round(knob), tg.knob, KNOB_TOLERANCE);
     // On target if the power is right, or if cadence and knob both match the plan.
-    const onTarget = isOnTarget(seg, this.baselineW, powerW, cadence) || (cadenceStatus === 'on' && knobStatus === 'on');
+    const onTarget = isOnTarget(seg, this.effectiveBaselineW, powerW, cadence) || (cadenceStatus === 'on' && knobStatus === 'on');
     return { targets: tg, cadenceStatus, knobStatus, onTarget };
   }
 
@@ -268,6 +292,7 @@ export class RideSession {
       cadenceRange: tg.cadenceRange,
       knobRange: tg.knobRange,
       wattsRange: tg.wattsRange,
+      difficulty: this.difficulty,
       powerW: Math.round(powerW),
       cadence: Math.round(cadence),
       resistance: resistance === null ? null : Math.round(resistance),
@@ -314,6 +339,7 @@ export class RideSession {
       avgCadence: Math.round(avg(this.samples.c.filter((c) => c > 0))),
       onTargetS: this.onTargetS,
       onTargetPct: Math.round((this.onTargetS / Math.max(1, this.t)) * 100),
+      avgDifficulty: this.t ? Math.round((this._difficultyS / this.t) * 100) / 100 : 1,
       ghostKind: this.ghost.kind,
       ghostFinal: this.ghost.distanceAt(this.t),
       gap: this.dist - this.ghost.distanceAt(this.t),

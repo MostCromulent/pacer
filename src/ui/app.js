@@ -1,5 +1,5 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession, formatRange } from '../core/ride.js';
+import { RideSession, formatRange, DIFFICULTY_MIN, DIFFICULTY_MAX } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
@@ -23,7 +23,7 @@ const $ = (id) => {
   return found;
 };
 
-const SCENE_HEIGHT = 236;
+const SCENE_HEIGHT = 222;
 const ROUTE_W = 328;
 const ROUTE_H = 40;
 
@@ -554,7 +554,7 @@ function renderRide() {
       status: live ? (snap.onTarget ? 'on' : sprint || snap.powerW < snap.targetW ? 'low' : 'high') : '',
     });
     setTile('b', cadenceTile);
-    $('aside-line').textContent = `Resistance ${estimate ? '≈' : ''}${formatRange(snap.knobRange)} · now ${resNow}`;
+    $('aside-line').textContent = `Res ${estimate ? '≈' : ''}${formatRange(snap.knobRange)} · now ${resNow}`;
   } else {
     setTile('a', cadenceTile);
     setTile('b', {
@@ -563,8 +563,16 @@ function renderRide() {
       now: resNow,
       status: live ? snap.knobStatus : '',
     });
-    $('aside-line').textContent = sprint ? `All out! · now ${snap.powerW} W` : `Target ${snap.targetW} W · now ${snap.powerW} W`;
+    $('aside-line').textContent = sprint ? `Now ${snap.powerW} W` : `${snap.targetW} W · now ${snap.powerW}`;
   }
+  const dv = $('diff-val');
+  const pct = Math.round(snap.difficulty * 100);
+  dv.textContent = `${pct}%`;
+  dv.classList.toggle('up', pct > 100);
+  dv.classList.toggle('down', pct < 100);
+  $('diff-down').disabled = snap.difficulty <= DIFFICULTY_MIN + 1e-9;
+  $('diff-up').disabled = snap.difficulty >= DIFFICULTY_MAX - 1e-9;
+
   const cue = $('cue');
   cue.className = `cue cue-${snap.cue.type}`;
   if (cue.dataset.icon !== snap.cue.type) {
@@ -698,9 +706,27 @@ $('cad-down').addEventListener('click', () => simNudge('cad', -5));
 $('knob-up').addEventListener('click', () => simNudge('knob', 2));
 $('knob-down').addEventListener('click', () => simNudge('knob', -2));
 
+function nudgeEffort(steps) {
+  const s = state.session;
+  if (!s || state.screen !== 'ride') return;
+  const before = s.difficulty;
+  if (s.nudgeDifficulty(steps) === before) return;
+  const dv = $('diff-val');
+  dv.classList.remove('flash');
+  void dv.offsetWidth; // restart the animation
+  dv.classList.add('flash');
+  state.lastDom = 0;
+}
+
+$('diff-down').addEventListener('click', () => nudgeEffort(-1));
+$('diff-up').addEventListener('click', () => nudgeEffort(+1));
+
 function onKey(e) {
   if (e.target?.closest?.('input, textarea, select')) return;
-  if (state.screen !== 'ride' || state.bikeKind !== 'sim') return;
+  if (state.screen !== 'ride') return;
+  if (e.key === '-' || e.key === '_') { e.preventDefault(); nudgeEffort(-1); return; }
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); nudgeEffort(+1); return; }
+  if (state.bikeKind !== 'sim') return;
   const map = { ArrowUp: ['cad', 5], ArrowDown: ['cad', -5], ArrowRight: ['knob', 2], ArrowLeft: ['knob', -2] };
   const m = map[e.key];
   if (!m) return;
@@ -729,6 +755,7 @@ function finishRide(completed) {
       avgPowerW: sum.avgPowerW,
       onTargetPct: sum.onTargetPct,
       baselineW: s.baselineW,
+      difficulty: sum.avgDifficulty,
       climbs: sum.climbs,
       samples: { d: s.samples.d, p: s.samples.p, c: s.samples.c },
     };
@@ -746,7 +773,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
   const who = sum.ghostKind === 'pacer' ? 'the pacer' : 'your ghost';
   $('sum-title').textContent = ahead ? `You beat ${who}.` : `${who === 'the pacer' ? 'The pacer' : 'Your ghost'} got you this time.`;
   const count = storage.ridesFor(workout.code).length;
-  $('sum-sub').innerHTML = `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${count ? ` · ridden ${count} time${count === 1 ? '' : 's'}` : ''}`;
+  $('sum-sub').innerHTML = `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${count ? ` · ridden ${count} time${count === 1 ? '' : 's'}` : ''}${sum.avgDifficulty !== 1 ? ` · effort ${Math.round(sum.avgDifficulty * 100)}%` : ''}`;
 
   const isPb = completed && saved && (!prevBest || sum.distanceM > prevBest.distanceM);
   $('pb-badge').hidden = !isPb;
@@ -825,9 +852,12 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
     const actual = work.reduce((a, { st }) => a + st.powerSum, 0) / work.reduce((a, { st }) => a + st.total, 0);
     const target = work.reduce((a, { seg, st }) => a + targetWatts(seg, session.baselineW) * st.total, 0) / work.reduce((a, { st }) => a + st.total, 0);
     const ratio = actual / target;
-    if ((ratio > 1.04 || ratio < 0.9) && settings.targetMode === 'knob' && knobIsEstimate()) {
+    // How closely the watts matched what was on screen (targets include the effort setting).
+    const followRatio = ratio / sum.avgDifficulty;
+    const effortPct = Math.round(sum.avgDifficulty * 100);
+    if ((followRatio > 1.04 || followRatio < 0.9) && settings.targetMode === 'knob' && knobIsEstimate()) {
       // Following estimated knob numbers: the gap is most likely the estimate, not fitness.
-      $('baseline-tip-text').textContent = `Following the resistance targets, your hard efforts came out ${Math.round(Math.abs(ratio - 1) * 100)}% ${ratio > 1 ? 'above' : 'below'} target. Calibrate so the resistance numbers match your bike.`;
+      $('baseline-tip-text').textContent = `Following the resistance targets, your hard efforts came out ${Math.round(Math.abs(followRatio - 1) * 100)}% ${followRatio > 1 ? 'above' : 'below'} target. Calibrate so the resistance numbers match your bike.`;
       $('btn-apply-baseline').textContent = 'Calibrate resistance';
       tip.hidden = false;
       $('btn-apply-baseline').onclick = () => {
@@ -836,11 +866,17 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
       };
     } else if (ratio > 1.04 || ratio < 0.9) {
       $('btn-apply-baseline').textContent = 'Update baseline';
-      const suggested = Math.round((session.baselineW * Math.min(1.08, Math.max(0.92, ratio))) / 5) * 5;
+      const cap = Math.max(0.08, Math.abs(sum.avgDifficulty - 1) + 0.02);
+      const suggested = Math.round((session.baselineW * Math.min(1 + cap, Math.max(1 - cap, ratio))) / 5) * 5;
       if (suggested !== session.baselineW) {
+        const changedEffort = Math.abs(sum.avgDifficulty - 1) >= 0.03;
         $('baseline-tip-text').textContent = ratio > 1
-          ? `You rode the hard efforts ${Math.round((ratio - 1) * 100)}% above target. Raise your baseline to ${suggested} W?`
-          : `The hard efforts were tough today (${Math.round((1 - ratio) * 100)}% under target). Lower your baseline to ${suggested} W?`;
+          ? changedEffort
+            ? `You turned the effort up to ${effortPct}% and held it. Make ${suggested} W your new baseline?`
+            : `You rode the hard efforts ${Math.round((ratio - 1) * 100)}% above target. Raise your baseline to ${suggested} W?`
+          : changedEffort
+            ? `You eased the effort to ${effortPct}% today. Lower your baseline to ${suggested} W?`
+            : `The hard efforts were tough today (${Math.round((1 - ratio) * 100)}% under target). Lower your baseline to ${suggested} W?`;
         tip.hidden = false;
         $('btn-apply-baseline').onclick = () => {
           saveSettings({ baselineW: suggested });

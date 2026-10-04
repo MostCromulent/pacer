@@ -52,6 +52,13 @@ turns sage when you're in it, mustard when you're under, and blue when you're
 over. The line underneath says which to change first, e.g.
 `Resistance up to 61–65`.
 
+Feeling strong, or having an off day? Use **Effort − / +** at the bottom of the
+mini window (or the `-` and `+` keys) to make the ride easier or harder in 5%
+steps, from 70% to 130%. It scales the power behind every step, so the
+resistance ranges move while cadence stays the same. The summary notes the
+effort you rode at, and if you held a higher (or lower) effort it offers to
+make that your new baseline.
+
 Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 
 ### Calibrate resistance once

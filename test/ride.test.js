@@ -141,6 +141,36 @@ test('sprints have open-ended ranges', () => {
   assert.equal(formatRange(tg.cadenceRange), '100+');
 });
 
+test('effort control scales power and resistance targets, not cadence', () => {
+  const w = generateWorkout('intervals', 30, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const climb = w.segments.find((x) => x.kind === 'work');
+  const base = s.targetsFor(climb);
+  assert.equal(s.nudgeDifficulty(+2), 1.1);
+  const harder = s.targetsFor(climb);
+  assert.equal(harder.watts, Math.round(base.watts * 1.1));
+  assert.equal(harder.cadence, base.cadence);
+  assert.ok(harder.knob > base.knob);
+  assert.equal(s.snapshot().difficulty, 1.1);
+  // Clamped and snapped to 5% steps.
+  assert.equal(s.setDifficulty(2), 1.3);
+  assert.equal(s.setDifficulty(0.1), 0.7);
+  assert.equal(s.setDifficulty(1.02), 1);
+  for (let i = 0; i < 20; i++) s.nudgeDifficulty(-1);
+  assert.equal(s.difficulty, 0.7);
+});
+
+test('summary reports the average effort over the ride', () => {
+  const w = generateWorkout('endurance', 22, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  while (!s.done) {
+    if (Math.abs(s.t - w.totalS / 2) < 0.3) s.setDifficulty(1.2);
+    s.setInput({ powerW: 150, cadence: 88 });
+    s.update(0.5);
+  }
+  assert.equal(s.summary().avgDifficulty, 1.1);
+});
+
 test('summary reports average cadence and knob for each hard effort', () => {
   const w = generateWorkout('intervals', 22, 0);
   const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });

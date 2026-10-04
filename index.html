@@ -127,7 +127,7 @@
           </div>
 
           <div class="scene-wrap">
-            <canvas id="scene" width="360" height="236" role="img" aria-label="Papercraft race scene"></canvas>
+            <canvas id="scene" width="360" height="222" role="img" aria-label="Papercraft race scene"></canvas>
             <div class="scene-hud">
               <span id="gap-pill" class="pill gap">Ready</span>
               <span id="next-pill" class="pill paper"></span>
@@ -164,7 +164,15 @@
               </div>
             </div>
             <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
-            <p id="aside-line" class="aside-line"></p>
+            <div class="stage-foot">
+              <p id="aside-line" class="aside-line"></p>
+              <span class="effort" role="group" aria-label="Effort">
+                <span class="effort-lbl">Effort</span>
+                <button id="diff-down" class="icon-btn" type="button" aria-label="Easier" title="Easier (−)">−</button>
+                <span id="diff-val" class="effort-val" aria-live="polite">100%</span>
+                <button id="diff-up" class="icon-btn" type="button" aria-label="Harder" title="Harder (+)">+</button>
+              </span>
+            </div>
           </div>
         </section>
       </div>
@@ -188,7 +196,7 @@
             <span class="muted small">Resistance</span>
             <span class="sim-ctrl"><button id="knob-down" class="icon-btn" type="button" aria-label="Less resistance">−</button><span id="sim-knob" class="sim-val">0</span><button id="knob-up" class="icon-btn" type="button" aria-label="More resistance">+</button></span>
           </div>
-          <p class="muted small">Keys: ↑ ↓ cadence, ← → resistance.</p>
+          <p class="muted small">Keys: ↑ ↓ cadence, ← → resistance. − / + changes effort on any bike.</p>
         </div>
         <button id="btn-end" class="btn btn-paper wide" type="button">End ride</button>
       </aside>
