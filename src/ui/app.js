@@ -205,10 +205,20 @@ function renderSetup() {
   $('custom-dur').classList.toggle('on', custom);
   if (document.activeElement !== $('cust-min')) $('cust-min').value = state.duration;
 
+  // One group of types open at a time; a closed group shows the pick inside it.
   const groups = [...new Set(TYPES.map((t) => t.group))];
+  const picked = TYPES.find((t) => t.id === state.type);
+  if (state.typeGroup === undefined) state.typeGroup = picked?.group;
   $('types').innerHTML = groups.map((g) => {
     const list = TYPES.filter((t) => t.group === g);
-    return `<p class="type-group">${esc(g)}</p>` + list.map((t, i) => `
+    const open = g === state.typeGroup;
+    const head = `<button type="button" class="type-group" data-group="${esc(g)}" aria-expanded="${open}">
+      <span>${esc(g)}</span>
+      <span class="type-group-pick">${picked?.group === g ? esc(picked.name) : `${list.length} rides`}</span>
+      <span class="type-group-arrow" aria-hidden="true"></span>
+    </button>`;
+    if (!open) return head;
+    return head + list.map((t, i) => `
     <button type="button" class="type${list.length % 2 && i === list.length - 1 ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
@@ -351,6 +361,12 @@ $('cust-minus').addEventListener('click', () => setDuration(Math.ceil(state.dura
 $('cust-plus').addEventListener('click', () => setDuration(Math.floor(state.duration / 5) * 5 + 5));
 
 $('types').addEventListener('click', (e) => {
+  const head = e.target.closest('[data-group]');
+  if (head) {
+    state.typeGroup = state.typeGroup === head.dataset.group ? null : head.dataset.group;
+    renderSetup();
+    return;
+  }
   const b = e.target.closest('[data-type]');
   if (!b) return;
   state.type = b.dataset.type;
