@@ -6,43 +6,30 @@
   <img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="280">
 </p>
 
-Riding a spin bike in front of Netflix or YouTube is a great way to get the
-minutes in, but it's easy to drift into a lazy spin. Pacer is a small window
-that sits on top of your show and tells you what to do next: what resistance
-to set, how fast to pedal, and how long until it changes.
+Pacer is a small window that sits on top of Netflix or YouTube while you ride
+your spin bike. It tells you what resistance to set, how fast to pedal, and
+how long until it changes.
 
-- 📺 **Made for watching something else.** One small always-on-top window,
-  readable at a glance from the saddle.
-- 🎯 **Spin-class targets.** A resistance and a cadence for every step, in the
+- 📺 **Stays on top of your show**, and is readable at a glance from the saddle.
+- 🎯 **Spin-class targets**: a resistance and a cadence for every step, in the
   numbers your bike's screen shows.
-- 👻 **Race yourself.** Each ride is a little cartoon race against your best
-  ride on that workout.
-- 🪶 **Lightweight.** Runs in your browser. No account, no subscription, no
-  installer, and nothing leaves your computer.
+- 👻 **Race yourself**: every ride is a cartoon race against your best one.
+- 🪶 **Lightweight**: it runs in your browser, with no account, and nothing
+  leaves your computer.
 
-Works with bikes that use standard Bluetooth (FTMS), such as the Schwinn
-800IC / IC4 / IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
+Works with standard Bluetooth (FTMS) bikes such as the Schwinn 800IC / IC4 /
+IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
 
 ## 🚀 Get started
 
-You need a computer with Bluetooth, **Chrome or Edge**, and
-[Node.js](https://nodejs.org) 18 or newer.
+You need **Chrome or Edge**, Bluetooth, and [Node.js](https://nodejs.org) 18+.
 
-1. Download this repository, open a terminal in its folder and run:
-
-   ```sh
-   npm start
-   ```
-
-2. Open <http://localhost:5173> in Chrome or Edge.
-3. Close any other app connected to your bike (Peloton, Zwift, JRNY), pedal a
-   few turns to wake it, then click **Connect bike** and pick it from the list.
-4. The first time, Pacer asks you to **calibrate**: about two and a half
-   minutes of pedalling so its resistance numbers match your bike's screen.
-5. Set your **easy pace** (step 3 of *Build a ride*): the resistance and
-   cadence you could hold while chatting. Every ride is sized from that.
-
-Then put your show on, build a ride and press **Start ride**.
+1. Download this repository and run `npm start` in its folder.
+2. Open <http://localhost:5173>.
+3. Pedal to wake the bike, click **Connect bike** and pick it from the list.
+   Close Peloton, Zwift or JRNY first: a bike takes one connection at a time.
+4. Calibrate when prompted (about two and a half minutes of pedalling), then
+   set your **easy pace**: the resistance and cadence you could chat at.
 
 ## 🛠️ Build a ride
 
@@ -50,40 +37,21 @@ Then put your show on, build a ride and press **Start ride**.
   <img src="docs/build-a-ride.png" alt="Build a ride" width="760">
 </p>
 
-Four quick steps, and your choices are remembered for next time:
-
-1. ⏱️ **Length.** A sitcom (22 min), half an hour, a drama (45), a double
-   (60), or anything from 10 to 120 minutes.
-2. 🗺️ **Type.** Thirteen rides in four groups: *Steady* (endurance, recovery
-   spin, sweet spot), *Natural* (rolling hills, mountain climb, fartlek),
-   *Intervals* (intervals, HIIT, pyramid, sprints, cadence drills) and *Mixed*
-   (spin class, mix it up).
-3. 💪 **Effort.** Very easy, Easy, Normal, Hard or Very hard, or an exact
-   percentage. The preview shows what it will ask of you.
-4. 🏁 **Race.** Your best ride on this workout, your last one, or a pacer that
-   hits every target.
+Pick a length from 10 to 120 minutes, one of thirteen kinds of ride (steady,
+hills, intervals, spin class and more), how hard you want it, and who to race.
+Your choices are remembered, so next time it's one click.
 
 ## 📺 During a ride
 
-The ride opens in a small window that stays on top of everything else, so your
-show can be full screen behind it. Drag it bigger if the screen is across the
-room.
+- 🟩 Two tiles, **cadence** and **resistance**: green is in range, yellow too
+  low, blue too high.
+- ⛰️ The road is the workout. A steeper hill means more resistance.
+- 🔔 A chime warns you before each change, so your eyes can stay on the show.
+- 🎚️ Off day? **Effort − / +** makes the rest of the ride easier or harder.
 
-- 🟩 Two tiles, **cadence** and **resistance**. Green means you're in range,
-  yellow means too low, blue means too high, and a line underneath says what to
-  change.
-- ⛰️ The road is the workout: a steeper hill means more resistance. Climbs are
-  ridden slow and heavy, recoveries light and fast.
-- 🔔 A soft chime warns you before each change, so you can keep your eyes on
-  the show.
-- ⚡ Hard blocks end in a 30-second sprint against your ghost.
-- 🎚️ Having an off day? **Effort − / +** makes the rest of the ride easier or
-  harder.
+## 📈 Afterwards
 
-## 📈 After a ride
-
-The summary shows how the race went and how each hard effort compared with
-last time. **Statistics** keeps your totals, minutes per week and every ride.
+A summary of the race, and **Statistics** with your totals and minutes per week.
 
 <p align="center">
   <img src="docs/statistics.png" alt="Statistics" width="760">
@@ -91,40 +59,23 @@ last time. **Statistics** keeps your totals, minutes per week and every ride.
 
 ## 🔧 Calibration
 
-Most spin bikes have no power meter: they estimate watts from the resistance
-and how fast you pedal, and every model does it differently. Calibrating
-teaches Pacer your bike's formula. If the bike reports its resistance (the
-800IC does), Pacer keeps learning from every ride.
-
-**Calibration** in the top bar shows what it has learned.
+Spin bikes estimate watts from resistance and cadence, each model in its own
+way. Calibrating teaches Pacer your bike's formula, and if the bike reports
+its resistance (the 800IC does) it keeps learning from every ride.
 
 <p align="center">
   <img src="docs/calibration.png" alt="Calibration" width="460">
 </p>
 
-## 💾 Your data
+## 🩹 Good to know
 
-Rides and settings live in your browser, on your computer. **Import / export**
-saves them to a backup file or loads one, which is also how you move to another
-computer. Your bike's calibration is saved as `calibration.json` in the Pacer
-folder.
-
-## 🩹 If something goes wrong
-
-- **"Web Bluetooth needs Chrome or Edge."** Open Pacer in one of those, at
-  `http://localhost:5173`.
-- **The bike isn't in the list.** Pedal to wake it and check that no other app
-  or phone is connected to it. Still missing? Hold Shift and click **Connect
-  bike** to list every Bluetooth device nearby.
-- **It connects, but the numbers stay at zero.** Some bikes only send data
-  while you're pedalling.
-- **The resistance numbers don't match the bike's screen.** Open
-  **Calibration** and calibrate again.
-- **The watts look high.** They're whatever the bike reports, and bikes like
-  the 800IC estimate generously. It doesn't matter here: you only race
-  yourself on the same bike.
-- **No small window appeared.** Floating windows need Chrome or Edge 116 or
-  newer. The ride still runs in the main tab.
+- **Bike not in the list?** Pedal to wake it, and check no other app or phone
+  is connected. Shift-click **Connect bike** lists every device nearby.
+- **Resistance doesn't match the bike's screen?** Calibrate again, from
+  **Calibration** in the top bar.
+- **Watts look high?** They're the bike's own estimate. You only race yourself,
+  so it doesn't matter.
+- **Your data stays on your computer.** **Import / export** makes a backup.
 
 ---
 

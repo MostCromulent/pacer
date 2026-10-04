@@ -930,6 +930,9 @@ function renderRide() {
     cue.dataset.icon = snap.cue.type;
   }
   $('cue-text').textContent = state.started ? snap.cue.text : 'Start pedalling';
+  // Nothing to change when both tiles are green, so the line steps aside. It
+  // keeps its space, so the window doesn't jump when it comes back.
+  cue.style.visibility = state.started && snap.cue.type === 'ok' ? 'hidden' : 'visible';
 
   updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
   $('route-dist').textContent = fmtKm(snap.dist);
