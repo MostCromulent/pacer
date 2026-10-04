@@ -300,3 +300,15 @@ test('a spin class ends on its hardest block, straight into the cool-down', () =
     assert.equal(w.segments[w.segments.indexOf(last) + 1].kind, 'cooldown');
   }
 });
+
+test('the low impact class stays seated, never sprints, and is gentler than a spin class', () => {
+  const hardest = (w) => Math.max(...w.segments.map((s) => s.pct));
+  for (const variant of [0, 1, 2, 404, 7777, 31337]) {
+    const w = generateWorkout('spinlow', 45, variant);
+    assert.ok(w.segments.every((s) => s.position === 'seated'), w.code);
+    assert.ok(w.segments.every((s) => s.kind !== 'sprint' && s.cadence <= 100), w.code);
+    assert.ok(hardest(w) <= 95, `${w.code} peaks at ${hardest(w)}`);
+    assert.ok(hardest(w) < hardest(generateWorkout('spinclass', 45, variant)));
+    assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), 45 * 60);
+  }
+});

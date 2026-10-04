@@ -37,7 +37,7 @@ You need **Chrome or Edge**, Bluetooth, and [Node.js](https://nodejs.org) 18+.
   <img src="docs/build-a-ride.png" alt="Build a ride" width="760">
 </p>
 
-Pick a length from 10 to 120 minutes, one of sixteen kinds of ride (steady,
+Pick a length from 10 to 120 minutes, one of seventeen kinds of ride (steady,
 hills, intervals, a randomisable spin class and more), how hard you want it, and who to race.
 Your choices are remembered, so next time it's one click.
 

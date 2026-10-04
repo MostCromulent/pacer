@@ -188,7 +188,7 @@ const TYPE_COLORS = {
   endurance: '#9CC5A1', recovery: '#C3DDC6', lowimpact: '#A9D3D0', tempo: '#F2C14E', progression: '#F0B35A',
   hills: '#7FB38A', mountain: '#B3A2DD', fartlek: '#F7A1B0',
   intervals: '#F6A96B', climbs: '#C9A27E', hiit: '#F2765C', pyramid: '#E0707F', sprints: '#FFB38A', cadence: '#9DB9F2',
-  spinclass: '#B9AEE0', surprise: '#8FD3C6',
+  spinclass: '#B9AEE0', spinlow: '#D9CFF2', surprise: '#8FD3C6',
 };
 
 const SETUP_STEPS = ['Length', 'Type', 'Effort', 'Race'];
@@ -239,11 +239,11 @@ function renderSetup() {
     if (!open) return head;
     // An open group is one shaded box in the group's colour, holding its rides.
     return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-list">` + list.map((t, i) => `
-    <button type="button" class="type${(list.length % 2 && i === list.length - 1) || list.some((x) => x.id === 'spinclass') ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
+    <button type="button" class="type${(list.length % 2 && i === list.length - 1) || g === 'Spin class' ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
       <span><span class="name">${esc(t.name)}</span><span class="hint">${esc(t.hint)}</span></span>
-      ${t.id === 'spinclass' ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
+      ${g === 'Spin class' ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
         New class</span>` : ''}
     </button>`).join('') + '</div></div>';
@@ -408,8 +408,8 @@ $('types').addEventListener('click', (e) => {
     return;
   }
   if (e.target.closest('[data-new-class]')) {
-    // A fresh random spin class: blocks in a new order, with new numbers.
-    state.type = 'spinclass';
+    // A fresh random class: blocks in a new order, with new numbers.
+    state.type = e.target.closest('[data-type]').dataset.type;
     state.variant = randomVariant();
     saveSettings({ lastType: state.type });
     renderSetup();

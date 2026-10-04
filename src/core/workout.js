@@ -19,6 +19,7 @@ export const TYPES = [
   { id: 'sprints', group: 'Intervals', name: 'Sprints', hint: 'Short all-out bursts', code: 'SPR' },
   { id: 'cadence', group: 'Intervals', name: 'Cadence drills', hint: 'Spin fast, low effort', code: 'CAD' },
   { id: 'spinclass', group: 'Spin class', name: 'Spin class', hint: 'Climbs, pushes, jumps and sprints in short blocks', code: 'SPN' },
+  { id: 'spinlow', group: 'Spin class', name: 'Low impact class', hint: 'Seated throughout, with gentler climbs and pushes', code: 'SPL' },
   { id: 'surprise', group: 'Mixed', name: 'Mix it up', hint: 'A natural ride, then intervals', code: 'MIX' },
 ];
 
@@ -105,7 +106,7 @@ export function generateWorkout(type, minutes, variant = 0) {
   const cool = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
   const main = (minutes - warm - cool) * 60;
 
-  const gentle = type === 'recovery' || type === 'lowimpact';
+  const gentle = type === 'recovery' || type === 'lowimpact' || type === 'spinlow';
   const warmTop = gentle ? 58 : 72;
   for (let i = 0; i < warm; i++) add(60, 45 + ((i + 1) / warm) * (warmTop - 45), 'warmup');
 
@@ -413,7 +414,10 @@ function makeBuilders(add, v, rand, shuffled = false) {
     // A spin class is a run of themed blocks. Each block keeps its format, but
     // its lengths, counts and targets are drawn afresh every time it comes up,
     // so no two are quite alike.
-    spinclass(budget) {
+    //
+    // The low impact class uses only the seated blocks, eases every effort and
+    // caps the cadence, and never sprints.
+    spinclass(budget, { low = false } = {}) {
       const int = (lo, hi) => Math.round(between(lo, hi));
       const times = (n, make) => Array.from({ length: n }, (_, i) => make(i)).flat();
       const blocks = {
@@ -471,15 +475,20 @@ function makeBuilders(add, v, rand, shuffled = false) {
           return times(n, (i) => [[20, from + i * rise, 'work', { cadence, creep: true, label: `Creep ${i + 1}/${n}` }]]);
         },
       };
-      const standard = [
+      const SEATED = ['flat', 'seated', 'cadencePush', 'resistancePush', 'creep', 'recover'];
+      const standard = (low ? [
+        ['flat', 'cadencePush', 'seated', 'recover', 'creep', 'flat', 'resistancePush', 'recover'],
+        ['seated', 'resistancePush', 'recover', 'flat', 'cadencePush', 'recover', 'creep'],
+        ['flat', 'creep', 'recover', 'seated', 'cadencePush', 'recover', 'resistancePush'],
+      ] : [
         ['flat', 'cadencePush', 'seated', 'creep', 'recover', 'ladder', 'jumps', 'recover', 'resistancePush', 'standing', 'recover', 'heavyPush', 'sprints'],
         ['jumps', 'resistancePush', 'recover', 'seated', 'creep', 'sprints', 'recover', 'ladder', 'flat', 'cadencePush', 'heavyPush', 'recover', 'standing'],
         ['seated', 'heavyPush', 'recover', 'cadencePush', 'jumps', 'creep', 'recover', 'sprints', 'flat', 'ladder', 'resistancePush', 'standing'],
-      ][v];
+      ])[v];
       // A random class: every block once, in a shuffled order that opens gently
       // and recovers after every second hard block.
       const shuffledOrder = () => {
-        const pool = Object.keys(blocks).filter((b) => b !== 'recover' && b !== 'flat');
+        const pool = Object.keys(blocks).filter((b) => b !== 'recover' && b !== 'flat' && (!low || SEATED.includes(b)));
         for (let i = pool.length - 1; i > 0; i--) {
           const j = Math.floor(rand() * (i + 1));
           [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -493,9 +502,15 @@ function makeBuilders(add, v, rand, shuffled = false) {
       };
       // The class finishes on its hardest block, straight into the cool-down.
       // It is set aside first, and everything else is fitted in before it.
-      const FINALES = ['sprints', 'heavyPush', 'ladder'];
+      const FINALES = low ? ['creep', 'resistancePush', 'seated'] : ['sprints', 'heavyPush', 'ladder'];
       const finaleName = FINALES[shuffled ? Math.floor(rand() * FINALES.length) : v];
-      const finale = blocks[finaleName]();
+      // Low impact: efforts above an easy pace are pulled 40% of the way back
+      // towards it, and nobody is asked to spin faster than 100 rpm.
+      const eased = ([dur, pct, kind, opts]) => (low
+        ? [dur, pct > 60 ? 60 + (pct - 60) * 0.6 : pct, kind, { ...opts, cadence: Math.min(100, opts.cadence ?? 100) }]
+        : [dur, pct, kind, opts]);
+      const build = (name) => blocks[name]().map(eased);
+      const finale = build(finaleName);
       while (finale.length > 1 && finale.at(-1)[2] === 'recovery') finale.pop(); // the cool-down is the recovery
       const finaleS = finale.reduce((a, p) => a + p[0], 0);
       const hasFinale = budget >= finaleS + 240;
@@ -508,7 +523,7 @@ function makeBuilders(add, v, rand, shuffled = false) {
         const name = order[i % order.length];
         // No need for a recovery block straight after a block that ends in one.
         if (name === 'recover' && lastKind === 'recovery') continue;
-        const parts = blocks[name]().map(([dur, ...rest]) => [dur >= 120 ? step(dur * k, 30) : dur, ...rest]);
+        const parts = build(name).map(([dur, ...rest]) => [dur >= 120 ? step(dur * k, 30) : dur, ...rest]);
         const len = parts.reduce((a, p) => a + p[0], 0);
         if (len > left) break;
         for (const p of parts) add(...p);
@@ -517,6 +532,10 @@ function makeBuilders(add, v, rand, shuffled = false) {
       }
       cruise(left);
       if (hasFinale) for (const p of finale) add(...p);
+    },
+
+    spinlow(budget) {
+      b.spinclass(budget, { low: true });
     },
   };
   return b;
