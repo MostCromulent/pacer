@@ -1,4 +1,4 @@
-# Pacer
+# 🚲 Pacer
 
 **Keep your spin-bike workout on track while you watch TV.**
 
@@ -16,7 +16,7 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
   <img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="280">
 </p>
 
-## What it does
+## ✨ What it does
 
 - **Stays on top of your show**, readable at a glance from the saddle.
 - **Gives spin-class targets**: a resistance and a cadence for every step, in
@@ -26,7 +26,7 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
 - **Races you against yourself**: every ride is a cartoon race against your
   best one.
 
-## Getting started
+## 🚀 Getting started
 
 1. Open <https://mostcromulent.github.io/pacer/> in Chrome or Edge.
 2. Pedal to wake the bike, click **Connect bike** and pick it from the list.
@@ -37,7 +37,7 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
    ride is sized from that.
 5. Put your show on, build a ride and press **Start ride**.
 
-## Building a ride
+## 🛠️ Building a ride
 
 <p align="center">
   <img src="docs/build-a-ride.png" alt="Build a ride" width="760">
@@ -48,22 +48,12 @@ choices are remembered, so next time it's one click.
 
 ### Spin classes
 
-**Spin class** builds an instructor-style class out of short themed blocks,
-and **New class** makes a fresh one whenever you like.
+**Spin class** builds an instructor-style class from sixteen kinds of short
+block (climbs, pushes, jumps, sprints and more) that builds in waves to a big
+finish. **New class** makes a fresh one, the **low impact class** keeps you in
+the saddle, and you can leave out any blocks you don't like.
 
-- **Sixteen kinds of block**: seated and standing climbs, cadence and
-  resistance pushes, jumps, switchbacks, spin-ups, creeping climbs, Tabata,
-  sprints and more. Each one's lengths and numbers vary every time.
-- **A class with a shape**: it warms up, builds in waves from easier blocks to
-  harder ones with recoveries between, and ends on a big finish.
-- **Called like a class**: each block is introduced by name ("Cadence pushes,
-  3 rounds"), with badges for *Push*, *Recover*, *Add 2* and *Out of the
-  saddle*.
-- **Low impact class**: the same idea kept in the saddle, with gentler
-  efforts, no sprints, and resistance never above 50.
-- **Leave blocks out**: don't like jumps or sprints? Tap them off.
-
-## During a ride
+## 📺 During a ride
 
 - Two tiles, **cadence** and **resistance**, show what you're doing now. Green
   is in range; yellow or blue with an arrow means go up or down.
@@ -74,7 +64,7 @@ and **New class** makes a fresh one whenever you like.
 - Stop pedalling and the ride pauses; start again and it carries on. If the
   page is closed or reloaded, you can pick the ride back up.
 
-## Afterwards
+## 📈 Afterwards
 
 A summary of the race, and **Statistics** with your totals, minutes per week
 and every ride.
@@ -83,17 +73,13 @@ and every ride.
   <img src="docs/statistics.png" alt="Statistics" width="760">
 </p>
 
-## Calibration
+## 🔧 Calibration
 
 Spin bikes estimate watts from resistance and cadence, each model in its own
 way. Calibrating teaches Pacer your bike's formula, and if the bike reports
 its resistance (the 800IC does) Pacer keeps learning from every ride.
 
-<p align="center">
-  <img src="docs/calibration.png" alt="Calibration" width="460">
-</p>
-
-## Troubleshooting
+## 🩹 Troubleshooting
 
 **Which devices work?**
 
@@ -122,7 +108,7 @@ now and then. It is also how you move to another browser or computer.
 **Can I install it?** Chrome can install Pacer as an app, from the install
 button in the address bar, so it opens in a window of its own.
 
-## Running it yourself, and contributing
+## 👩‍💻 Running it yourself, and contributing
 
 Pacer is plain JavaScript with no dependencies and no build step. With
 [Node.js](https://nodejs.org) 18 or newer:
@@ -136,7 +122,7 @@ a kind of ride or a spin class block, and the tests.
 
 The screenshots use sample rides, not real ones.
 
-## Licence
+## 📄 Licence
 
 Copyright © 2026 MostCromulent.
 
@@ -144,6 +130,8 @@ Pacer is free software under the [GNU General Public License](LICENSE),
 version 3 or later. You can use it, change it and share it; if you share a
 changed version, it has to stay open under the same licence. It comes with no
 warranty.
+
+## 🤖 How this was made
 
 Written with [Claude Code](https://claude.com/claude-code), and tested on a
 real bike.
