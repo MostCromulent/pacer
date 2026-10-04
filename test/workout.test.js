@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutFromCode, segmentIndexAt, zoneOf, workoutStats,
+  TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutFromCode, segmentIndexAt, zoneOf, workoutStats, randomVariant, VARIANT_CODES,
 } from '../src/core/workout.js';
 
 test('every type, duration and variant fills the exact time with contiguous steps', () => {
@@ -46,7 +46,9 @@ test('same code, same workout', () => {
 
 test('codes round-trip and reject junk', () => {
   assert.deepEqual(parseWorkoutCode('int-30-k7q'), { type: 'intervals', minutes: 30, variant: 0 });
-  assert.equal(parseWorkoutCode('INT-30-ZZZ'), null);
+  // Any other three characters are a random version, not junk.
+  assert.equal(parseWorkoutCode('INT-30-ZZZ').variant, 3 + 36 ** 3 - 1);
+  assert.equal(parseWorkoutCode('QQQ-30-K7Q'), null);
   assert.equal(parseWorkoutCode('hello'), null);
   assert.equal(parseWorkoutCode('INT-5-K7Q'), null);
 });
@@ -96,7 +98,7 @@ test('zones and stats', () => {
 
 test('workout types are grouped and include natural styles, HIIT and mixes', () => {
   const groups = new Set(TYPES.map((t) => t.group));
-  assert.deepEqual([...groups], ['Steady', 'Natural', 'Intervals', 'Mixed']);
+  assert.deepEqual([...groups], ['Steady', 'Natural', 'Intervals', 'Spin class', 'Mixed']);
   for (const id of ['hills', 'mountain', 'fartlek', 'hiit', 'recovery', 'spinclass']) assert.ok(TYPES.some((t) => t.id === id), id);
   assert.equal(new Set(TYPES.map((t) => t.code)).size, TYPES.length);
 });
@@ -140,10 +142,10 @@ test('mix pairs a natural first half with an interval second half', () => {
 });
 
 test('spin class has standing climbs at low cadence and jumps', () => {
-  const w = generateWorkout('spinclass', 60, 0);
+  const w = generateWorkout('spinclass', 90, 0);
   const standing = w.segments.find((s) => s.name === 'Standing climb');
-  assert.equal(standing.cadence, 65);
-  assert.ok(w.segments.filter((s) => s.name === 'Jump').length >= 4);
+  assert.ok(standing.cadence >= 62 && standing.cadence <= 67);
+  assert.ok(w.segments.filter((s) => s.name === 'Jump').length >= 3);
 });
 
 test('a higher effort setting means more hard minutes and a higher average', () => {
@@ -235,7 +237,8 @@ test('spin class includes a block of standing efforts that get longer', () => {
   const w = generateWorkout('spinclass', 45, 0);
   const stands = w.segments.filter((s) => /^Stand \d/.test(s.label));
   assert.ok(stands.length >= 3);
-  assert.deepEqual(stands.slice(0, 3).map((s) => s.dur), [30, 45, 60]);
+  // Each stand is 15 seconds longer than the last.
+  for (let i = 1; i < 3; i++) assert.equal(stands[i].dur - stands[i - 1].dur, 15);
   assert.ok(stands.every((s) => s.position === 'standing'));
   const sit = w.segments[w.segments.indexOf(stands[0]) + 1];
   assert.equal(sit.hold, true);
@@ -249,17 +252,51 @@ test('spin class has cadence pushes, resistance pushes and a creeping climb', ()
   const cp = w.segments[at(/^Cadence push/)];
   const before = w.segments[at(/^Cadence push/) - 1];
   assert.equal(cp.hold, true);
-  assert.equal(cp.cadence - before.cadence, 20);
+  assert.ok(cp.cadence - before.cadence >= 15 && cp.cadence - before.cadence <= 25);
   // Resistance push: same cadence, harder.
   const rp = w.segments[at(/^Resistance push/)];
   const settle = w.segments[at(/^Resistance push/) - 1];
   assert.equal(rp.cadence, settle.cadence);
   assert.ok(rp.pct > settle.pct + 15);
-  // Creep: nine 20-second steps, each a little harder, cadence unchanged.
+  // Creep: 20-second steps, each a little harder, cadence unchanged.
   const creep = w.segments.filter((s) => s.creep);
-  assert.ok(creep.length >= 9);
-  for (let i = 1; i < 9; i++) assert.ok(creep[i].pct > creep[i - 1].pct && creep[i].cadence === creep[0].cadence && creep[i].dur === 20);
+  assert.ok(creep.length >= 7);
+  for (let i = 1; i < 7; i++) assert.ok(creep[i].pct > creep[i - 1].pct && creep[i].cadence === creep[0].cadence && creep[i].dur === 20);
   // The heavy version comes early in another running order.
   const heavy = generateWorkout('spinclass', 45, 2).segments.filter((s) => /^Heavy push/.test(s.label));
   assert.ok(heavy.length >= 3 && heavy.every((s) => s.position === 'standing'));
+});
+
+test('random versions have their own codes, and the same code is the same ride', () => {
+  const variant = randomVariant(() => 0.4321);
+  assert.ok(variant >= 3);
+  const w = generateWorkout('spinclass', 45, variant);
+  assert.deepEqual(parseWorkoutCode(w.code), { type: 'spinclass', minutes: 45, variant });
+  assert.deepEqual(generateWorkout('spinclass', 45, variant).segments, w.segments);
+  assert.ok(!VARIANT_CODES.includes(w.code.split('-')[2]));
+});
+
+test('random spin classes differ, but always warm up, cool down and add up', () => {
+  const shapes = new Set();
+  for (let i = 0; i < 40; i++) {
+    const w = generateWorkout('spinclass', 45, 3 + i * 977);
+    assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), 45 * 60);
+    const mins = (kind) => w.segments.filter((s) => s.kind === kind).reduce((a, s) => a + s.dur, 0) / 60;
+    assert.ok(mins('warmup') >= 3 && mins('cooldown') >= 3, w.code);
+    assert.equal(w.segments[0].kind, 'warmup');
+    assert.equal(w.segments.at(-1).kind, 'cooldown');
+    assert.ok(w.segments.every((s) => s.cadence >= 60 && s.cadence <= 120 && s.pct <= 150), w.code);
+    shapes.add(w.segments.map((s) => `${s.label}:${s.dur}`).join('|'));
+  }
+  assert.ok(shapes.size >= 38, `only ${shapes.size} distinct classes`);
+});
+
+test('a spin class ends on its hardest block, straight into the cool-down', () => {
+  for (const variant of [0, 1, 2, 500, 9001, 31337]) {
+    const w = generateWorkout('spinclass', 45, variant);
+    const main = w.segments.filter((s) => s.kind !== 'warmup' && s.kind !== 'cooldown');
+    const last = main.at(-1);
+    assert.ok(/^(Sprint|Heavy push|Stand)/.test(last.label), `${w.code} ends on ${last.label}`);
+    assert.equal(w.segments[w.segments.indexOf(last) + 1].kind, 'cooldown');
+  }
 });

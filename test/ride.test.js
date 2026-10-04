@@ -318,5 +318,6 @@ test('each step has a one-word instruction', async () => {
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, 2), { text: 'Add 2', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, -20), { text: 'Build', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'sprint' }), { text: 'All out', tone: 'push' });
-  assert.equal(stepAction({ kind: 'steady' }).text, 'Steady');
+  // Ordinary riding gets no badge.
+  for (const kind of ['steady', 'warmup', 'cooldown', 'drill']) assert.equal(stepAction({ kind }), null);
 });

@@ -1,4 +1,4 @@
-import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
+import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats, randomVariant } from '../core/workout.js';
 import { RideSession, formatRange, stepTargets, spokenCue, stepAction, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
@@ -193,7 +193,7 @@ const TYPE_COLORS = {
 
 const SETUP_STEPS = ['Length', 'Type', 'Effort', 'Race'];
 
-const GROUP_COLORS = { Steady: '#9CC5A1', Natural: '#B3A2DD', Intervals: '#F6A96B', Mixed: '#8FD3C6' };
+const GROUP_COLORS = { Steady: '#9CC5A1', Natural: '#B3A2DD', Intervals: '#F6A96B', 'Spin class': '#F7A1B0', Mixed: '#8FD3C6' };
 
 // Effort can be picked by word or set exactly. Each word covers a band of
 // percentages (up to `max`) and picking it sets `pct`.
@@ -233,16 +233,19 @@ function renderSetup() {
     const open = g === state.typeGroup;
     const head = `<button type="button" class="type-group" data-group="${esc(g)}" aria-expanded="${open}" style="background:${GROUP_COLORS[g] ?? ''}">
       <span>${esc(g)}</span>
-      <span class="type-group-pick">${list.length} rides</span>
+      <span class="type-group-pick">${list.length} ride${list.length === 1 ? '' : 's'}</span>
       <span class="type-group-arrow" aria-hidden="true"></span>
     </button>`;
     if (!open) return head;
     // An open group is one shaded box in the group's colour, holding its rides.
     return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-list">` + list.map((t, i) => `
-    <button type="button" class="type${list.length % 2 && i === list.length - 1 ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
+    <button type="button" class="type${(list.length % 2 && i === list.length - 1) || list.some((x) => x.id === 'spinclass') ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
       <span><span class="name">${esc(t.name)}</span><span class="hint">${esc(t.hint)}</span></span>
+      ${t.id === 'spinclass' ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+        New class</span>` : ''}
     </button>`).join('') + '</div></div>';
   }).join('');
 
@@ -403,6 +406,14 @@ $('types').addEventListener('click', (e) => {
     renderSetup();
     return;
   }
+  if (e.target.closest('[data-new-class]')) {
+    // A fresh random spin class: blocks in a new order, with new numbers.
+    state.type = 'spinclass';
+    state.variant = randomVariant();
+    saveSettings({ lastType: state.type });
+    renderSetup();
+    return;
+  }
   const head = e.target.closest('[data-group]');
   if (head) {
     state.typeGroup = state.typeGroup === head.dataset.group ? null : head.dataset.group;
@@ -426,7 +437,7 @@ $('ghosts').addEventListener('click', (e) => {
 });
 
 $('btn-shuffle').addEventListener('click', () => {
-  state.variant = (state.variant + 1) % 3;
+  state.variant = state.variant >= 3 ? 0 : (state.variant + 1) % 3;
   renderSetup();
 });
 
@@ -920,20 +931,30 @@ function renderRide() {
     void el.offsetWidth; // restart the animation
     if (state.started) el.classList.add('changed');
   };
+  // Seated is the normal state and gets no badge, apart from a moment of
+  // "Back in the saddle" after standing.
   const saddle = $('saddle');
   if (saddle.classList.contains('standing') !== standing) {
-    saddle.textContent = standing ? 'Out of the saddle' : 'In the saddle';
+    clearTimeout(state.saddleTimer);
+    saddle.textContent = standing ? 'Out of the saddle' : 'Back in the saddle';
     saddle.classList.toggle('standing', standing);
+    saddle.hidden = !state.started;
     pulse(saddle);
+    if (!standing) state.saddleTimer = setTimeout(() => { saddle.hidden = true; }, 4000);
   }
   const before = s.workout.segments[snap.segIndex - 1];
   const act = stepAction(seg, before ? snap.targetKnob - s.targetsFor(before).knob : 0);
   const action = $('action');
   if (action.dataset.step !== String(snap.segIndex)) {
     action.dataset.step = String(snap.segIndex);
-    if (action.textContent !== act.text) pulse(action);
-    action.textContent = act.text;
-    action.className = `action ${act.tone}${action.classList.contains('changed') ? ' changed' : ''}`;
+    action.hidden = !act;
+    if (act) {
+      if (action.textContent !== act.text) pulse(action);
+      action.textContent = act.text;
+      action.className = `action ${act.tone}${action.classList.contains('changed') ? ' changed' : ''}`;
+    } else {
+      action.textContent = '';
+    }
   }
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);

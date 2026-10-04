@@ -49,7 +49,8 @@ export function stepTargets(seg, segments, baselineW, model) {
  * The one-word instruction for a step, shown as a badge: what to do, as an
  * instructor would call it. `knobChange` is how far the resistance target moved
  * from the step before (for a creeping climb's "Add 2").
- * Returns { text, tone } where tone is 'push' | 'recover' | 'steady' | 'add'.
+ * Returns { text, tone } where tone is 'push' | 'recover' | 'add', or null for
+ * ordinary riding, which needs no badge.
  */
 export function stepAction(seg, knobChange = 0) {
   if (seg.creep) return { text: knobChange > 0 ? `Add ${knobChange}` : 'Build', tone: 'add' };
@@ -57,10 +58,7 @@ export function stepAction(seg, knobChange = 0) {
     case 'sprint': return { text: 'All out', tone: 'push' };
     case 'work': return { text: 'Push', tone: 'push' };
     case 'recovery': return { text: 'Recover', tone: 'recover' };
-    case 'warmup': return { text: 'Warm up', tone: 'steady' };
-    case 'cooldown': return { text: 'Cool down', tone: 'recover' };
-    case 'drill': return { text: 'Spin', tone: 'steady' };
-    default: return { text: 'Steady', tone: 'steady' };
+    default: return null;
   }
 }
 

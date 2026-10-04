@@ -177,6 +177,10 @@ main { padding: 0 32px 40px; }
 .type-group-pick { margin-left: auto; font-family: var(--body); font-size: 13px; font-weight: 800; color: var(--ink-soft); }
 .type-group-arrow { width: 9px; height: 9px; border-right: 2.5px solid var(--ink-soft); border-bottom: 2.5px solid var(--ink-soft); transform: rotate(-45deg); transition: transform 0.15s; }
 .type-group[aria-expanded="true"] .type-group-arrow { transform: rotate(45deg); }
+.type-new {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px;
+  background: var(--lavender-soft); border: 2px solid var(--lavender); color: var(--lavender-text); font-size: 13px; font-weight: 800; white-space: nowrap;
+}
 .type .sw { width: 18px; height: 18px; border-radius: 6px; flex-shrink: 0; box-shadow: 0 1px 0 rgba(59, 51, 69, 0.2); }
 .type .name { display: block; font-weight: 800; font-size: 15px; }
 .type .hint { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
