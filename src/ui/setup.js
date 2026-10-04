@@ -118,12 +118,6 @@ export function renderSetup() {
   $('stat-avg').textContent = `${st.avgTargetW} W`;
   $('stat-effort').textContent = `${st.score} / 10`;
 
-  const chosen = choices.find((g) => g.id === state.ghostKind);
-  const versus = chosen?.ride ? `${chosen.id === 'pb' ? 'your best' : 'your last ride'} (${fmtKm(chosen.ride.distanceM)})` : 'the pacer';
-  $('start-hint').textContent = state.bikeState === 'connected'
-    ? `You'll race ${versus}.`
-    : '';
-
   // One step of the setup at a time; each step's tab shows what is picked.
   const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer'];
   $('steps').innerHTML = SETUP_STEPS.map((name, i) => `
