@@ -1551,7 +1551,7 @@ function renderModel() {
     <div class="model-facts">
       <div class="stat"><span class="stat-num">${model.knots ? `${from}–${to}` : '–'}</span><span class="stat-label">Levels measured</span></div>
       <div class="stat"><span class="stat-num">+${Math.round((1.1 ** model.b - 1) * 100)}%</span><span class="stat-label">Watts for 10% more cadence</span></div>
-      <div class="stat"><span class="stat-num">${cv ? `±${round1(Math.max(0.5, cv.interiorMeanAbs))}` : '–'}</span><span class="stat-label">Levels of error at calibration</span></div>
+      <div class="stat"><span class="stat-num">${cv ? `±${round1(Math.max(0.5, cv.interiorMeanAbs))}` : '–'}</span><span class="stat-label">Resistance levels out, at calibration</span></div>
     </div>
     <div class="model-table-wrap">
       <table class="calib-table"><thead><tr><th>Resistance</th>${MODEL_CADENCES.map(({ rpm }) => `<th>${rpm} rpm</th>`).join('')}<th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
