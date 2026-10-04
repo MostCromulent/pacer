@@ -150,8 +150,12 @@ function saveSettings(patch) {
 
 function showScreen(name) {
   state.screen = name;
-  for (const s of ['setup', 'stats', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ['setup', 'stats', 'data', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
   $('top-nav').hidden = name === 'ride';
+  for (const b of document.querySelectorAll('#top-nav [data-screen]')) {
+    if (b.dataset.screen === name) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  }
   window.scrollTo(0, 0);
 }
 
@@ -495,7 +499,7 @@ $('import-file').addEventListener('change', async (e) => {
     settings = storage.loadSettings();
     toast(`Imported ${n} ride${n === 1 ? '' : 's'}.`);
     renderSetup();
-    if (state.screen === 'stats') renderStats();
+    renderData();
   } catch (err) {
     toast(`Couldn't import that file: ${err.message}`);
   }
@@ -573,9 +577,19 @@ $('btn-stats').addEventListener('click', () => {
   renderStats();
   showScreen('stats');
 });
-$('stats-back').addEventListener('click', () => {
+$('btn-build').addEventListener('click', () => {
   renderSetup();
   showScreen('setup');
+});
+
+function renderData() {
+  const n = storage.allRides().length;
+  $('data-count').textContent = n ? `${n} ride${n === 1 ? '' : 's'} and your settings, in one file.` : 'No rides yet, so the file will only hold your settings.';
+}
+
+$('btn-data').addEventListener('click', () => {
+  renderData();
+  showScreen('data');
 });
 
 // ---------------------------------------------------------------- bike connection

@@ -199,6 +199,9 @@ main { padding: 0 32px 40px; }
 .top-nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-right: auto; padding-left: 12px; }
 .top-nav .link { text-decoration: none; color: var(--ink-soft); font-size: 15px; }
 .top-nav .link:hover { color: var(--lavender-text); text-decoration: underline; text-underline-offset: 3px; }
+.top-nav .link[aria-current="page"] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 3px; text-decoration-color: var(--lavender-deep); text-underline-offset: 6px; }
+.data-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; align-items: start; }
+.data-cards .btn { cursor: pointer; }
 .stats-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stats-card { padding: 20px 24px; margin-bottom: 16px; }
 .stats-card .calib-table td, .stats-card .calib-table th { padding: 7px 6px; }

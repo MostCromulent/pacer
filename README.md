@@ -141,8 +141,7 @@ level over Bluetooth, the app reads it directly.
 - **Summary**: the gap to the ghost minute by minute, each hard effort compared
   with last time, and every ride of that workout. If the hard efforts were
   clearly too easy or too hard, it offers to make rides harder or easier.
-- **Your data stays local**: rides are kept in this browser. *Export rides*
-  and *Import rides* in the top bar back them up or move them to another
+- **Your data stays local**: rides are kept in this browser. **Import / export** in the top bar backs them up or moves them to another
   computer. **Statistics** shows totals, minutes per week and every ride.
 
 ## How it works

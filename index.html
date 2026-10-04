@@ -18,11 +18,10 @@
     <span class="brand-name">Pacer</span>
   </div>
   <nav id="top-nav" class="top-nav" aria-label="Pacer">
-    <button id="btn-stats" class="link" type="button">Statistics</button>
+    <button id="btn-build" class="link" type="button" data-screen="setup">Build a ride</button>
+    <button id="btn-stats" class="link" type="button" data-screen="stats">Statistics</button>
     <button id="btn-model" class="link" type="button">Calibration</button>
-    <button id="btn-export" class="link" type="button">Export rides</button>
-    <label class="link" for="import-file">Import rides</label>
-    <input id="import-file" type="file" accept="application/json,.json" hidden>
+    <button id="btn-data" class="link" type="button" data-screen="data">Import / export</button>
   </nav>
   <div class="bike-controls">
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
@@ -137,9 +136,27 @@
         <h1 id="stats-title" class="title">Statistics</h1>
         <p id="stats-sub" class="muted"></p>
       </div>
-      <button id="stats-back" class="btn btn-paper" type="button">Back to Build a ride</button>
     </div>
     <div id="stats-body"></div>
+  </section>
+
+  <!-- IMPORT / EXPORT -->
+  <section id="screen-data" class="screen" hidden aria-labelledby="data-title">
+    <h1 id="data-title" class="title">Import / export</h1>
+    <p class="muted">Your rides and settings are kept in this browser. A backup file lets you keep a copy or move them to another computer.</p>
+    <div class="data-cards">
+      <div class="card stats-card">
+        <h2 class="card-title">Export</h2>
+        <p id="data-count" class="muted"></p>
+        <button id="btn-export" class="btn btn-lilac" type="button">Save a backup file</button>
+      </div>
+      <div class="card stats-card">
+        <h2 class="card-title">Import</h2>
+        <p class="muted">Rides in the file are added to the ones already here; nothing is removed. Settings in the file replace the current ones.</p>
+        <label class="btn btn-lilac" for="import-file">Choose a backup file</label>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+      </div>
+    </div>
   </section>
 
   <!-- RIDE -->
