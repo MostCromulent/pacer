@@ -1,199 +1,173 @@
-# Pacer
+# 🚲 Pacer
 
-Race your own ghost on a Bluetooth spin bike, in a little papercraft window that
-floats beside whatever you're watching.
+**Keep your workout on track while you watch TV.**
 
-Pacer connects to bikes that speak the standard Bluetooth **Fitness Machine
-Service (FTMS)**, such as the Schwinn 800IC / IC4 / IC8 and Bowflex C6. It builds
-a workout for the time you have, then shows the ride as a cartoon race: your
-rider against a translucent ghost of your best (or last) ride on the same
-workout.
+<img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="300" align="right">
 
-> **Status: prototype.** Everything below works against the built-in simulator
-> and is covered by unit tests. It has **not yet been tried with a real bike**,
-> so expect some rough edges on first contact (see *Troubleshooting*).
+Riding a spin bike in front of Netflix or YouTube is a great way to get the
+minutes in, but it's easy to drift into a lazy spin. Pacer is a small window
+that sits on top of your show and tells you what to do next: what resistance
+to set, how fast to pedal, and how long until it changes.
 
-## Quick start
+- 📺 **Made for watching something else.** One small always-on-top window,
+  readable at a glance from the saddle.
+- 🎯 **Spin-class targets.** A resistance and a cadence for every step, in the
+  numbers your bike's screen shows.
+- 👻 **Race yourself.** Each ride is a little cartoon race against your best
+  ride on that workout.
+- 🪶 **Lightweight.** Runs in your browser. No account, no subscription, no
+  installer, and nothing leaves your computer.
 
-Needs Node 18+ and **Chrome or Edge** on a computer. Web Bluetooth and the
-floating window aren't available in Firefox or Safari.
+Works with bikes that use standard Bluetooth (FTMS), such as the Schwinn
+800IC / IC4 / IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
+
+<br clear="right">
+
+## 🚀 Get started
+
+You need a computer with Bluetooth, **Chrome or Edge**, and
+[Node.js](https://nodejs.org) 18 or newer.
+
+1. Download this repository, open a terminal in its folder and run:
+
+   ```sh
+   npm start
+   ```
+
+2. Open <http://localhost:5173> in Chrome or Edge.
+3. Close any other app connected to your bike (Peloton, Zwift, JRNY), pedal a
+   few turns to wake it, then click **Connect bike** and pick it from the list.
+4. The first time, Pacer asks you to **calibrate**: about two and a half
+   minutes of pedalling so its resistance numbers match your bike's screen.
+5. Set your **easy pace** (step 3 of *Build a ride*): the resistance and
+   cadence you could hold while chatting. Every ride is sized from that.
+
+Then put your show on, build a ride and press **Start ride**.
+
+## 🛠️ Build a ride
+
+![Build a ride](docs/build-a-ride.png)
+
+Four quick steps, and your choices are remembered for next time:
+
+1. ⏱️ **Length.** A sitcom (22 min), half an hour, a drama (45), a double
+   (60), or anything from 10 to 120 minutes.
+2. 🗺️ **Type.** Thirteen rides in four groups: *Steady* (endurance, recovery
+   spin, sweet spot), *Natural* (rolling hills, mountain climb, fartlek),
+   *Intervals* (intervals, HIIT, pyramid, sprints, cadence drills) and *Mixed*
+   (spin class, mix it up).
+3. 💪 **Effort.** Very easy, Easy, Normal, Hard or Very hard, or an exact
+   percentage. The preview shows what it will ask of you.
+4. 🏁 **Race.** Your best ride on this workout, your last one, or a pacer that
+   hits every target.
+
+## 📺 During a ride
+
+The ride opens in a small window that stays on top of everything else, so your
+show can be full screen behind it. Drag it bigger if the screen is across the
+room.
+
+- 🟩 Two tiles, **cadence** and **resistance**. Green means you're in range,
+  yellow means too low, blue means too high, and a line underneath says what to
+  change.
+- ⛰️ The road is the workout: a steeper hill means more resistance. Climbs are
+  ridden slow and heavy, recoveries light and fast.
+- 🔔 A soft chime warns you before each change, so you can keep your eyes on
+  the show.
+- ⚡ Hard blocks end in a 30-second sprint against your ghost.
+- 🎚️ Having an off day? **Effort − / +** makes the rest of the ride easier or
+  harder.
+
+## 📈 After a ride
+
+The summary shows how the race went and how each hard effort compared with
+last time. **Statistics** keeps your totals, minutes per week and every ride.
+
+![Statistics](docs/statistics.png)
+
+## 🔧 Calibration
+
+Most spin bikes have no power meter: they estimate watts from the resistance
+and how fast you pedal, and every model does it differently. Calibrating
+teaches Pacer your bike's formula. If the bike reports its resistance (the
+800IC does), Pacer keeps learning from every ride.
+
+**Calibration** in the top bar shows what it has learned.
+
+![Calibration](docs/calibration.png)
+
+## 💾 Your data
+
+Rides and settings live in your browser, on your computer. **Import / export**
+saves them to a backup file or loads one, which is also how you move to another
+computer. Your bike's calibration is saved as `calibration.json` in the Pacer
+folder.
+
+## 🩹 If something goes wrong
+
+- **"Web Bluetooth needs Chrome or Edge."** Open Pacer in one of those, at
+  `http://localhost:5173`.
+- **The bike isn't in the list.** Pedal to wake it and check that no other app
+  or phone is connected to it. Still missing? Hold Shift and click **Connect
+  bike** to list every Bluetooth device nearby.
+- **It connects, but the numbers stay at zero.** Some bikes only send data
+  while you're pedalling.
+- **The resistance numbers don't match the bike's screen.** Open
+  **Calibration** and calibrate again.
+- **The watts look high.** They're whatever the bike reports, and bikes like
+  the 800IC estimate generously. It doesn't matter here: you only race
+  yourself on the same bike.
+- **No small window appeared.** Floating windows need Chrome or Edge 116 or
+  newer. The ride still runs in the main tab.
+
+---
+
+## 👩‍💻 For developers
+
+Pacer is plain JavaScript: no dependencies, no build step, and a
+[75-line static server](scripts/serve.js).
 
 ```sh
-npm start          # serves the app at http://localhost:5173
+npm start    # serve the app at http://localhost:5173
+npm test     # unit tests (node:test)
 ```
 
-Open <http://localhost:5173> in Chrome or Edge. No install step: there are no
-dependencies.
-
-Want to try it without the bike? Open <http://localhost:5173/?dev> and click
-**Use simulator** (it is hidden otherwise). The simulated bike
-pedals along to the workout by itself, or switch it to *I'll drive* and use the
-arrow keys (↑ ↓ cadence, ← → resistance).
-
-## Riding with the bike
-
-1. Close Zwift, Peloton or any other app connected to the bike (it accepts one
-   connection at a time) and pedal to wake the console.
-2. Click **Connect bike** and pick it from the list. If it isn't listed,
-   Shift-click **Connect bike** to show every Bluetooth device nearby.
-3. Choose a length (sitcom 22, half hour 30, drama 45, double 60, or any length
-   from 10 to 120 minutes), a workout type and who to race, then **Start ride**.
-   The ride clock starts when you start pedalling.
-4. The ride opens in the mini window: a small always-on-top
-   window, so you can put your show full screen. Drag the window bigger and
-   everything in it scales up, which helps if the screen is across the room.
-
-### Targets are cadence and resistance
-
-Each step gives you two ranges to stay in, the way a spin class does: a
-**cadence** range (rpm) and a **resistance** range. Hills and climbs are ridden slow and
-heavy, at 60–75 rpm with more resistance, recoveries spin at 87–97 rpm, and sprints at
-100+. Each tile shows the range big and what you're doing now underneath, and
-turns sage when you're in it, mustard when you're under, and blue when you're
-over. The line underneath says which to change first, e.g.
-`Resistance up to 61–65`.
-
-Feeling strong, or having an off day? Use **Effort − / +** at the bottom of the
-mini window (or the `-` and `+` keys) to make the ride easier or harder in 5%
-steps, from 50% to 150%. It scales the power behind every step, so the
-resistance ranges move while cadence stays the same. The summary notes the
-effort you rode at, and if you held a higher (or lower) effort it offers to
-make that your normal.
-
-**How hard?** on the setup screen sets the effort a ride starts at, and shows
-what that means on the bike: the resistance and cadence of the easiest and
-hardest steps. Rides are sized from your **easy pace**, set in the same step: the resistance and
-cadence you could ride at while holding a conversation. Easy steps sit around
-it and hard ones are scaled up from it. (Underneath it is a baseline in watts,
-which you never need to see.)
-
-Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
-
-### Calibrate resistance once
-
-The 800IC has no power meter: the console works watts out from cadence and the
-resistance level. **Calibration** in the top bar opens the bike's model, with a button to calibrate. It takes about
-two and a half minutes of riding: nine short steps, each asking for a
-resistance *and* a cadence. A step waits until you're pedalling at its cadence,
-then records ten seconds there, pausing whenever you drift off, so take as long
-as you need to change the resistance. Two levels are ridden both slow and fast, which is how the app learns
-what cadence does to your watts. After that the resistance numbers in the app
-match the numbers on your bike's screen, and the app can tell your resistance
-from the watts and cadence alone.
-
-At the end it tells you how accurate the result is, in resistance levels: it
-hides each step in turn, learns from the rest, and checks it can predict the
-hidden one. The calibrated formula follows your bike's actual measurements
-level by level, so it also copes with consoles that use stepped lookup tables.
-It's tested against several plausible console formulas (see
-`test/resistance.test.js`); every resistance target lands within ±2 levels.
-
-With the dev server (`npm start`), a real bike's calibration is saved to
-`calibration.json` in the repo and loaded from there on startup. If the bike
-reports its resistance over Bluetooth, the model keeps learning: every steady
-second of a ride is one more measurement of resistance, cadence and watts, and
-the model is refitted and saved when the ride ends. **Calibration** in the top
-bar shows the result: watts at each resistance for four cadences from 50 to 100 rpm, the
-levels measured so far and how many readings are behind each.
-
-Connecting a bike that has no calibration puts a prompt at the top of the setup
-screen.
-
-Until you calibrate, resistance numbers are estimates from a generic spin-bike
-curve, and the tile is labelled *est.* If your bike reports its resistance
-level over Bluetooth, the app reads it directly.
-
-## What's in the box
-
-- **Workout generator**, sized to the minutes you choose:
-  - *Steady*: endurance, recovery spin, sweet spot;
-  - *Natural*: rolling hills, mountain climb (stepped climbs to a summit) and
-    fartlek (easy riding with surprise surges), which vary like a real ride;
-  - *Intervals*: intervals, HIIT (Tabata 20/10, 30/30 or 40/20 blocks), pyramid,
-    sprints, cadence drills;
-  - *Mixed*: spin class (seated and standing climbs, jumps and sprints in
-    short blocks) and *Mix it up* (a natural first half, then intervals: hills + HIIT,
-    mountain + sprints, or fartlek + intervals).
-
-  HIIT rests and spin-class jumps keep the resistance and change only cadence,
-  as in a real class. Each
-  workout has a code (e.g. `INT-30-K7Q`, or `INT-37-K7Q` for a custom 37 minutes); the same code always gives the same
-  ride, which keeps ghost races fair. Shuffle for another variation, or click
-  the code to type one in.
-- **Ghost racing**: race your best ride on that workout, your last one, or a
-  pacer that hits every target exactly. Every hard block ends in a 30-second
-  **sprint gate**: a mini race against the ghost.
-- **Papercraft scene**: the road *is* the workout. Its steepness follows the
-  resistance target, so a steeper hill always means turn it up (and the hills
-  grow when you raise the effort). The kerbs are coloured by zone, gates appear
-  on the road ahead before they arrive, and riders pedal at their real cadence.
-- **Glanceable mini window**, built to be read from the bike at a glance.
-  Top to bottom:
-  - ride time left with a progress bar;
-  - the race scene, with the gap to the ghost and the next sprint gate;
-  - the route ahead;
-  - one box for the current stage: its name, a huge countdown (coral and
-    pulsing for the last 10 seconds), and the **cadence** and **resistance**
-    ranges side by side, each with what you're doing now and coloured by how
-    close you are, plus a one-line hint saying what to change (watts small
-    underneath);
-  - soft chimes before each change (mute button in the corner).
-- **Summary**: the gap to the ghost minute by minute, each hard effort compared
-  with last time, and every ride of that workout. If the hard efforts were
-  clearly too easy or too hard, it offers to make rides harder or easier.
-- **Your data stays local**: rides are kept in this browser. **Import / export** in the top bar backs them up or moves them to another
-  computer. **Statistics** shows totals, minutes per week and every ride.
-
-## How it works
-
 ```
-src/core/   pure logic, no DOM, unit-tested
-  ftms.js        parse FTMS Indoor Bike Data packets
-  bike.js        Web Bluetooth connection with auto-reconnect
-  sim.js         simulated bike (hidden "true" watts formula)
-  workout.js     deterministic workout generator, gates, zones
-  resistance.js  resistance/cadence -> watts model, inversion, calibration fit
-  learn.js       pools ride readings into bins and refits the model from them
-  physics.js     power -> virtual speed (flat road, eased)
-  ghost.js       distance-over-time traces; pacer ghost
-  ride.js        the ride engine: distance, targets, gates, events, summary
-  storage.js     localStorage persistence, export/import
-src/ui/     browser UI
-  app.js         screens, loop, calibration wizard
-  scene.js       canvas renderer for the papercraft race
-  charts.js      SVG previews, route strip, race chart
-  pip.js         Document Picture-in-Picture pop-out
+src/core/   logic with no browser code, covered by unit tests
+  ftms.js        reads the bike's Bluetooth data packets
+  bike.js        Web Bluetooth connection, with auto-reconnect
+  sim.js         a simulated bike
+  workout.js     the workout generator
+  resistance.js  the resistance/cadence/watts model and its calibration fit
+  learn.js       pools ride readings and refits the model from them
+  physics.js     power to virtual speed
+  ghost.js       ghost riders
+  ride.js        the ride engine: targets, gates, events, summary
+  storage.js     saving rides and settings, export and import
+src/ui/     the browser interface
+  app.js         screens, the ride loop, calibration
+  scene.js       the papercraft race scene
+  charts.js      charts and previews
+  pip.js         the floating mini window
   audio.js       chimes
+scripts/serve.js  the local server, which also saves calibration.json
 ```
 
-Distance comes from **power**, not the bike's speed readout: many spin bikes
-derive speed from cadence alone, which would reward spinning fast with no
-resistance.
+- Add `?dev` to the address to show a **Use simulator** button, which rides
+  without a bike. Add `?speed=20` to also run the clock twenty times faster.
+- Every workout has a code such as `HIL-45-K7Q`. The same code always produces
+  the same ride, which is what keeps ghost races fair.
+- Distance comes from power, not the bike's speed reading: many spin bikes
+  work out speed from cadence alone, which would reward spinning fast against
+  no resistance.
+- The screenshots above use sample rides, not real ones.
 
-The ride keeps going when the browser window is hidden: Bluetooth notifications
-drive the engine, and the pop-out window draws its own frames.
+## 📄 Licence
 
-## Development
+[MIT](LICENSE). Use it, change it, share it.
 
-```sh
-npm test                    # unit tests (node:test, no dependencies)
-npm start                   # dev server
-```
+## 🤖 How this was made
 
-Add `?dev` to the URL to show the simulator button. Add `?speed=20` to run the ride clock and simulator 20× faster, which
-is handy for checking a whole ride in a minute or two.
-
-## Troubleshooting
-
-- **"Web Bluetooth needs Chrome or Edge"**: open the app in Chrome or Edge on a
-  computer, at `http://localhost:5173` (Bluetooth is blocked on plain `http`
-  addresses other than localhost).
-- **Bike not in the device list**: pedal to wake it, make sure no other app is
-  connected, then try Shift-click **Connect bike**. On Linux, Web Bluetooth may
-  need `chrome://flags/#enable-experimental-web-platform-features`.
-- **Connects but numbers stay at zero**: some bikes only send data while you
-  pedal. If it still stays at zero, please note the bike model; it may need a
-  "start" command over the FTMS control point, which this prototype doesn't send
-  yet.
-- **Watts look off**: the 800IC's watts are an estimate from the console. That's
-  fine here, because you're only ever racing yourself on the same bike.
+Pacer was written with AI assistance. The code, tests and this README were
+produced by [Claude Code](https://claude.com/claude-code), Anthropic's coding
+assistant, directed and tested on a real bike by the repository's owner.

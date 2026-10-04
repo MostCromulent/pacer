@@ -2,7 +2,8 @@
   "name": "pacer",
   "version": "0.1.0",
   "private": true,
-  "description": "Papercraft ghost-racing companion for Bluetooth (FTMS) spin bikes.",
+  "license": "MIT",
+  "description": "Lightweight browser app that keeps your spin-bike workout on track while you watch TV.",
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.js",

@@ -200,14 +200,19 @@ const SETUP_STEPS = ['Length', 'Type', 'Effort', 'Race'];
 
 const GROUP_COLORS = { Steady: '#9CC5A1', Natural: '#B3A2DD', Intervals: '#F6A96B', Mixed: '#8FD3C6' };
 
-/** A plain word for an effort setting, to go with the percentage. */
+// Effort can be picked by word or set exactly. Each word covers a band of
+// percentages (up to `max`) and picking it sets `pct`.
+const EFFORT_WORDS = [
+  { word: 'Very easy', pct: 60, max: 65 },
+  { word: 'Easy', pct: 80, max: 90 },
+  { word: 'Normal', pct: 100, max: 105 },
+  { word: 'Hard', pct: 120, max: 130 },
+  { word: 'Very hard', pct: 140, max: Infinity },
+];
+
 function effortWord(effort) {
   const pct = Math.round(effort * 100);
-  if (pct <= 65) return 'Very easy';
-  if (pct <= 90) return 'Easy';
-  if (pct <= 105) return 'Normal';
-  if (pct <= 130) return 'Hard';
-  return 'Very hard';
+  return EFFORT_WORDS.find((w) => pct <= w.max).word;
 }
 
 function renderSetup() {
@@ -265,7 +270,7 @@ function renderSetup() {
   const versus = chosen?.ride ? `${chosen.id === 'pb' ? 'your best' : 'your last ride'} (${fmtKm(chosen.ride.distanceM)})` : 'the pacer';
   $('start-hint').textContent = state.bikeState === 'connected'
     ? `You'll race ${versus}.`
-    : 'Connect your bike to start.';
+    : '';
 
   // One step of the setup at a time; each step's tab shows what is picked.
   const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer'];
@@ -309,7 +314,8 @@ $('btn-sim').hidden = !DEV;
 /** The effort the ride starts at, and what it means on the bike for this workout. */
 function renderEffort(w) {
   $('effort-val').textContent = `${Math.round(settings.effort * 100)}%`;
-  $('effort-word').textContent = effortWord(settings.effort);
+  const word = effortWord(settings.effort);
+  $('effort-words').innerHTML = EFFORT_WORDS.map((w) => `<button type="button" class="seg${w.word === word ? ' on' : ''}" data-pct="${w.pct}" aria-pressed="${w.word === word}">${w.word}</button>`).join('');
   $('effort-minus').disabled = settings.effort <= DIFFICULTY_MIN + 1e-9;
   $('effort-plus').disabled = settings.effort >= DIFFICULTY_MAX - 1e-9;
   const steps = w.segments
@@ -327,6 +333,10 @@ function setEffort(value) {
   renderSetup();
 }
 
+$('effort-words').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pct]');
+  if (b) setEffort(Number(b.dataset.pct) / 100);
+});
 $('effort-minus').addEventListener('click', () => setEffort(settings.effort - DIFFICULTY_STEP));
 $('effort-plus').addEventListener('click', () => setEffort(settings.effort + DIFFICULTY_STEP));
 
@@ -1551,7 +1561,7 @@ function renderModel() {
     <div class="model-facts">
       <div class="stat"><span class="stat-num">${model.knots ? `${from}–${to}` : '–'}</span><span class="stat-label">Levels measured</span></div>
       <div class="stat"><span class="stat-num">+${Math.round((1.1 ** model.b - 1) * 100)}%</span><span class="stat-label">Watts for 10% more cadence</span></div>
-      <div class="stat"><span class="stat-num">${cv ? `±${round1(Math.max(0.5, cv.interiorMeanAbs))}` : '–'}</span><span class="stat-label">Resistance levels out, at calibration</span></div>
+      <div class="stat"><span class="stat-num">${cv ? `±${round1(Math.max(0.5, cv.interiorMeanAbs))}` : '–'}</span><span class="stat-label">Resistance margin of error</span></div>
     </div>
     <div class="model-table-wrap">
       <table class="calib-table"><thead><tr><th>Resistance</th>${MODEL_CADENCES.map(({ rpm }) => `<th>${rpm} rpm</th>`).join('')}<th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
