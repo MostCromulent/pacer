@@ -80,7 +80,8 @@ export function resistanceFor(model, watts, cadence) {
 }
 
 /**
- * Fit a calibrated model to samples [{ resistance, cadence, power }].
+ * Fit a calibrated model to samples [{ resistance, cadence, power }]. A sample
+ * may carry a `weight`: the number of readings it stands for (default 1).
  *
  * 1. The cadence exponent b comes from changes in cadence *within* a level
  *    (the calibration ride's paired steps), where resistance is fixed, so the
@@ -99,11 +100,14 @@ export function fitModel(samples, prior = DEFAULT_MODEL) {
   if (b === null) b = prior.b;
 
   const levels = [...byLevel.entries()]
-    .map(([r, list]) => ({
-      r,
-      n: list.length,
-      g: list.reduce((acc, s) => acc + Math.log(s.power) - b * Math.log(s.cadence), 0) / list.length,
-    }))
+    .map(([r, list]) => {
+      const n = list.reduce((acc, s) => acc + weightOf(s), 0);
+      return {
+        r,
+        n,
+        g: list.reduce((acc, s) => acc + weightOf(s) * (Math.log(s.power) - b * Math.log(s.cadence)), 0) / n,
+      };
+    })
     .sort((p, q) => p.r - q.r);
   const knots = monotone(levels).map(({ r, g: v }) => [r, v]);
   return { kind: 'table', b, knots, calibrated: true };
@@ -153,6 +157,10 @@ function groupByLevel(pts) {
   return m;
 }
 
+function weightOf(s) {
+  return s.weight ?? 1;
+}
+
 function splitByCadence(list) {
   // Calibration pairs differ by ~30 rpm; anything closer is one group.
   const sorted = [...list].sort((p, q) => p.cadence - q.cadence);
@@ -170,11 +178,13 @@ function withinLevelExponent(byLevel) {
   for (const list of byLevel.values()) {
     const xs = list.map((s) => Math.log(s.cadence));
     const ys = list.map((s) => Math.log(s.power));
-    const mx = mean(xs);
-    const my = mean(ys);
+    const ws = list.map(weightOf);
+    const n = ws.reduce((a, w) => a + w, 0);
+    const mx = xs.reduce((a, x, i) => a + ws[i] * x, 0) / n;
+    const my = ys.reduce((a, y, i) => a + ws[i] * y, 0) / n;
     for (let i = 0; i < xs.length; i++) {
-      sxy += (xs[i] - mx) * (ys[i] - my);
-      sxx += (xs[i] - mx) ** 2;
+      sxy += ws[i] * (xs[i] - mx) * (ys[i] - my);
+      sxx += ws[i] * (xs[i] - mx) ** 2;
     }
   }
   // Needs a deliberate cadence change, not just a rider's drift.

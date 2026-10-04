@@ -59,6 +59,11 @@ resistance ranges move while cadence stays the same. The summary notes the
 effort you rode at, and if you held a higher (or lower) effort it offers to
 make that your new baseline.
 
+**How hard?** on the setup screen sets the effort a ride starts at, and shows
+what that means on the bike: the resistance and cadence of the easiest and
+hardest steps. If the easiest step is far from what an easy spin feels like to
+you, change the **Baseline** in the top bar until it matches.
+
 Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 
 ### Calibrate resistance once
@@ -79,6 +84,17 @@ hidden one. The calibrated formula follows your bike's actual measurements
 level by level, so it also copes with consoles that use stepped lookup tables.
 It's tested against several plausible console formulas (see
 `test/resistance.test.js`); every resistance target lands within ±2 levels.
+
+With the dev server (`npm start`), a real bike's calibration is saved to
+`calibration.json` in the repo and loaded from there on startup. If the bike
+reports its resistance over Bluetooth, the model keeps learning: every steady
+second of a ride is one more measurement of resistance, cadence and watts, and
+the model is refitted and saved when the ride ends. **Bike model** on the setup
+screen shows the result: watts at each resistance for three cadences, the
+levels measured so far and how many readings are behind each.
+
+Connecting a bike that has no calibration puts a prompt at the top of the setup
+screen.
 
 Until you calibrate, resistance numbers are estimates from a generic spin-bike
 curve, and the tile is labelled *est.* If your bike reports its resistance
@@ -134,6 +150,7 @@ src/core/   pure logic, no DOM, unit-tested
   sim.js         simulated bike (hidden "true" watts formula)
   workout.js     deterministic workout generator, gates, zones
   resistance.js  resistance/cadence -> watts model, inversion, calibration fit
+  learn.js       pools ride readings into bins and refits the model from them
   physics.js     power -> virtual speed (flat road, eased)
   ghost.js       distance-over-time traces; pacer ghost
   ride.js        the ride engine: distance, targets, gates, events, summary

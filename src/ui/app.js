@@ -1,12 +1,13 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession, formatRange, stepTargets, DIFFICULTY_MIN, DIFFICULTY_MAX, SHORT_STEP_S } from '../core/ride.js';
+import { RideSession, formatRange, stepTargets, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
 import { SimulatedBike } from '../core/sim.js';
-import { fitModel, crossValidate, resistanceFor, CALIBRATION_STEPS } from '../core/resistance.js';
+import { fitModel, crossValidate, resistanceFor, powerFor, CALIBRATION_STEPS } from '../core/resistance.js';
+import { Learner, addToBins, fitBins, levelCounts, totalReadings } from '../core/learn.js';
 import { Scene } from './scene.js';
-import { profileSvg, routeSvg, updateRoute, gapChartSvg, esc } from './charts.js';
+import { profileSvg, routeSvg, updateRoute, gapChartSvg, esc, modelSvg, modelRange, MODEL_PLOT, MODEL_CADENCES } from './charts.js';
 import { Chimes } from './audio.js';
 import { popOut, pipSupported } from './pip.js';
 import { ZONE_COLORS } from './palette.js';
@@ -36,16 +37,32 @@ let settings = storage.loadSettings();
 
 // A real bike's calibration lives in the repo (calibration.json, written by the
 // dev server), so it survives clearing the browser and travels with the code.
+// It holds the model and the pooled readings the model is learned from.
 const CALIBRATION_URL = 'calibration.json';
+let calibration = null;
 try {
   const res = await fetch(CALIBRATION_URL, { cache: 'no-store' });
   const saved = res.ok ? await res.json() : null;
-  if (saved?.model?.calibrated) saveSettings({ model: saved.model });
+  if (saved?.model?.calibrated) {
+    calibration = saved;
+    saveSettings({ model: saved.model });
+  }
 } catch {
   // no saved calibration, or not running under the dev server
 }
 
-async function saveCalibrationFile(calibration) {
+function binsFrom(samples = []) {
+  const bins = {};
+  for (const s of samples) addToBins(bins, s);
+  return bins;
+}
+
+const learner = new Learner(calibration?.bins ?? binsFrom(calibration?.samples));
+let learnedSaved = 0;
+let lastLearnAt = 0;
+
+async function saveCalibrationFile(patch) {
+  calibration = { ...calibration, ...patch };
   try {
     const res = await fetch(CALIBRATION_URL, {
       method: 'PUT',
@@ -206,7 +223,8 @@ function renderSetup() {
   $('axis-end').textContent = `${w.minutes} min`;
   $('zones').innerHTML = [['Z1 recover', 1], ['Z2 endurance', 2], ['Z3 tempo', 3], ['Z4 threshold', 4], ['Z5 max', 5]]
     .map(([n, z]) => `<span><i style="background:${ZONE_COLORS[z]}"></i>${n}</span>`).join('');
-  const st = workoutStats(w, settings.baselineW);
+  const st = workoutStats(w, settings.baselineW * settings.effort);
+  renderEffort(w);
   $('stat-hard').textContent = `${st.hardMinutes} min`;
   $('stat-avg').textContent = `${st.avgTargetW} W`;
   $('stat-effort').textContent = `${st.effort} / 10`;
@@ -216,9 +234,15 @@ function renderSetup() {
   $('start-hint').textContent = state.bikeState === 'connected'
     ? `You'll race ${versus}.`
     : 'Connect your bike, or use the simulator, to start.';
-  $('model-note').textContent = settings.model.calibrated
-    ? 'Resistance calibrated for your bike.'
-    : 'Resistance targets use a generic model until you calibrate.';
+  $('model-note').textContent = settings.model.calibrated ? 'Calibrated.' : 'Not calibrated yet.';
+  const banner = needsCalibration() && state.bannerDismissed !== state.bike.name;
+  $('calib-banner').hidden = !banner;
+  if (banner) {
+    const name = state.bike.name;
+    $('calib-banner-why').textContent = settings.model.calibrated
+      ? `The saved calibration is for ${calibration.bike}. Until ${name} is calibrated, its resistance targets will be off. It takes about two and a half minutes of pedalling.`
+      : `${name} hasn't been calibrated, so the resistance targets are a rough guess and probably won't match its screen. It takes about two and a half minutes of pedalling.`;
+  }
   $('baseline').value = settings.baselineW;
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
@@ -226,6 +250,35 @@ function renderSetup() {
     b.setAttribute('aria-pressed', String(on));
   }
   $('calib-nudge').hidden = settings.targetMode !== 'knob' || !knobIsEstimate();
+}
+
+/** The effort the ride starts at, and what it means on the bike for this workout. */
+function renderEffort(w) {
+  $('effort-val').textContent = `${Math.round(settings.effort * 100)}%`;
+  $('effort-minus').disabled = settings.effort <= DIFFICULTY_MIN + 1e-9;
+  $('effort-plus').disabled = settings.effort >= DIFFICULTY_MAX - 1e-9;
+  const steps = w.segments
+    .filter((seg) => seg.kind !== 'sprint')
+    .map((seg) => stepTargets(seg, w.segments, settings.baselineW * settings.effort, settings.model));
+  const easy = steps.reduce((a, b) => (b.watts < a.watts ? b : a));
+  const hard = steps.reduce((a, b) => (b.watts > a.watts ? b : a));
+  const line = (t) => `resistance ${formatRange(t.knobRange)} at ${formatRange(t.cadenceRange)} rpm (${t.watts} W)`;
+  $('effort-note').innerHTML = `Easiest step: ${line(easy)}.<br>Hardest: ${line(hard)}.`;
+}
+
+function setEffort(value) {
+  const snapped = Math.round(value / DIFFICULTY_STEP) * DIFFICULTY_STEP;
+  saveSettings({ effort: Math.round(Math.min(DIFFICULTY_MAX, Math.max(DIFFICULTY_MIN, snapped)) * 100) / 100 });
+  renderSetup();
+}
+
+$('effort-minus').addEventListener('click', () => setEffort(settings.effort - DIFFICULTY_STEP));
+$('effort-plus').addEventListener('click', () => setEffort(settings.effort + DIFFICULTY_STEP));
+
+/** A real bike is connected and there is no calibration for it. */
+function needsCalibration() {
+  if (state.bikeKind !== 'ble' || state.bikeState !== 'connected') return false;
+  return !settings.model.calibrated || !isCalibratedBike();
 }
 
 /** Resistance numbers come from the generic model and may not match the bike's screen. */
@@ -437,8 +490,46 @@ function onReading(e) {
     }
     // Real-bike notifications keep the ride moving even if no window is drawing.
     if (state.bikeKind === 'ble') advance();
+    if (state.started && !state.paused) learnWhileRiding();
   }
   calib.onReading(fields);
+}
+
+// ---------------------------------------------------------------- learning the model
+
+/** The saved calibration belongs to one bike; a different bike has to be calibrated first. */
+function isCalibratedBike() {
+  return !calibration?.bike || calibration.bike === state.bike?.name;
+}
+
+/** A bike that reports its resistance measures its own formula on every ride. */
+function learnWhileRiding() {
+  const l = state.latest;
+  if (state.bikeKind !== 'ble' || l.resistance === undefined || !isCalibratedBike()) return;
+  const now = performance.now();
+  const since = now - lastLearnAt;
+  if (since < 900) return; // one reading a second, however the bike splits its packets
+  if (since > 3000) learner.rest();
+  lastLearnAt = now;
+  learner.observe({ resistance: l.resistance, cadence: l.cadence, power: l.powerW });
+}
+
+async function saveLearning() {
+  const fresh = learner.added - learnedSaved;
+  if (!fresh) return;
+  const model = fitBins(learner.bins, settings.model);
+  if (!model) return;
+  learnedSaved = learner.added;
+  saveSettings({ model });
+  const now = new Date().toISOString();
+  const filed = await saveCalibrationFile({
+    bike: state.bike?.name ?? calibration?.bike,
+    date: calibration?.date ?? now,
+    updated: now,
+    model,
+    bins: learner.bins,
+  });
+  if (filed) toast(`Bike model updated with ${fresh} readings from this ride.`);
 }
 
 // ---------------------------------------------------------------- ride loop
@@ -505,6 +596,7 @@ function startRide(workout) {
   state.workout = workout;
   const ghost = pickGhost(workout);
   state.session = new RideSession({ workout, baselineW: settings.baselineW, model: settings.model, ghost });
+  state.session.setDifficulty(settings.effort);
   state.started = false;
   state.paused = false;
   state.lastAdvance = clock();
@@ -814,6 +906,7 @@ function finishRide(completed) {
   renderSummary({ sum, workout, prevBest, prevLast, completed, saved, session: s });
   state.session = null;
   showScreen('summary');
+  saveLearning();
 }
 
 function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, session }) {
@@ -931,7 +1024,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
             : `The hard efforts were tough today (${Math.round((1 - ratio) * 100)}% under target). Lower your baseline to ${suggested} W?`;
         tip.hidden = false;
         $('btn-apply-baseline').onclick = () => {
-          saveSettings({ baselineW: suggested });
+          saveSettings({ baselineW: suggested, effort: 1 });
           tip.hidden = true;
           toast(`Baseline set to ${suggested} W.`);
         };
@@ -1006,7 +1099,7 @@ const calib = {
 
   start() {
     if (state.bikeState !== 'connected') {
-      toast('Connect your bike (or the simulator) before calibrating.');
+      toast('Connect a bike first.');
       return;
     }
     this.open = true;
@@ -1060,7 +1153,12 @@ const calib = {
     this.lastReading = performance.now();
     // A bike may split one reading over several packets, so read the merged latest.
     if (this.settled() && this.onTarget()) {
-      this.levelSamples.push({ resistance: STEPS[this.level].resistance, cadence: state.latest.cadence, power: state.latest.powerW });
+      // Trust the bike's own resistance reading when it agrees with the step, in
+      // case the knob is a level out; ignore it if it's on some other scale.
+      const asked = STEPS[this.level].resistance;
+      const reported = state.latest.resistance;
+      const resistance = Math.abs(reported - asked) <= 5 ? reported : asked;
+      this.levelSamples.push({ resistance, cadence: state.latest.cadence, power: state.latest.powerW });
     }
   },
 
@@ -1106,12 +1204,10 @@ const calib = {
     skip.hidden = this.phase !== 'level';
     next.hidden = false;
     if (this.phase === 'intro') {
-      const native = state.latest.resistance !== undefined;
       body.innerHTML = `
-        <p>${native
-          ? 'Good news: your bike reports its resistance level directly, so the app reads it as you ride. You can still calibrate to improve the resistance targets.'
-          : 'Your bike works out watts from cadence and the resistance level. Ride a few short steps so the app can learn that formula; then it can work out your resistance by itself and give resistance targets that match your bike’s screen.'}</p>
-        <p class="muted">About ${Math.round((STEPS.length * (SETTLE_S + RECORD_S)) / 60 * 2) / 2} minutes of riding, ${STEPS.length} steps. Each step waits until you're pedalling at its cadence, then records ${RECORD_S} seconds there. Each step asks for a resistance <b>and a cadence</b>: some levels are ridden both slow and fast, which is how the app learns what cadence does to your watts. Check the resistance on the bike's screen.</p>`;
+        <p>You'll ride ${STEPS.length} short steps. Each one gives you a resistance and a cadence.</p>
+        <p>Set the resistance by the number on the bike's screen, then pedal up to the cadence. Recording starts when you get there and takes ${RECORD_S} seconds. If you drift off the cadence, it pauses until you're back.</p>
+        <p class="muted">About two and a half minutes of pedalling in total. Two of the resistances come up twice, once slow and once fast.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
       const st = STEPS[this.level];
@@ -1121,17 +1217,17 @@ const calib = {
           <div><span class="calib-ask-lbl">Resistance</span><span class="knob-big">${st.resistance}</span></div>
           <div><span class="calib-ask-lbl">Cadence</span><span class="knob-big">${st.cadence}<small> rpm</small></span></div>
         </div>
-        <p id="calib-phase" class="muted">Set the resistance, then pedal up to the cadence</p>
+        <p id="calib-phase" class="muted">Waiting for you to reach the cadence</p>
         <div class="calib-progress"><i id="calib-bar"></i></div>
         <div class="calib-live">
-          <div id="cl-c-box" class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Your cadence</span></div>
+          <div id="cl-c-box" class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Cadence now</span></div>
+          <div class="stat"><span id="cl-r" class="stat-num">–</span><span class="stat-label">Resistance now</span></div>
           <div class="stat"><span id="cl-p" class="stat-num">0 W</span><span class="stat-label">Power</span></div>
-          <div class="stat"><span id="cl-n" class="stat-num">0</span><span class="stat-label">Readings</span></div>
         </div>`;
       next.hidden = true;
     } else {
       if (!this.model) {
-        body.innerHTML = `<p class="error">Not enough readings to learn the formula. Try again and keep pedalling steadily at each step.</p>`;
+        body.innerHTML = `<p class="error">Not enough readings to work with. Try again, and stay on each cadence until the step finishes.</p>`;
         next.textContent = 'Try again';
         return;
       }
@@ -1139,12 +1235,13 @@ const calib = {
       const rows = (cv?.results ?? []).map((x) => `<tr><td>Resistance ${x.level}</td><td>${Math.round(x.cadence)} rpm</td><td>${round1(x.predicted)}</td></tr>`).join('');
       const shaky = cv && cv.interiorMaxAbs > 2;
       body.innerHTML = `
-        <p>Learned your bike's formula.</p>
-        ${cv ? `<p>Resistance targets should land within about <b>±${round1(Math.max(0.5, cv.interiorMeanAbs))} levels</b> of your bike's screen (worst ${round1(cv.maxAbs)}, at the ends of the range).</p>` : ''}
-        ${shaky ? '<p class="error small">Some steps were noisy. For sharper targets, run it again and hold each cadence steady.</p>' : ''}
-        <p class="muted small">How that's checked: each step is hidden in turn, the formula is learned from the others, and it has to predict the hidden step's resistance from its watts and cadence.</p>
-        <table class="calib-table"><thead><tr><th>Hidden step</th><th>Cadence</th><th>Predicted</th></tr></thead><tbody>${rows}</tbody></table>
-        <p>Check it yourself: set any resistance and pedal. Detected resistance: <b id="calib-detect">—</b> (compare with the bike's screen).</p>`;
+        ${cv
+          ? `<p>Done. Resistance targets should now be within about <b>±${round1(Math.max(0.5, cv.interiorMeanAbs))} levels</b> of the bike's screen. The worst step was out by ${round1(cv.maxAbs)}.</p>`
+          : '<p>Done.</p>'}
+        ${shaky ? '<p class="error small">A few steps were uneven. Run it again and hold each cadence steadier for a tighter result.</p>' : ''}
+        <p class="muted small">Each step was left out in turn and predicted from the others:</p>
+        <table class="calib-table"><thead><tr><th>Step</th><th>Cadence</th><th>Predicted</th></tr></thead><tbody>${rows}</tbody></table>
+        <p>To check it, set any resistance and pedal. The app makes it <b id="calib-detect">—</b>.</p>`;
       next.textContent = 'Save';
     }
   },
@@ -1159,16 +1256,15 @@ const calib = {
       const off = cad - want;
       const settleS = this.started === null ? 0 : Math.min(SETTLE_S, (performance.now() - this.started) / 1000);
       bar.style.width = `${Math.min(100, ((settleS + this.recordedS) / (SETTLE_S + RECORD_S)) * 100)}%`;
-      const nudge = off < 0 ? 'pedal a little faster' : 'ease off a little';
       const left = Math.max(1, Math.ceil(RECORD_S - this.recordedS));
       $('calib-phase').textContent = this.started === null
-        ? 'Set the resistance, then pedal up to the cadence'
-        : !this.settled() ? 'Settle in…'
-          : this.onTarget() ? `Recording, keep it steady · ${left}s to go` : `Paused · ${nudge}`;
+        ? 'Waiting for you to reach the cadence'
+        : !this.settled() ? 'Hold it there…'
+          : this.onTarget() ? `Recording · ${left}s left` : `Paused · pedal ${off < 0 ? 'faster' : 'slower'}`;
+      $('cl-r').textContent = l.resistance === undefined ? '–' : String(Math.round(l.resistance));
       $('cl-c').textContent = String(cad);
       $('cl-c-box').className = `stat ${cad > 0 ? (Math.abs(off) <= CADENCE_TOL ? 'good' : 'off') : ''}`;
       $('cl-p').textContent = `${Math.round(l.powerW ?? 0)} W`;
-      $('cl-n').textContent = String(this.levelSamples.length);
     } else if (this.phase === 'result' && this.model) {
       const el = $('calib-detect');
       if (el && l.powerW > 5 && l.cadence > 20) el.textContent = String(Math.round(resistanceFor(this.model, l.powerW, l.cadence)));
@@ -1185,20 +1281,28 @@ $('calib-next').addEventListener('click', async () => {
   if (calib.phase === 'intro') calib.beginLevel(0);
   else if (calib.phase === 'result') {
     if (calib.model) {
-      saveSettings({ model: calib.model });
       // The simulator's formula is made up, so only a real bike is written to the repo.
-      const filed = state.bikeKind === 'ble' && await saveCalibrationFile({
-        bike: state.bike.name,
-        date: new Date().toISOString(),
-        model: calib.model,
-        check: calib.check,
-        samples: calib.samples,
-      });
-      toast(filed
-        ? 'Calibration saved to calibration.json. Resistance targets now match your bike.'
-        : state.bikeKind === 'ble'
-          ? 'Calibration saved in this browser only: could not write calibration.json.'
-          : 'Calibration saved. Resistance targets now match your bike.');
+      if (state.bikeKind === 'ble') {
+        // Recalibrating the same bike adds to what it has already learned.
+        if (!isCalibratedBike()) learner.bins = {};
+        for (const s of calib.samples) addToBins(learner.bins, s);
+        const model = fitBins(learner.bins, settings.model) ?? calib.model;
+        saveSettings({ model });
+        const now = new Date().toISOString();
+        const filed = await saveCalibrationFile({
+          bike: state.bike.name,
+          date: now,
+          updated: now,
+          model,
+          check: calib.check,
+          samples: calib.samples,
+          bins: learner.bins,
+        });
+        toast(filed ? 'Calibration saved.' : "Calibration saved in this browser, but calibration.json couldn't be written.");
+      } else {
+        saveSettings({ model: calib.model });
+        toast('Calibration saved.');
+      }
       calib.close();
       renderSetup();
     } else {
@@ -1206,6 +1310,90 @@ $('calib-next').addEventListener('click', async () => {
       calib.beginLevel(0);
     }
   }
+});
+
+$('btn-calibrate-banner').addEventListener('click', () => calib.start());
+$('calib-banner-later').addEventListener('click', () => {
+  state.bannerDismissed = state.bike?.name;
+  renderSetup();
+});
+
+// ---------------------------------------------------------------- bike model
+
+function renderModel() {
+  const model = settings.model;
+  const { lo, hi, from, to } = modelRange(model);
+  const counts = levelCounts(learner.bins);
+  const readings = totalReadings(learner.bins);
+  const day = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const about = model.calibrated
+    ? [calibration?.bike, calibration?.date && `calibrated ${day(calibration.date)}`, calibration?.updated && `last updated ${day(calibration.updated)}`].filter(Boolean).map(esc).join(' · ')
+    : 'Not calibrated yet. This is the generic curve the app uses until you calibrate.';
+
+  // One row per measured level while there are only a few, then every five levels.
+  const few = model.knots && model.knots.length <= 12;
+  const levels = few ? model.knots.map(([r]) => r) : [];
+  if (!few) for (let r = Math.ceil(lo / 5) * 5; r <= hi; r += 5) levels.push(r);
+  const near = (r) => (few ? counts[r] ?? 0 : [-2, -1, 0, 1, 2].reduce((n, d) => n + (counts[r + d] ?? 0), 0));
+  const rows = levels.map((r) => `<tr class="${r < from || r > to ? 'est' : ''}"><td>${r}</td>${MODEL_CADENCES.map(({ rpm }) => `<td>${Math.round(powerFor(model, r, rpm))} W</td>`).join('')}<td>${model.knots ? near(r) : '–'}</td></tr>`).join('');
+
+  const cv = calibration?.check;
+  $('model-body').innerHTML = `
+    <p class="muted small">${about}</p>
+    <div class="model-chart">
+      <div class="model-legend">
+        <span>Watts at each resistance</span>
+        <span class="legend">${MODEL_CADENCES.map(({ rpm, color }) => `<span><i class="sw" style="background:${color}"></i>${rpm} rpm</span>`).join('')}</span>
+      </div>
+      ${modelSvg(model)}
+      <div id="model-tip" class="model-tip" hidden></div>
+    </div>
+    <div class="model-facts">
+      <div class="stat"><span class="stat-num">${model.knots ? `${from}–${to}` : '–'}</span><span class="stat-label">Levels measured</span></div>
+      <div class="stat"><span class="stat-num">+${Math.round((1.1 ** model.b - 1) * 100)}%</span><span class="stat-label">Watts for 10% more cadence</span></div>
+      <div class="stat"><span class="stat-num">${cv ? `±${round1(Math.max(0.5, cv.interiorMeanAbs))}` : '–'}</span><span class="stat-label">Levels of error at calibration</span></div>
+    </div>
+    <div class="model-table-wrap">
+      <table class="calib-table"><thead><tr><th>Resistance</th>${MODEL_CADENCES.map(({ rpm }) => `<th>${rpm} rpm</th>`).join('')}<th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <p class="muted small">${model.knots
+      ? `Built from ${readings} readings. Dashed lines and grey rows are beyond the levels measured so far. If the bike reports its resistance, the model is updated after every ride.`
+      : 'Calibrate to replace this with measurements from your bike.'}</p>`;
+  $('model-calibrate').textContent = model.calibrated ? 'Calibrate again' : 'Calibrate';
+
+  // Hover: a crosshair and the watts at that resistance for each cadence.
+  const svg = $('model-svg');
+  const cross = $('model-cross');
+  const tip = $('model-tip');
+  const { width, left, right } = MODEL_PLOT;
+  svg.addEventListener('pointermove', (e) => {
+    const box = svg.getBoundingClientRect();
+    const px = ((e.clientX - box.left) / box.width) * width;
+    const r = Math.round(Math.min(hi, Math.max(lo, lo + ((px - left) / (width - left - right)) * (hi - lo))));
+    const x = left + ((r - lo) / (hi - lo)) * (width - left - right);
+    cross.setAttribute('x1', x);
+    cross.setAttribute('x2', x);
+    cross.setAttribute('visibility', 'visible');
+    tip.innerHTML = `Resistance ${r}<br>${[...MODEL_CADENCES].reverse().map(({ rpm, color }) => `<i style="background:${color}"></i>${rpm} rpm · ${Math.round(powerFor(model, r, rpm))} W`).join('<br>')}`;
+    tip.hidden = false;
+    const frac = x / width;
+    tip.style.left = frac < 0.55 ? `calc(${frac * 100}% + 18px)` : 'auto';
+    tip.style.right = frac < 0.55 ? 'auto' : `calc(${(1 - frac) * 100}% + 18px)`;
+  });
+  svg.addEventListener('pointerleave', () => {
+    cross.setAttribute('visibility', 'hidden');
+    tip.hidden = true;
+  });
+}
+
+$('btn-model').addEventListener('click', () => {
+  renderModel();
+  $('model-dialog').showModal();
+});
+$('model-close').addEventListener('click', () => $('model-dialog').close());
+$('model-calibrate').addEventListener('click', () => {
+  $('model-dialog').close();
+  calib.start();
 });
 
 // ---------------------------------------------------------------- go

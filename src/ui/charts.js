@@ -2,6 +2,7 @@
 // All inputs are numbers or text we generate ourselves; text is escaped anyway.
 
 import { zoneOf } from '../core/workout.js';
+import { powerFor } from '../core/resistance.js';
 import { ZONE_COLORS, P } from './palette.js';
 
 export function esc(s) {
@@ -90,6 +91,65 @@ export function gapChartSvg(gaps, width = 960, height = 150) {
     .join('');
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="Gap to the ghost each minute">
     ${bars}<rect x="0" y="${zero - 1}" width="${width}" height="2" fill="#E3D3C3"/></svg>`;
+}
+
+// Plot area of the bike model chart, shared with the hover readout in app.js.
+export const MODEL_PLOT = { width: 468, height: 230, left: 40, right: 60, top: 10, bottom: 30 };
+export const MODEL_CADENCES = [
+  { rpm: 70, color: '#159A9C' },
+  { rpm: 85, color: '#6A55B8' },
+  { rpm: 100, color: '#C95A43' },
+];
+
+/** Resistance range the model chart covers: the measured levels plus a little either side. */
+export function modelRange(model) {
+  if (!model.knots) return { lo: 10, hi: 90, from: 10, to: 90 };
+  const from = model.knots[0][0];
+  const to = model.knots[model.knots.length - 1][0];
+  return { lo: Math.max(1, from - 10), hi: Math.min(100, to + 10), from, to };
+}
+
+/**
+ * The bike's formula as a chart: watts against resistance, one line per cadence.
+ * Solid where levels were measured, dashed where the model is extending beyond them.
+ */
+export function modelSvg(model) {
+  const { width, height, left, right, top, bottom } = MODEL_PLOT;
+  const { lo, hi, from, to } = modelRange(model);
+  const top_rpm = MODEL_CADENCES[MODEL_CADENCES.length - 1].rpm;
+  const maxW = Math.ceil(powerFor(model, hi, top_rpm) / 100) * 100;
+  const x = (r) => left + ((r - lo) / (hi - lo)) * (width - left - right);
+  const y = (w) => top + (1 - w / maxW) * (height - top - bottom);
+  const path = (rpm, a, b) => {
+    let d = '';
+    for (let r = a; r <= b + 1e-9; r += 1) d += `${d ? 'L' : 'M'}${x(r).toFixed(1)},${y(powerFor(model, r, rpm)).toFixed(1)}`;
+    return d;
+  };
+  const grid = [];
+  for (let w = 0; w <= maxW; w += maxW > 600 ? 200 : 100) {
+    grid.push(`<line x1="${left}" x2="${width - right}" y1="${y(w).toFixed(1)}" y2="${y(w).toFixed(1)}" stroke="#E3D3C3" stroke-width="1"/>
+      <text x="${left - 6}" y="${(y(w) + 4).toFixed(1)}" text-anchor="end">${w}</text>`);
+  }
+  const ticks = [];
+  for (let r = Math.ceil(lo / 10) * 10; r <= hi; r += 10) {
+    ticks.push(`<text x="${x(r).toFixed(1)}" y="${height - bottom + 16}" text-anchor="middle">${r}</text>`);
+  }
+  // A short tick under the axis for every level that has been measured.
+  const rug = (model.knots ?? []).map(([r]) => `<line x1="${x(r).toFixed(1)}" x2="${x(r).toFixed(1)}" y1="${height - bottom}" y2="${height - bottom + 5}" stroke="${P.inkSoft}" stroke-width="2"/>`).join('');
+  const lines = MODEL_CADENCES.map(({ rpm, color }) => {
+    const stroke = `fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+    const dashed = `${stroke} stroke-dasharray="2 5"`;
+    return `${lo < from ? `<path d="${path(rpm, lo, from)}" ${dashed}/>` : ''}
+      <path d="${path(rpm, from, to)}" ${stroke}/>
+      ${hi > to ? `<path d="${path(rpm, to, hi)}" ${dashed}/>` : ''}
+      <text x="${width - right + 6}" y="${(y(powerFor(model, hi, rpm)) + 4).toFixed(1)}">${rpm} rpm</text>`;
+  }).join('');
+  return `<svg id="model-svg" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Watts at each resistance level, at 70, 85 and 100 rpm" font-size="11" font-weight="700" fill="${P.muted}">
+    ${grid.join('')}${ticks.join('')}${rug}
+    <text x="${(left + width - right) / 2}" y="${height - 1}" text-anchor="middle">Resistance</text>
+    ${lines}
+    <line id="model-cross" x1="0" x2="0" y1="${top}" y2="${height - bottom}" stroke="${P.ink}" stroke-width="1" visibility="hidden"/>
+  </svg>`;
 }
 
 function clamp01(x) {

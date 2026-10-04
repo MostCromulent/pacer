@@ -28,6 +28,14 @@
 <main>
   <!-- SETUP -->
   <section id="screen-setup" class="screen" aria-labelledby="setup-title">
+    <div id="calib-banner" class="calib-banner" hidden>
+      <div class="calib-banner-text">
+        <h2 class="card-title">Calibrate this bike first</h2>
+        <p id="calib-banner-why"></p>
+      </div>
+      <button id="btn-calibrate-banner" class="btn btn-start small-btn" type="button">Calibrate now</button>
+      <button id="calib-banner-later" class="link" type="button">Later</button>
+    </div>
     <div class="setup-grid">
       <div class="setup-left">
         <h1 id="setup-title" class="title">Build a ride</h1>
@@ -49,6 +57,18 @@
           <div id="types" class="types"></div>
         </fieldset>
         <fieldset class="group">
+          <legend>How hard?</legend>
+          <div class="custom-dur">
+            <span class="custom-label">Effort</span>
+            <span class="stepper">
+              <button id="effort-minus" class="icon-btn" type="button" aria-label="Easier">−</button>
+              <span id="effort-val" class="effort-setup" aria-live="polite">100%</span>
+              <button id="effort-plus" class="icon-btn" type="button" aria-label="Harder">+</button>
+            </span>
+          </div>
+          <p id="effort-note" class="muted small effort-note"></p>
+        </fieldset>
+        <fieldset class="group">
           <legend>Race against</legend>
           <div id="ghosts" class="ghosts"></div>
         </fieldset>
@@ -59,8 +79,8 @@
             <button id="mode-watts" class="seg" type="button" data-mode="watts">Watts</button>
           </div>
           <p id="calib-nudge" class="nudge small" hidden>
-            Resistance numbers are estimates until you calibrate, and may not match your bike's screen.
-            <button id="btn-calibrate-nudge" class="link" type="button">Calibrate now (2 min)</button>
+            Not calibrated yet, so these resistance numbers may not match the bike's screen.
+            <button id="btn-calibrate-nudge" class="link" type="button">Calibrate</button>
           </p>
         </fieldset>
       </div>
@@ -95,6 +115,8 @@
     </div>
     <footer class="setup-foot">
       <button id="btn-calibrate" class="link" type="button">Calibrate resistance</button>
+      <span aria-hidden="true">·</span>
+      <button id="btn-model" class="link" type="button">Bike model</button>
       <span aria-hidden="true">·</span>
       <button id="btn-export" class="link" type="button">Export rides</button>
       <span aria-hidden="true">·</span>
@@ -265,6 +287,16 @@
     <button id="calib-skip" class="btn btn-paper" type="button" hidden>Skip this level</button>
     <button id="calib-cancel" class="btn btn-paper" type="button">Close</button>
     <button id="calib-next" class="btn btn-start small-btn" type="button">Begin</button>
+  </div>
+</dialog>
+
+<!-- BIKE MODEL -->
+<dialog id="model-dialog" class="dialog dialog-wide" aria-labelledby="model-title">
+  <h2 id="model-title" class="title-sm">Bike model</h2>
+  <div id="model-body"></div>
+  <div class="dialog-actions">
+    <button id="model-calibrate" class="btn btn-paper" type="button">Calibrate again</button>
+    <button id="model-close" class="btn btn-start small-btn" type="button">Close</button>
   </div>
 </dialog>
 
