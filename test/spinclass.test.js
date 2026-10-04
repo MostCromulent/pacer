@@ -23,8 +23,8 @@ function findBlock(title, type = 'spinclass') {
 
 test('every step of a class belongs to a named block, and each block is introduced once', () => {
   const w = generateWorkout('spinclass', 45, 0);
-  const titles = new Set([...SPIN_BLOCKS.map((b) => b.title), 'Recovery']);
-  for (const s of main(w)) assert.ok(s.name === 'Cruise' || titles.has(s.block), s.label);
+  const titles = new Set(SPIN_BLOCKS.map((b) => b.title).concat('Recovery'));
+  for (const s of main(w)) assert.ok(titles.has(s.block), s.label);
   assert.equal(main(w)[0].block, 'Flat road');
   assert.ok(main(w).filter((s) => s.blockStart).length >= 4);
 });
@@ -36,17 +36,78 @@ test('a class is ridden in waves, with recoveries between them', () => {
   }
 });
 
-test('a class ends on one of its hardest blocks, straight into the cool-down', () => {
-  const finales = SPIN_BLOCKS.filter((b) => b.finale).map((b) => b.title);
-  const lowFinales = SPIN_BLOCKS.filter((b) => b.lowFinale).map((b) => b.title);
-  for (const variant of [0, 1, 2, 500, 9001, 31337]) {
-    for (const [type, allowed] of [['spinclass', finales], ['spinlow', lowFinales]]) {
-      const w = generateWorkout(type, 45, variant);
-      const last = main(w).at(-1);
-      assert.ok(allowed.includes(last.block), `${w.code} ends on ${last.block}`);
-      assert.equal(w.segments[w.segments.indexOf(last) + 1].kind, 'cooldown');
+// How hard a block is: its average effort, lifted towards its hardest step.
+const hardness = (steps) => {
+  const mean = steps.reduce((a, s) => a + s.dur * s.pct, 0) / steps.reduce((a, s) => a + s.dur, 0);
+  return mean + 0.3 * (Math.max(...steps.map((s) => s.pct)) - mean);
+};
+const blocksOf = (w) => {
+  const blocks = [];
+  for (const seg of main(w)) {
+    if (seg.blockStart) blocks.push({ name: seg.block, rounds: seg.rounds, steps: [] });
+    blocks.at(-1).steps.push(seg);
+  }
+  return blocks;
+};
+
+test('a class ends on its hardest block, straight into the cool-down', () => {
+  for (const type of ['spinclass', 'spinlow']) {
+    for (const minutes of [30, 45, 60]) {
+      for (let variant = 0; variant < 30; variant++) {
+        const w = generateWorkout(type, minutes, variant);
+        const blocks = blocksOf(w);
+        const finale = blocks.at(-1);
+        // Joining a block on to the one before can shift its efforts by a point or two.
+        for (const b of blocks.slice(0, -1)) assert.ok(hardness(b.steps) <= hardness(finale.steps) + 3, `${w.code}: ${b.name} is harder than the finale, ${finale.name}`);
+        assert.equal(w.segments[w.segments.indexOf(finale.steps.at(-1)) + 1].kind, 'cooldown');
+        assert.ok(['Recovery', 'Flat road'].includes(blocks.at(-2).name), `${w.code}: no lead-in before ${finale.name}`);
+      }
     }
   }
+});
+
+test('versions of a class are about as hard as each other', () => {
+  for (const [type, minutes] of [['spinclass', 30], ['spinclass', 45], ['spinclass', 60], ['spinlow', 45]]) {
+    const means = [];
+    for (let variant = 0; variant < 60; variant++) {
+      const steps = main(generateWorkout(type, minutes, variant));
+      means.push(steps.reduce((a, s) => a + s.dur * s.pct, 0) / steps.reduce((a, s) => a + s.dur, 0));
+    }
+    assert.ok(Math.max(...means) - Math.min(...means) <= 10, `${type} ${minutes}: average effort runs from ${Math.min(...means).toFixed(1)} to ${Math.max(...means).toFixed(1)}`);
+  }
+});
+
+test('the class builds: its second half is harder than its first', () => {
+  let builds = 0;
+  const classes = 60;
+  for (let variant = 0; variant < classes; variant++) {
+    const blocks = blocksOf(generateWorkout('spinclass', 60, variant)).filter((b) => !['Recovery', 'Flat road'].includes(b.name));
+    const half = Math.floor(blocks.length / 2);
+    const avg = (list) => list.reduce((a, b) => a + hardness(b.steps), 0) / list.length;
+    if (avg(blocks.slice(half)) > avg(blocks.slice(0, half))) builds++;
+  }
+  assert.ok(builds >= classes * 0.9, `only ${builds} of ${classes} classes build`);
+});
+
+test('a longer class has more rounds in its blocks, and a short one still fits', () => {
+  const rounds = (minutes) => {
+    const all = [];
+    for (let variant = 0; variant < 40; variant++) for (const b of blocksOf(generateWorkout('spinclass', minutes, variant))) if (b.rounds && b.name !== 'Tabata') all.push(b.rounds);
+    return all.reduce((a, b) => a + b, 0) / all.length;
+  };
+  assert.ok(rounds(60) > rounds(22) + 0.4, `${rounds(22).toFixed(2)} rounds at 22 minutes, ${rounds(60).toFixed(2)} at 60`);
+  for (let variant = 0; variant < 40; variant++) {
+    const w = generateWorkout('spinclass', 10, variant);
+    assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), 600);
+    assert.ok(w.segments.every((s) => s.dur > 0));
+  }
+});
+
+test('the low impact class has gentle forms of blocks, under their own names', () => {
+  const names = new Set();
+  for (let variant = 0; variant < 60; variant++) for (const b of blocksOf(generateWorkout('spinlow', 60, variant))) names.add(b.name);
+  for (const name of ['Surges', 'Seated ladder', 'Heavy pushes']) assert.ok(names.has(name), name);
+  for (const name of ['Sprints', 'Standing ladder', 'Tabata', 'Jumps', 'Switchbacks', 'Standing climb', 'Last push']) assert.ok(!names.has(name), name);
 });
 
 test('standing and flat-out time are capped, apart from the finale', () => {

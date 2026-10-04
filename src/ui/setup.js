@@ -1,6 +1,7 @@
 // Build a ride: the four setup steps, the ride preview and the workout code.
 
 import { TYPES, DURATIONS, SPIN_BLOCKS, generateWorkout, workoutStats, randomVariant } from '../core/workout.js';
+import { spinBlockTitle } from '../core/spinclass.js';
 import { stepTargets, EFFORT_MIN, EFFORT_MAX, EFFORT_STEP } from '../core/ride.js';
 import { formatRange } from '../core/cues.js';
 import { rideSpans } from '../core/review.js';
@@ -211,13 +212,13 @@ export function renderSetup() {
   }
 }
 
-/** Chips to leave blocks out of a spin class. The low impact class only has the gentle ones. */
+/** Chips to leave blocks out of a spin class. The low impact class only has the blocks with a gentle form. */
 function spinBlockChips() {
   const low = state.type === 'spinlow';
   const chips = SPIN_BLOCKS.filter((b) => !b.always).map((b) => {
     const off = low && !b.gentle;
     const on = !off && !settings.spinExclude.includes(b.id);
-    return `<button type="button" class="chip-toggle" data-block="${b.id}" aria-pressed="${on}" ${off ? 'disabled' : ''}>${esc(b.title)}</button>`;
+    return `<button type="button" class="chip-toggle" data-block="${b.id}" aria-pressed="${on}" ${off ? 'disabled' : ''}>${esc(spinBlockTitle(b, low && !off))}</button>`;
   }).join('');
   return `<div class="block-chips"><span class="block-chips-title">Blocks in the class · tap to leave one out</span>${chips}</div>`;
 }

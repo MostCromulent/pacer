@@ -104,12 +104,17 @@ The code uses the same words the rider sees.
 ## Adding a spin class block
 
 1. Add an entry to the **end** of `SPIN_BLOCKS` in `src/core/spinclass.js`.
-   The order is part of the workout code, so never insert or reorder.
-2. Add a maker with the same id to `makers`. It returns the block's steps and,
-   if it repeats, how many rounds. Draw its numbers with `between` and `int`
-   so no two are alike, and use `near()` for a base effort so it joins on to
-   the block before.
+   The order is part of the workout code, so never insert or reorder. Mark it
+   `gentle` if it can be ridden seated and easy in the low impact class.
+2. Add a maker with the same id to `blockMakers`. It returns the block's steps
+   and, if it repeats, how many rounds. Draw its numbers with `between` and
+   `int` so no two are alike, its rounds with `reps` so a longer class gets
+   more, and use `near()` for a base effort so it joins on to the block before.
 3. Add a test in `test/spinclass.test.js`.
+
+There is nothing else to label. How hard the block is, where it goes in the
+class, how much rest follows it and whether it can be the finale are all
+measured from its steps.
 
 ## Workout codes
 
