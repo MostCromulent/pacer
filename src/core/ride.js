@@ -26,11 +26,18 @@ export function stepTargets(seg, segments, baselineW, model) {
   let watts = targetWatts(seg, baselineW);
   let knob = Math.round(resistanceFor(model, watts, cadence));
   if (seg.hold) {
-    const prev = segments[segments.indexOf(seg) - 1];
-    if (prev && !prev.hold) {
-      knob = stepTargets(prev, segments, baselineW, model).knob;
+    // Back to the step that set the resistance, through any others that held it.
+    let i = segments.indexOf(seg) - 1;
+    while (i > 0 && segments[i].hold) i--;
+    const base = segments[i];
+    if (base && !base.hold) {
+      knob = stepTargets(base, segments, baselineW, model).knob;
       watts = powerFor(model, knob, cadence);
     }
+  }
+  if (seg.knobCap && knob > seg.knobCap) {
+    knob = seg.knobCap;
+    watts = powerFor(model, knob, cadence);
   }
   const wattsTol = Math.max(10, watts * 0.06);
   const sprint = seg.kind === 'sprint';
@@ -66,9 +73,17 @@ export function stepAction(seg, knobChange = 0) {
  * What to say out loud when a step begins: its name and the two numbers to aim
  * for. Short reps get a single word, since there's no time for more.
  * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'. Getting out
- * of the saddle, or back into it after the step before (`prev`), is called too.
+ * of the saddle, or back into it after the step before (`prev`), is called too,
+ * and the first step of a spin class block is introduced by the block's name.
  */
 export function spokenCue(seg, targets, mode = 'knob', prev = null) {
+  const intro = seg.blockStart && seg.block && seg.block !== 'Recovery'
+    ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. `
+    : '';
+  return intro + stepCue(seg, targets, mode, prev);
+}
+
+function stepCue(seg, targets, mode, prev) {
   const said = seg.label.split('·').pop().replace(/[\d/]+|\bof\b/g, '').replace(/\s+/g, ' ').trim();
   const name = said.charAt(0).toUpperCase() + said.slice(1);
   const standing = seg.position === 'standing';

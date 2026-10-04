@@ -1,9 +1,15 @@
+import { buildSpinClass, excludeMask, excludeFromMask } from './spinclass.js';
+
+export { SPIN_BLOCKS } from './spinclass.js';
+
 // Workout generation. Rule-based and deterministic: the same code always
 // produces the same workout, which is what makes ghost races fair. "Natural"
 // styles use a seeded random generator, so they vary like a real ride but are
 // still identical every time for the same code.
 
 export const TYPES = [
+  { id: 'spinclass', group: 'Spin class', name: 'Spin class', hint: 'An instructor-style class: climbs, pushes, jumps and sprints in short blocks, building in waves to a big finish', code: 'SPN' },
+  { id: 'spinlow', group: 'Spin class', name: 'Low impact class', hint: 'The same class kept in the saddle: gentler efforts, no sprints, and resistance never above 50', code: 'SPL' },
   { id: 'endurance', group: 'Steady', name: 'Endurance', hint: 'Steady, chatty pace', code: 'END' },
   { id: 'recovery', group: 'Steady', name: 'Recovery spin', hint: 'Easy legs, light resistance', code: 'REC' },
   { id: 'lowimpact', group: 'Steady', name: 'Low impact', hint: 'Seated, moderate, gentle rises', code: 'LOW' },
@@ -18,8 +24,6 @@ export const TYPES = [
   { id: 'pyramid', group: 'Intervals', name: 'Pyramid', hint: 'Up the ladder, back down', code: 'PYR' },
   { id: 'sprints', group: 'Intervals', name: 'Sprints', hint: 'Short all-out bursts', code: 'SPR' },
   { id: 'cadence', group: 'Intervals', name: 'Cadence drills', hint: 'Spin fast, low effort', code: 'CAD' },
-  { id: 'spinclass', group: 'Spin class', name: 'Spin class', hint: 'Climbs, pushes, jumps and sprints in short blocks', code: 'SPN' },
-  { id: 'spinlow', group: 'Spin class', name: 'Low impact class', hint: 'Seated throughout, with gentler climbs and pushes', code: 'SPL' },
   { id: 'surprise', group: 'Mixed', name: 'Mix it up', hint: 'A natural ride, then intervals', code: 'MIX' },
 ];
 
@@ -63,20 +67,28 @@ export function zoneOf(pct) {
   return 5;
 }
 
-export function workoutCode(type, minutes, variant) {
+const isSpin = (type) => type === 'spinclass' || type === 'spinlow';
+
+/** `exclude`: spin class blocks left out; they add a fourth part to the code. */
+export function workoutCode(type, minutes, variant, exclude = []) {
   const t = TYPES.find((x) => x.id === type);
   if (!t) throw new Error(`Unknown workout type: ${type}`);
-  return `${t.code}-${minutes}-${variantCode(variant)}`;
+  const mask = isSpin(type) ? excludeMask(exclude) : 0;
+  return `${t.code}-${minutes}-${variantCode(variant)}${mask ? `-${mask.toString(36).toUpperCase()}` : ''}`;
 }
 
 export function parseWorkoutCode(code) {
-  const m = /^([A-Z]{3})-(\d{1,3})-([A-Z0-9]{3})$/.exec(String(code).trim().toUpperCase());
+  const m = /^([A-Z]{3})-(\d{1,3})-([A-Z0-9]{3})(?:-([A-Z0-9]{1,4}))?$/.exec(String(code).trim().toUpperCase());
   if (!m) return null;
   const type = TYPES.find((x) => x.code === m[1]);
   const named = VARIANT_CODES.indexOf(m[3]);
   const variant = named >= 0 ? named : 3 + parseInt(m[3], 36);
   const minutes = Number(m[2]);
   if (!type || minutes < 10 || minutes > 120) return null;
+  if (m[4]) {
+    if (!isSpin(type.id)) return null;
+    return { type: type.id, minutes, variant, exclude: excludeFromMask(parseInt(m[4], 36)) };
+  }
   return { type: type.id, minutes, variant };
 }
 
@@ -87,11 +99,16 @@ export function parseWorkoutCode(code) {
  * `name` (optional) is what the step is called in the app ("Hill", "Rep", "Descent").
  * `hold: true` means "keep the previous step's resistance, change only cadence".
  * `creep: true` marks one step of a creeping climb, where only the resistance moves.
+ * `block` names the spin class block a step belongs to; `blockStart` marks its
+ * first step, with `rounds` when the block repeats. `knobCap` is a ceiling on
+ * the step's resistance target.
+ * `options.exclude` lists spin class blocks to leave out.
  * `position` is 'seated' or 'standing' (out of the saddle); steps are seated
  * unless they are built with `stand: true`.
  */
-export function generateWorkout(type, minutes, variant = 0) {
+export function generateWorkout(type, minutes, variant = 0, options = {}) {
   variant = Math.max(0, Math.floor(variant));
+  const exclude = isSpin(type) ? excludeFromMask(excludeMask(options.exclude)) : [];
   const v = variant % 3; // which of a ride's three styles to use
   const segs = [];
   // All durations in whole seconds, so the parts always add up exactly.
@@ -100,7 +117,7 @@ export function generateWorkout(type, minutes, variant = 0) {
     if (dur <= 0) return;
     segs.push({ dur, pct: Math.round(pct), kind, ...opts });
   };
-  const rand = seeded(`${type}-${minutes}-${variant}`);
+  const rand = seeded(`${type}-${minutes}-${variant}${exclude.length ? `-${excludeMask(exclude)}` : ''}`);
 
   const warm = Math.min(5, Math.max(3, Math.round(minutes * 0.13)));
   const cool = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
@@ -110,7 +127,7 @@ export function generateWorkout(type, minutes, variant = 0) {
   const warmTop = gentle ? 58 : 72;
   for (let i = 0; i < warm; i++) add(60, 45 + ((i + 1) / warm) * (warmTop - 45), 'warmup');
 
-  const builders = makeBuilders(add, v, rand, variant >= 3);
+  const builders = makeBuilders(add, v, rand, exclude);
   if (type === 'surprise') {
     const mix = MIXES[v];
     const half = Math.floor(main / 120) * 60;
@@ -133,11 +150,12 @@ export function generateWorkout(type, minutes, variant = 0) {
 
   const name = type === 'surprise' ? MIXES[v].name : TYPES.find((x) => x.id === type)?.name ?? type;
   const workout = {
-    code: workoutCode(type, minutes, variant),
+    code: workoutCode(type, minutes, variant, exclude),
     type,
     name,
     minutes,
     variant,
+    options: { exclude },
     totalS: t,
     segments: segs,
   };
@@ -157,7 +175,7 @@ const EASY_SPELL_S = 180;
  * rest. Once there are more than five repeats they are grouped into sets with
  * an easy spell between, so a long ride has a shape.
  */
-function makeBuilders(add, v, rand, shuffled = false) {
+function makeBuilders(add, v, rand, exclude = []) {
   const cruise = (sec) => add(sec, 62, 'steady', { name: 'Cruise' });
   const between = (lo, hi) => lo + rand() * (hi - lo);
   const step = (x, s = 15) => Math.round(x / s) * s;
@@ -411,131 +429,13 @@ function makeBuilders(add, v, rand, shuffled = false) {
       cruise(left);
     },
 
-    // A spin class is a run of themed blocks. Each block keeps its format, but
-    // its lengths, counts and targets are drawn afresh every time it comes up,
-    // so no two are quite alike.
-    //
-    // The low impact class uses only the seated blocks, eases every effort and
-    // caps the cadence, and never sprints.
-    spinclass(budget, { low = false } = {}) {
-      const int = (lo, hi) => Math.round(between(lo, hi));
-      const times = (n, make) => Array.from({ length: n }, (_, i) => make(i)).flat();
-      const blocks = {
-        flat: () => [[step(between(180, 270), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road' }]],
-        seated: () => {
-          const cadence = int(68, 73);
-          return [[120, between(82, 87), 'work', { cadence, name: 'Seated climb' }], [120, between(88, 93), 'work', { cadence: cadence - int(3, 5), name: 'Seated climb' }]];
-        },
-        standing: () => [[step(between(150, 210), 30), between(92, 98), 'work', { cadence: int(62, 67), name: 'Standing climb', stand: true }], [60, 58, 'recovery', { cadence: 90 }]],
-        jumps: () => {
-          const pct = between(92, 98);
-          const up = [20, 30][int(0, 1)];
-          return times(int(3, 5), () => [[up, pct, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, 70, 'steady', { cadence: 85, hold: true, name: 'Settle' }]]);
-        },
-        sprints: () => times(int(2, 3), () => [[[20, 30][int(0, 1)], 150, 'sprint', {}], [step(between(75, 105)), 55, 'recovery', { cadence: 90 }]]),
-        // Out of the saddle for longer each time, sitting between at the same resistance.
-        ladder: () => {
-          const first = [20, 30][int(0, 1)];
-          const pct = between(95, 101);
-          const cadence = int(68, 74);
-          return times(int(3, 4), (i) => [[first + i * 15, pct, 'work', { cadence, name: 'Stand', stand: true }], [30, 70, 'recovery', { cadence: Math.max(60, cadence - 10), hold: true, name: 'Sit' }]]);
-        },
-        recover: () => [[step(between(150, 210), 30), 55, 'recovery', { cadence: 90 }]],
-        // Pushes go up and back several times, changing one thing and holding the other.
-        // Cadence: 15-25 rpm faster on the same resistance.
-        cadencePush: () => {
-          const base = int(78, 85);
-          const fast = base + int(15, 25);
-          const [settle, push] = [step(between(40, 60)), step(between(25, 40), 5)];
-          const pct = between(70, 77);
-          return times(int(3, 4), () => [[settle, pct, 'steady', { cadence: base, name: 'Settle' }], [push, pct * 1.3, 'work', { cadence: fast, hold: true, name: 'Cadence push' }]]);
-        },
-        // Resistance: about eight to twelve levels heavier at the same cadence.
-        resistancePush: () => {
-          const cadence = int(76, 84);
-          const pct = between(68, 75);
-          const more = between(18, 27);
-          const [settle, push] = [step(between(40, 60)), step(between(25, 40), 5)];
-          return times(int(3, 4), () => [[settle, pct, 'steady', { cadence, name: 'Settle' }], [push, pct + more, 'work', { cadence, name: 'Resistance push' }]]);
-        },
-        // The same push on a heavy climb, out of the saddle.
-        heavyPush: () => {
-          const cadence = int(64, 68);
-          const pct = between(80, 86);
-          const more = between(16, 22);
-          const climb = step(between(50, 75));
-          return times(int(2, 4), () => [[climb, pct, 'work', { cadence, name: 'Heavy climb' }], [30, pct + more, 'work', { cadence: cadence - 2, name: 'Heavy push', stand: true }]]);
-        },
-        // A creeping climb: a level or two more resistance every 20 seconds.
-        creep: () => {
-          const n = int(7, 10);
-          const from = between(68, 75);
-          const rise = between(3, 4.5);
-          const cadence = int(76, 84);
-          return times(n, (i) => [[20, from + i * rise, 'work', { cadence, creep: true, label: `Creep ${i + 1}/${n}` }]]);
-        },
-      };
-      const SEATED = ['flat', 'seated', 'cadencePush', 'resistancePush', 'creep', 'recover'];
-      const standard = (low ? [
-        ['flat', 'cadencePush', 'seated', 'recover', 'creep', 'flat', 'resistancePush', 'recover'],
-        ['seated', 'resistancePush', 'recover', 'flat', 'cadencePush', 'recover', 'creep'],
-        ['flat', 'creep', 'recover', 'seated', 'cadencePush', 'recover', 'resistancePush'],
-      ] : [
-        ['flat', 'cadencePush', 'seated', 'creep', 'recover', 'ladder', 'jumps', 'recover', 'resistancePush', 'standing', 'recover', 'heavyPush', 'sprints'],
-        ['jumps', 'resistancePush', 'recover', 'seated', 'creep', 'sprints', 'recover', 'ladder', 'flat', 'cadencePush', 'heavyPush', 'recover', 'standing'],
-        ['seated', 'heavyPush', 'recover', 'cadencePush', 'jumps', 'creep', 'recover', 'sprints', 'flat', 'ladder', 'resistancePush', 'standing'],
-      ])[v];
-      // A random class: every block once, in a shuffled order that opens gently
-      // and recovers after every second hard block.
-      const shuffledOrder = () => {
-        const pool = Object.keys(blocks).filter((b) => b !== 'recover' && b !== 'flat' && (!low || SEATED.includes(b)));
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(rand() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]];
-        }
-        const out = ['flat'];
-        pool.forEach((b, i) => {
-          out.push(b);
-          if (i % 2 === 1) out.push('recover');
-        });
-        return out;
-      };
-      // The class finishes on its hardest block, straight into the cool-down.
-      // It is set aside first, and everything else is fitted in before it.
-      const FINALES = low ? ['creep', 'resistancePush', 'seated'] : ['sprints', 'heavyPush', 'ladder'];
-      const finaleName = FINALES[shuffled ? Math.floor(rand() * FINALES.length) : v];
-      // Low impact: efforts above an easy pace are pulled 40% of the way back
-      // towards it, and nobody is asked to spin faster than 100 rpm.
-      const eased = ([dur, pct, kind, opts]) => (low
-        ? [dur, pct > 60 ? 60 + (pct - 60) * 0.6 : pct, kind, { ...opts, cadence: Math.min(100, opts.cadence ?? 100) }]
-        : [dur, pct, kind, opts]);
-      const build = (name) => blocks[name]().map(eased);
-      const finale = build(finaleName);
-      while (finale.length > 1 && finale.at(-1)[2] === 'recovery') finale.pop(); // the cool-down is the recovery
-      const finaleS = finale.reduce((a, p) => a + p[0], 0);
-      const hasFinale = budget >= finaleS + 240;
-
-      const order = (shuffled ? shuffledOrder() : standard).filter((name) => !hasFinale || name !== finaleName);
-      const k = stretch(budget);
-      let left = hasFinale ? budget - finaleS : budget;
-      let lastKind = null;
-      for (let i = 0; ; i++) {
-        const name = order[i % order.length];
-        // No need for a recovery block straight after a block that ends in one.
-        if (name === 'recover' && lastKind === 'recovery') continue;
-        const parts = build(name).map(([dur, ...rest]) => [dur >= 120 ? step(dur * k, 30) : dur, ...rest]);
-        const len = parts.reduce((a, p) => a + p[0], 0);
-        if (len > left) break;
-        for (const p of parts) add(...p);
-        lastKind = parts.at(-1)[2];
-        left -= len;
-      }
-      cruise(left);
-      if (hasFinale) for (const p of finale) add(...p);
+    // Spin classes are built from blocks: see spinclass.js.
+    spinclass(budget) {
+      buildSpinClass({ add, budget, rand, exclude });
     },
 
     spinlow(budget) {
-      b.spinclass(budget, { low: true });
+      buildSpinClass({ add, budget, rand, exclude, low: true });
     },
   };
   return b;

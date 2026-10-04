@@ -298,6 +298,14 @@ main { padding: 0 32px 40px; }
 .cd-row { align-items: baseline; padding-left: 2px; }
 .cd-left { font-size: 15px; font-weight: 800; color: var(--muted); }
 /* In or out of the saddle for this step; standing is the one that stands out. */
+/* The spin class block this step belongs to. */
+.block-label { align-self: flex-start; padding: 3px 10px; border-radius: 9px; background: var(--lavender-soft); color: var(--lavender-text); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; }
+.block-label.changed { animation: badge-pulse 0.6s ease-in-out 3; }
+.block-chips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 0; }
+.block-chips-title { flex-basis: 100%; font-size: 12px; font-weight: 800; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.chip-toggle { border: 2px solid var(--line); border-radius: 999px; padding: 4px 10px; background: transparent; color: var(--muted); font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; text-decoration: line-through; }
+.chip-toggle[aria-pressed="true"] { background: var(--paper); border-color: var(--paper); color: var(--ink); text-decoration: none; box-shadow: 0 2px 0 #EAD8C6; }
+.chip-toggle:disabled { opacity: 0.45; cursor: default; }
 .badges { margin-left: auto; align-self: center; display: flex; flex-direction: column; gap: 5px; min-width: 132px; text-align: center; }
 /* What to do this step, in a word. */
 .action { padding: 5px 12px; border-radius: 12px; font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.15; background: var(--sand); }

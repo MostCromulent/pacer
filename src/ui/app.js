@@ -1,4 +1,4 @@
-import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats, randomVariant } from '../core/workout.js';
+import { TYPES, DURATIONS, SPIN_BLOCKS, generateWorkout, parseWorkoutCode, workoutStats, randomVariant } from '../core/workout.js';
 import { RideSession, formatRange, stepTargets, spokenCue, stepAction, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
@@ -164,7 +164,7 @@ function showScreen(name) {
 // ---------------------------------------------------------------- setup screen
 
 function currentWorkout() {
-  return generateWorkout(state.type, state.duration, state.variant);
+  return generateWorkout(state.type, state.duration, state.variant, { exclude: settings.spinExclude });
 }
 
 function ghostChoices(code) {
@@ -246,7 +246,7 @@ function renderSetup() {
       ${g === 'Spin class' ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
         New class</span>` : ''}
-    </button>`).join('') + '</div></div>';
+    </button>`).join('') + (g === 'Spin class' ? spinBlockChips() : '') + '</div></div>';
   }).join('');
 
   const choices = ghostChoices(w.code);
@@ -305,6 +305,17 @@ function renderSetup() {
     b.setAttribute('aria-pressed', String(b.dataset.sound === sound));
     if (b.dataset.sound === 'voice') b.hidden = !Voice.supported();
   }
+}
+
+/** Chips to leave blocks out of a spin class. The low impact class only has the gentle ones. */
+function spinBlockChips() {
+  const low = state.type === 'spinlow';
+  const chips = SPIN_BLOCKS.filter((b) => !b.always).map((b) => {
+    const off = low && !b.gentle;
+    const on = !off && !settings.spinExclude.includes(b.id);
+    return `<button type="button" class="chip-toggle" data-block="${b.id}" aria-pressed="${on}" ${off ? 'disabled' : ''}>${esc(b.title)}</button>`;
+  }).join('');
+  return `<div class="block-chips"><span class="block-chips-title">Blocks in the class · tap to leave one out</span>${chips}</div>`;
 }
 
 function goToStep(i) {
@@ -404,6 +415,14 @@ $('types').addEventListener('click', (e) => {
     state.variant = Math.floor(Math.random() * 3);
     state.typeGroup = pick.group;
     saveSettings({ lastType: state.type });
+    renderSetup();
+    return;
+  }
+  const chip = e.target.closest('[data-block]');
+  if (chip) {
+    const id = chip.dataset.block;
+    const out = settings.spinExclude.includes(id);
+    saveSettings({ spinExclude: out ? settings.spinExclude.filter((x) => x !== id) : [...settings.spinExclude, id] });
     renderSetup();
     return;
   }
@@ -518,6 +537,7 @@ $('code-form').addEventListener('submit', (e) => {
     return;
   }
   Object.assign(state, { type: parsed.type, duration: parsed.minutes, variant: parsed.variant });
+  if (parsed.type === 'spinclass' || parsed.type === 'spinlow') saveSettings({ spinExclude: parsed.exclude ?? [] });
   renderSetup();
 });
 
@@ -926,6 +946,17 @@ function renderRide() {
   $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
   const standing = seg.position === 'standing';
+  // Spin classes name the block this step belongs to.
+  const blockLabel = $('block-label');
+  const blockText = seg.block && seg.block !== 'Recovery' ? seg.block : '';
+  if (blockLabel.textContent !== blockText) {
+    blockLabel.textContent = blockText;
+    blockLabel.hidden = !blockText;
+    blockLabel.classList.remove('changed');
+    void blockLabel.offsetWidth;
+    if (blockText && state.started) blockLabel.classList.add('changed');
+  }
+
   // Badges pulse a few times when they change, then sit still.
   const pulse = (el) => {
     el.classList.remove('changed');
@@ -1401,7 +1432,7 @@ $('btn-again').addEventListener('click', () => {
   state.variant = w.variant;
   state.ghostKind = 'pb';
   saveSettings({ lastGhost: 'pb' });
-  startRide(generateWorkout(w.type, w.minutes, w.variant));
+  startRide(generateWorkout(w.type, w.minutes, w.variant, w.options));
 });
 
 $('btn-new').addEventListener('click', () => {

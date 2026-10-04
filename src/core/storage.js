@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   model: DEFAULT_MODEL,
   muted: false,
   voice: false,
+  spinExclude: [],
   lastDuration: 30,
   lastType: 'intervals',
   lastGhost: 'pb',
