@@ -96,8 +96,8 @@ export function spokenCue(seg, targets, mode = 'knob', prev = null, repeat = fal
 
   const opens = !!(seg.blockStart && seg.block && seg.block !== 'Recovery');
   const intro = opens ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. ` : '';
-  // No need to say "Time trial. Time trial."
-  const named = opens && name.toLowerCase() === seg.block.toLowerCase() ? '' : `${name}.`;
+  // No need to say "Time trial. Time trial.", or "Switchbacks, 4 rounds. Switchback."
+  const named = opens && seg.block.toLowerCase().startsWith(name.toLowerCase()) ? '' : `${name}.`;
   const short = seg.dur < SHORT_STEP_S;
 
   if (seg.kind === 'sprint') return `${intro}${opens ? '' : 'Sprint. '}All out.${saddle}`;

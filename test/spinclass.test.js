@@ -188,6 +188,8 @@ test('blocks that open on a short step still say their numbers, and titles are n
   assert.equal(spokenCue({ ...tabata, blockStart: false, label: 'Tabata 2/8' }, tg, 'knob', { dur: 10 }), 'Go.');
   const trial = { kind: 'work', dur: 300, label: 'Time trial', name: 'Time trial', block: 'Time trial', blockStart: true, position: 'seated' };
   assert.equal(spokenCue(trial, tg), 'Time trial. Resistance 60, cadence 100.');
+  const bend = { kind: 'work', dur: 30, label: 'Switchback 1 of 4', name: 'Switchback', block: 'Switchbacks', blockStart: true, rounds: 4, position: 'seated' };
+  assert.equal(spokenCue(bend, tg), 'Switchbacks, 4 rounds. Resistance 60, cadence 100.');
   const spin = { kind: 'drill', dur: 20, label: 'Spin-up 2 of 8', name: 'Spin-up', hold: true, block: 'Spin-ups', position: 'seated' };
   assert.equal(spokenCue(spin, { knob: 23, cadence: 90, watts: 150 }, 'knob', { dur: 20 }), 'Cadence 90.');
   assert.equal(spokenCue({ ...spin, hold: false, blockStart: true, rounds: 2 }, { knob: 23, cadence: 80, watts: 120 }), 'Spin-ups, 2 rounds. Resistance 23, cadence 80.');
