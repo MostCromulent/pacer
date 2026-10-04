@@ -24,6 +24,19 @@ test('every type, duration and variant fills the exact time with contiguous step
   }
 });
 
+test('any custom length from 10 to 120 minutes fills the time exactly', () => {
+  for (const t of TYPES) {
+    for (let min = 10; min <= 120; min++) {
+      for (let v = 0; v < 3; v++) {
+        const w = generateWorkout(t.id, min, v);
+        assert.equal(w.totalS, min * 60, `${w.code} total`);
+        assert.ok(w.segments.every((s) => s.dur > 0), `${w.code} positive durations`);
+        assert.deepEqual(parseWorkoutCode(w.code), { type: t.id, minutes: min, variant: v });
+      }
+    }
+  }
+});
+
 test('same code, same workout', () => {
   const a = generateWorkout('pyramid', 45, 2);
   const b = workoutFromCode(a.code);

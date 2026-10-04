@@ -30,7 +30,7 @@ export function routeSvg(workout, width = 328, height = 56) {
   for (const s of workout.segments) {
     const x0 = (s.start / total) * width;
     const x1 = ((s.start + s.dur) / total) * width;
-    const y = (height - (8 + (Math.min(s.pct, 150) / 150) * 44)).toFixed(1);
+    const y = (height - (6 + (Math.min(s.pct, 150) / 150) * (height - 12))).toFixed(1);
     const r = Math.min(3, (x1 - x0) / 4);
     d += ` L${(x0 + r).toFixed(1)},${y} L${(x1 - r).toFixed(1)},${y}`;
   }
@@ -38,7 +38,7 @@ export function routeSvg(workout, width = 328, height = 56) {
   const flags = workout.gates
     .map((g) => {
       const x = ((g.start / total) * width).toFixed(1);
-      return `M${x},${height} V6 l8,3.5 l-8,3.5 Z`;
+      return `M${x},${height} V3 l8,3.5 l-8,3.5 Z`;
     })
     .join(' ');
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" aria-hidden="true">
@@ -46,7 +46,7 @@ export function routeSvg(workout, width = 328, height = 56) {
     <path d="${d}" fill="${P.track}"/>
     <path d="${d}" fill="${P.hill}" clip-path="url(#route-past)"/>
     <path d="${flags}" fill="${P.coral}" stroke="${P.coral}" stroke-width="2" stroke-linejoin="round"/>
-    <circle id="route-dot" cx="0" cy="${height - 8}" r="6.5" fill="${P.coral}" stroke="#fff" stroke-width="3"/>
+    <circle id="route-dot" cx="0" cy="${height - 8}" r="6" fill="${P.coral}" stroke="#fff" stroke-width="3"/>
   </svg>`;
 }
 
@@ -61,7 +61,7 @@ export function updateRoute(root, workout, t, width = 328, height = 56) {
   if (si < 0) si = workout.segments.length - 1;
   const pct = workout.segments[si].pct;
   dot.setAttribute('cx', x.toFixed(1));
-  dot.setAttribute('cy', (height - (8 + (Math.min(pct, 150) / 150) * 44)).toFixed(1));
+  dot.setAttribute('cy', (height - (6 + (Math.min(pct, 150) / 150) * (height - 12))).toFixed(1));
 }
 
 /** Gap to the ghost per minute: teal bars up when ahead, coral bars down when behind. */

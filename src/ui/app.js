@@ -11,7 +11,21 @@ import { Chimes } from './audio.js';
 import { popOut, pipSupported } from './pip.js';
 import { ZONE_COLORS } from './palette.js';
 
-const $ = (id) => document.getElementById(id);
+// Element lookup that also finds elements after the ride panel has moved into
+// the picture-in-picture window's document (getElementById only searches one).
+let pipDoc = null;
+const elCache = new Map();
+const $ = (id) => {
+  const hit = elCache.get(id);
+  if (hit?.isConnected) return hit;
+  const found = document.getElementById(id) ?? pipDoc?.getElementById(id) ?? null;
+  if (found) elCache.set(id, found);
+  return found;
+};
+
+const SCENE_HEIGHT = 230;
+const ROUTE_W = 328;
+const ROUTE_H = 40;
 
 // Dev aid: ?speed=20 runs the ride clock (and simulator) 20x faster.
 const TIME_SCALE = Math.min(60, Math.max(1, Number(new URLSearchParams(location.search).get('speed')) || 1));
@@ -21,7 +35,7 @@ const storage = new Storage();
 let settings = storage.loadSettings();
 const chimes = new Chimes();
 chimes.muted = settings.muted;
-const scene = new Scene($('scene'));
+const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 const state = {
   screen: 'setup',
@@ -131,6 +145,9 @@ function renderSetup() {
     <button type="button" class="dur" data-min="${d.min}" aria-pressed="${d.min === state.duration}">
       <span class="num">${d.min}</span><span class="lbl">${esc(d.label)}</span>
     </button>`).join('');
+  const custom = !DURATIONS.some((d) => d.min === state.duration);
+  $('custom-dur').classList.toggle('on', custom);
+  if (document.activeElement !== $('cust-min')) $('cust-min').value = state.duration;
 
   const typeColors = { endurance: '#9CC5A1', tempo: '#F2C14E', intervals: '#F6A96B', pyramid: '#E0707F', sprints: '#F2765C', cadence: '#9DB9F2', surprise: '#B9AEE0' };
   $('types').innerHTML = TYPES.map((t) => `
@@ -169,14 +186,33 @@ function renderSetup() {
   $('baseline').value = settings.baselineW;
 }
 
-$('durations').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-min]');
-  if (!b) return;
-  state.duration = Number(b.dataset.min);
+const MIN_MINUTES = 10;
+const MAX_MINUTES = 120;
+
+function setDuration(minutes) {
+  state.duration = Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(minutes)));
   state.variant = 0;
   saveSettings({ lastDuration: state.duration });
   renderSetup();
+}
+
+$('durations').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-min]');
+  if (b) setDuration(Number(b.dataset.min));
 });
+
+$('cust-min').addEventListener('change', (e) => {
+  const v = Number(e.target.value);
+  if (!Number.isFinite(v) || v <= 0) {
+    e.target.value = state.duration;
+    return;
+  }
+  if (v < MIN_MINUTES || v > MAX_MINUTES) toast(`Rides can be ${MIN_MINUTES} to ${MAX_MINUTES} minutes.`);
+  e.target.blur();
+  setDuration(v);
+});
+$('cust-minus').addEventListener('click', () => setDuration(Math.ceil(state.duration / 5) * 5 - 5));
+$('cust-plus').addEventListener('click', () => setDuration(Math.floor(state.duration / 5) * 5 + 5));
 
 $('types').addEventListener('click', (e) => {
   const b = e.target.closest('[data-type]');
@@ -420,7 +456,7 @@ function startRide(workout) {
   state.lastAdvance = clock();
   state.ride = { workout, ghost, prevBest: storage.bestRide(workout.code), prevLast: storage.lastRide(workout.code) };
   scene.setWorkout(workout);
-  $('route-svg').innerHTML = routeSvg(workout);
+  $('route-svg').innerHTML = routeSvg(workout, ROUTE_W, ROUTE_H);
   $('route-label').textContent = `Route · ${workout.name} ${workout.minutes} min`;
   $('pip-note').textContent = pipSupported() ? '' : 'Floating windows need Chrome or Edge 116+. You can still snap this window beside your show.';
   $('btn-pip-big').disabled = !pipSupported();
@@ -444,21 +480,25 @@ function renderRide() {
   if (now - state.lastDom < 200) return;
   state.lastDom = now;
 
-  $('time-left').textContent = `${fmtClock(snap.totalS - snap.t)} left`;
+  $('time-left').textContent = fmtClock(snap.totalS - snap.t);
+  $('total-bar').style.width = `${Math.min(100, (snap.t / snap.totalS) * 100).toFixed(1)}%`;
 
   const gp = $('gap-pill');
   gp.classList.remove('ahead', 'behind', 'gate');
   if (!state.started) {
     gp.textContent = 'Ready';
+    gp.dataset.word = '';
   } else if (snap.gate) {
     gp.classList.add('gate');
-    gp.textContent = `Gate ${fmtGap(snap.gate.you - snap.gate.ghost)}`;
+    gp.textContent = fmtGap(snap.gate.you - snap.gate.ghost);
+    gp.dataset.word = 'in gate';
   } else {
     gp.classList.add(snap.gap >= 0 ? 'ahead' : 'behind');
-    gp.textContent = `${fmtGap(snap.gap)} ${snap.gap >= 0 ? 'ahead' : 'behind'}`;
+    gp.textContent = fmtGap(snap.gap);
+    gp.dataset.word = snap.gap >= 0 ? 'ahead' : 'behind';
   }
   const np = $('next-pill');
-  if (snap.gate) np.textContent = `Gate ${snap.gate.index + 1} of ${snap.gate.count} · ${fmtClock(snap.gate.left)}`;
+  if (snap.gate) np.textContent = `Gate ${snap.gate.index + 1}/${snap.gate.count} · ${fmtClock(snap.gate.left)}`;
   else if (snap.nextGate && snap.nextGate.inS < 600) np.textContent = `Gate ${snap.nextGate.index + 1} in ${fmtClock(snap.nextGate.inS)}`;
   else np.textContent = '';
 
@@ -470,19 +510,35 @@ function renderRide() {
     zc.textContent = `Z${snap.zone}`;
     zc.style.background = ZONE_COLORS[snap.zone];
   }
-  $('step-label').textContent = snap.seg.label;
+  const seg = snap.seg;
+  const next = s.workout.segments[snap.segIndex + 1];
+  $('step-label').textContent = seg.label;
+  $('next-label').textContent = next ? `Next: ${shortLabel(next)} · ${stepTarget(next, s.baselineW)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
-  if (snap.seg.kind === 'drill' && snap.seg.cadence) {
-    $('target-big').textContent = String(snap.seg.cadence);
+  $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
+  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && snap.stepLeft <= 10);
+
+  const drill = seg.kind === 'drill' && seg.cadence;
+  if (drill) {
+    $('target-big').textContent = String(seg.cadence);
     $('target-unit').textContent = 'rpm';
-  } else if (snap.seg.kind === 'sprint') {
+  } else if (seg.kind === 'sprint') {
     $('target-big').textContent = 'All out';
     $('target-unit').textContent = '';
   } else {
     $('target-big').textContent = String(snap.targetW);
     $('target-unit').textContent = 'W';
   }
-  $('now-text').textContent = `Now ${snap.powerW} W · ${snap.cadence} rpm`;
+  $('now-big').textContent = String(drill ? snap.cadence : snap.powerW);
+  $('now-unit').textContent = drill ? 'rpm' : 'W';
+  $('now-sub').textContent = drill ? `${snap.powerW} W` : `${snap.cadence} rpm`;
+  let status = '';
+  if (state.started && !snap.noSignal) {
+    if (snap.onTarget) status = 'on';
+    else if (drill) status = snap.cadence < seg.cadence ? 'low' : 'high';
+    else status = seg.kind === 'sprint' || snap.powerW < snap.targetW ? 'low' : 'high';
+  }
+  $('now-col').className = `num-col now ${status}`;
   const cue = $('cue');
   cue.className = `cue cue-${snap.cue.type}`;
   if (cue.dataset.icon !== snap.cue.type) {
@@ -491,7 +547,7 @@ function renderRide() {
   }
   $('cue-text').textContent = state.started ? snap.cue.text : 'Start pedalling';
 
-  updateRoute($('ride-panel'), s.workout, snap.t);
+  updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H);
   $('route-dist').textContent = fmtKm(snap.dist);
 
   const ov = $('overlay');
@@ -506,6 +562,16 @@ function renderRide() {
     $('sim-cad').textContent = Math.round(state.bike.cadence);
     $('sim-knob').textContent = Math.round(state.bike.resistance);
   }
+}
+
+function shortLabel(seg) {
+  return seg.label.replace(/ of \d+$/, '');
+}
+
+function stepTarget(seg, baselineW) {
+  if (seg.kind === 'sprint') return 'all out';
+  if (seg.kind === 'drill' && seg.cadence) return `${seg.cadence} rpm`;
+  return `${Math.round(targetWatts(seg, baselineW))} W`;
 }
 
 function updatePauseButton() {
@@ -551,18 +617,33 @@ async function togglePip() {
       height: 720,
       onClose: () => {
         state.pipWin = null;
+        pipDoc = null;
+        $('ride-panel').style.transform = '';
+        scene.pixelScale = 1;
         $('panel-home').classList.remove('away');
         startLoop();
       },
     });
     state.pipWin = win;
+    pipDoc = win.document;
     win.addEventListener('keydown', onKey);
+    win.addEventListener('resize', fitPip);
+    fitPip();
     $('panel-home').classList.add('away');
     startLoop();
   } catch (err) {
     toast(err.message || String(err));
   }
 }
+// Scale the panel to fill the floating window, so dragging it bigger makes the numbers bigger.
+function fitPip() {
+  const win = state.pipWin;
+  if (!win || win.closed) return;
+  const k = Math.max(0.5, Math.min(win.innerWidth / 400, win.innerHeight / 720));
+  $('ride-panel').style.transform = `scale(${k})`;
+  scene.pixelScale = k;
+}
+
 $('btn-pip').addEventListener('click', togglePip);
 $('btn-pip-big').addEventListener('click', togglePip);
 

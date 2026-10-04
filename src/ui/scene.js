@@ -8,17 +8,25 @@ import { P, ZONE_COLORS } from './palette.js';
 import { pctAt, zoneOf } from '../core/workout.js';
 
 const W = 360;
-const H = 380;
 const PX_PER_S = 4;
 const YOU_X = 150;
-const ROAD_BASE_Y = 292;
 const SLOPE_K = 1.5;
 const GHOST_MIN_X = 24;
 const GHOST_MAX_X = 336;
 
 export class Scene {
-  constructor(canvas) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {{ height?: number }} [opts] scene height in CSS px (width is fixed at 360)
+   */
+  constructor(canvas, { height = 380 } = {}) {
     this.canvas = canvas;
+    this.H = height;
+    // Layout is anchored to the bottom so the road and riders keep their size
+    // when the scene is shorter; the sky and mountains give up the space.
+    this.roadBase = height - Math.max(70, Math.min(88, height * 0.23));
+    this.ampScale = Math.min(1, 0.4 + height / 630);
+    this.pixelScale = 1;
     this.ctx = canvas.getContext('2d');
     this.dpr = 0;
     this.workout = null;
@@ -53,15 +61,15 @@ export class Scene {
   }
 
   roadY(x, t) {
-    return ROAD_BASE_Y - (this.elevAt(t + (x - YOU_X) / PX_PER_S) - this.camElev);
+    return this.roadBase - (this.elevAt(t + (x - YOU_X) / PX_PER_S) - this.camElev);
   }
 
   _fit() {
-    const dpr = Math.min(3, (this.canvas.ownerDocument.defaultView?.devicePixelRatio) || 1);
+    const dpr = Math.min(4, ((this.canvas.ownerDocument.defaultView?.devicePixelRatio) || 1) * this.pixelScale);
     if (dpr !== this.dpr) {
       this.dpr = dpr;
       this.canvas.width = W * dpr;
-      this.canvas.height = H * dpr;
+      this.canvas.height = this.H * dpr;
     }
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
@@ -79,7 +87,7 @@ export class Scene {
 
     // Camera follows your elevation smoothly.
     const target = this.elevAt(t);
-    this.camElev = this.camElev === null ? target : this.camElev + (target - this.camElev) * Math.min(1, dt * 2);
+    this.camElev = this.camElev === null ? target : this.camElev + (target - this.camElev) * Math.min(1, dt * 3);
 
     // Animation: cranks turn with cadence, wheels with speed.
     this.crank += ((snap.cadence || 0) / 60) * Math.PI * 2 * dt;
@@ -88,10 +96,10 @@ export class Scene {
     this.ghostCrank += (ghostCad / 60) * Math.PI * 2 * dt;
     this.ghostWheel += (snap.ghostSpeed ?? snap.speed ?? 0) / 0.34 * dt;
 
-    ctx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, this.H);
     this._sky(ctx, worldX);
-    this._mountains(ctx, worldX * 0.12, 236, 64, 70, P.mountain, 11, true);
-    this._mountains(ctx, worldX * 0.22, 254, 44, 56, P.mountain2, 29, false);
+    this._mountains(ctx, worldX * 0.12, this.H - 144, 64 * this.ampScale, 70, P.mountain, 11, true);
+    this._mountains(ctx, worldX * 0.22, this.H - 126, 44 * this.ampScale, 56, P.mountain2, 29, false);
     this._hills(ctx, worldX * 0.45);
     this._ground(ctx, t);
     this._gates(ctx, t);
@@ -129,18 +137,21 @@ export class Scene {
 
   _sky(ctx, worldX) {
     ctx.fillStyle = P.sky;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, W, this.H);
+    const k = this.H / 380;
     ctx.fillStyle = P.skyTop;
-    ctx.fillRect(0, 0, W, 80);
+    ctx.fillRect(0, 0, W, 80 * k);
+    const sunY = 96 * k;
+    const sunR = 32 * Math.max(0.8, k);
     this._shadow(ctx, true);
-    circle(ctx, 284, 96, 32, P.sun);
+    circle(ctx, 284, sunY, sunR, P.sun);
     this._shadow(ctx, false);
-    circle(ctx, 284, 96, 23, P.sunInner);
+    circle(ctx, 284, sunY, sunR * 0.72, P.sunInner);
     this._shadow(ctx, true);
     const span = W + 160;
     for (const [bx, by, s] of [[70, 70, 1], [230, 122, 0.7], [400, 92, 0.85]]) {
       const x = mod(bx - worldX * 0.05, span) - 80;
-      cloud(ctx, x, by, s);
+      cloud(ctx, x, by * k + (1 - k) * 20, s * Math.max(0.75, k));
     }
     this._shadow(ctx, false);
   }
@@ -157,9 +168,9 @@ export class Scene {
     this._shadow(ctx, true);
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(pts[0][0], H);
+    ctx.moveTo(pts[0][0], this.H);
     for (const [x, y] of pts) ctx.lineTo(x, y);
-    ctx.lineTo(pts[pts.length - 1][0], H);
+    ctx.lineTo(pts[pts.length - 1][0], this.H);
     ctx.closePath();
     ctx.fill();
     this._shadow(ctx, false);
@@ -183,13 +194,13 @@ export class Scene {
   }
 
   _hills(ctx, offset) {
-    const y = (x) => 262 + 10 * Math.sin((x + offset) / 46) + 6 * Math.sin((x + offset) / 19 + 1.3);
+    const y = (x) => this.H - 118 + 10 * Math.sin((x + offset) / 46) + 6 * Math.sin((x + offset) / 19 + 1.3);
     this._shadow(ctx, true);
     ctx.fillStyle = P.hill;
     ctx.beginPath();
-    ctx.moveTo(0, H);
+    ctx.moveTo(0, this.H);
     for (let x = 0; x <= W; x += 6) ctx.lineTo(x, y(x));
-    ctx.lineTo(W, H);
+    ctx.lineTo(W, this.H);
     ctx.closePath();
     ctx.fill();
     // Trees every ~70px of world, some skipped.
@@ -222,9 +233,9 @@ export class Scene {
     this._shadow(ctx, true);
     ctx.fillStyle = P.ground;
     ctx.beginPath();
-    ctx.moveTo(-10, H);
+    ctx.moveTo(-10, this.H);
     for (let x = -10; x <= W + 10; x += step) ctx.lineTo(x, this.roadY(x, t));
-    ctx.lineTo(W + 10, H);
+    ctx.lineTo(W + 10, this.H);
     ctx.closePath();
     ctx.fill();
 
@@ -267,7 +278,7 @@ export class Scene {
     for (let k = k0; k * spacing - off < W + spacing; k++) {
       const x = k * spacing - off + hash(k + 3) * 20;
       const y = this.roadY(x, t) + 30 + hash(k + 9) * 34;
-      if (y > H - 4) continue;
+      if (y > this.H - 4) continue;
       const pink = hash(k + 21) > 0.7;
       circle(ctx, x, y, 3.4, pink ? '#F7A1B0' : '#FFFFFF');
       if (!pink) circle(ctx, x, y, 1.3, P.mustard);

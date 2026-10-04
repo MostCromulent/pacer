@@ -34,6 +34,15 @@
         <fieldset class="group">
           <legend>How long?</legend>
           <div id="durations" class="durations"></div>
+          <div id="custom-dur" class="custom-dur">
+            <label for="cust-min" class="custom-label">Or set your own</label>
+            <span class="stepper">
+              <button id="cust-minus" class="icon-btn" type="button" aria-label="5 minutes shorter">−</button>
+              <input id="cust-min" type="number" min="10" max="120" step="1" inputmode="numeric">
+              <span class="custom-unit">min</span>
+              <button id="cust-plus" class="icon-btn" type="button" aria-label="5 minutes longer">+</button>
+            </span>
+          </div>
         </fieldset>
         <fieldset class="group">
           <legend>What kind?</legend>
@@ -91,8 +100,8 @@
       <div id="panel-home" class="panel-home">
         <section id="ride-panel" class="panel" aria-label="Ride">
           <div class="panel-top">
-            <span class="panel-brand"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2.3 2-2.2-2-2.2 2-2.3-2z" fill="#E4DEF5" stroke="#6F62A6" stroke-width="1.8" stroke-linejoin="round"/></svg>GhostRide</span>
-            <span id="time-left" class="time-left">30:00 left</span>
+            <span class="total" aria-label="Ride time left"><span id="time-left" class="total-num">30:00</span><span class="total-lbl">left</span></span>
+            <span class="total-bar" aria-hidden="true"><i id="total-bar"></i></span>
             <span class="panel-buttons">
               <button id="btn-mute" class="icon-btn" type="button" aria-label="Mute chimes" aria-pressed="false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path id="mute-wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
@@ -107,7 +116,7 @@
           </div>
 
           <div class="scene-wrap">
-            <canvas id="scene" width="360" height="380" role="img" aria-label="Papercraft race scene"></canvas>
+            <canvas id="scene" width="360" height="230" role="img" aria-label="Papercraft race scene"></canvas>
             <div class="scene-hud">
               <span id="gap-pill" class="pill gap">Ready</span>
               <span id="next-pill" class="pill paper"></span>
@@ -115,18 +124,32 @@
             <div id="overlay" class="scene-overlay" hidden><span id="overlay-text">Paused</span></div>
           </div>
 
-          <div class="card step">
-            <div class="step-row">
-              <span class="step-left"><span id="zone-chip" class="zone-chip">Z1</span><span id="step-label" class="step-label">Warm-up</span></span>
-              <span id="step-time" class="step-time">0:00</span>
+          <div id="countdown" class="card countdown">
+            <div class="cd-head">
+              <span id="zone-chip" class="zone-chip">Z1</span>
+              <span id="step-label" class="step-label">Warm-up</span>
+              <span id="next-label" class="next-label"></span>
             </div>
-            <div class="step-row">
-              <span class="target">
-                <span class="target-line"><span id="target-big" class="target-big">100</span><span id="target-unit" class="target-unit">W</span></span>
-                <span id="now-text" class="now-text">Now 0 W · 0 rpm</span>
-              </span>
-              <span id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></span>
+            <div class="cd-row">
+              <span id="step-time" class="cd-num">0:00</span>
+              <span class="cd-side"><span class="cd-side-lbl">left in step</span></span>
             </div>
+            <div class="cd-bar" aria-hidden="true"><i id="step-bar"></i></div>
+          </div>
+
+          <div class="card numbers">
+            <div class="num-cols">
+              <div class="num-col">
+                <span class="num-lbl">Target</span>
+                <span class="num-big"><span id="target-big">100</span><span id="target-unit" class="num-unit">W</span></span>
+              </div>
+              <div id="now-col" class="num-col now">
+                <span class="num-lbl">Now</span>
+                <span class="num-big"><span id="now-big">0</span><span id="now-unit" class="num-unit">W</span></span>
+                <span id="now-sub" class="num-sub">0 rpm</span>
+              </div>
+            </div>
+            <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
           </div>
 
           <div class="card route">

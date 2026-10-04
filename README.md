@@ -35,11 +35,12 @@ arrow keys (↑ ↓ cadence, ← → knob).
    connection at a time) and pedal to wake the console.
 2. Click **Connect bike** and pick it from the list. If it isn't listed,
    Shift-click **Connect bike** to show every Bluetooth device nearby.
-3. Choose a length (sitcom 22, half hour 30, drama 45, double 60), a workout type
-   and who to race, then **Start ride**. The ride clock starts when you start
-   pedalling.
+3. Choose a length (sitcom 22, half hour 30, drama 45, double 60, or any length
+   from 10 to 120 minutes), a workout type and who to race, then **Start ride**.
+   The ride clock starts when you start pedalling.
 4. Click **Pop out the mini window**. The ride moves into a small always-on-top
-   window, so you can put your show full screen.
+   window, so you can put your show full screen. Drag the window bigger and
+   everything in it scales up, which helps if the screen is across the room.
 
 ### Calibrate the knob once
 
@@ -57,7 +58,7 @@ reports its resistance level over Bluetooth, the app reads it directly.
 
 - **Workout generator**: endurance, sweet spot, intervals, pyramid, sprints,
   cadence drills and a random mix, sized to the minutes you choose. Each
-  workout has a code (e.g. `INT-30-K7Q`); the same code always gives the same
+  workout has a code (e.g. `INT-30-K7Q`, or `INT-37-K7Q` for a custom 37 minutes); the same code always gives the same
   ride, which keeps ghost races fair. Shuffle for another variation, or click
   the code to type one in.
 - **Ghost racing**: race your best ride on that workout, your last one, or a
@@ -66,9 +67,15 @@ reports its resistance level over Bluetooth, the app reads it directly.
 - **Papercraft scene**: the road *is* the workout. It climbs on hard efforts and
   drops in recoveries, the kerbs are coloured by zone, and gates appear on the
   road ahead before they arrive. Riders pedal at their real cadence.
-- **Glanceable mini window**: gap to the ghost, current step and time left,
-  target and a knob hint, the route ahead, plus soft chimes before each change
-  (mute button in the corner).
+- **Glanceable mini window**, built to be read from the bike at a glance:
+  - a huge countdown for the current step, which turns coral and pulses for
+    the last 10 seconds, plus what's next and its target;
+  - **Target** and **Now** side by side in big numbers, with *Now* coloured by
+    how you're doing (sage on target, mustard too low, blue too high) and a
+    one-line knob hint underneath;
+  - ride time left with a progress bar, the gap to the ghost, the next sprint
+    gate, and the route ahead;
+  - soft chimes before each change (mute button in the corner).
 - **Summary**: the gap to the ghost minute by minute, each hard effort compared
   with last time, and every ride of that workout. If the hard efforts were
   clearly too easy or too hard, it offers to adjust your baseline.
