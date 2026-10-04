@@ -121,7 +121,11 @@ export function generateWorkout(type, minutes, variant = 0) {
   for (let i = 0; i < cool; i++) add(1, Math.round(65 - (i / cool) * 20), 'cooldown');
 
   let t = 0;
-  for (const s of segs) { s.start = t; t += s.dur; }
+  for (const s of segs) {
+    s.start = t;
+    t += s.dur;
+    if (!s.cadence) s.cadence = targetCadenceFor(s);
+  }
 
   const name = TYPES.find((x) => x.id === type)?.name ?? type;
   const workout = {
@@ -141,6 +145,19 @@ export function generateWorkout(type, minutes, variant = 0) {
 export function workoutFromCode(code) {
   const p = parseWorkoutCode(code);
   return p ? generateWorkout(p.type, p.minutes, p.variant) : null;
+}
+
+// Target cadence for each step, spin-class style: heavy climbs are ridden slower
+// with more knob, short hard efforts and recoveries spin faster. Together with
+// the step's power this fixes the knob setting for the step.
+function targetCadenceFor(s) {
+  switch (s.kind) {
+    case 'sprint': return 105;
+    case 'work': return s.pct >= 110 ? 95 : s.pct >= 100 ? 80 : 85;
+    case 'recovery': return 92;
+    case 'steady': return 88;
+    default: return 85;
+  }
 }
 
 // Sprint gates: the last 30 s of every hard block of a minute or more, and every

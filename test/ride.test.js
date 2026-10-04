@@ -69,22 +69,79 @@ test('no data for a few seconds counts as stopped pedalling', () => {
   assert.equal(s.snapshot().cadence, 90);
 });
 
-test('knob hint uses the model and the rider cadence', () => {
+function rideToFirstClimb(knob, cadence) {
   const w = generateWorkout('intervals', 30, 0);
   const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
   const climb = w.segments.find((x) => x.kind === 'work');
-  // Ride to the first climb at a low effort.
   while (s.t < climb.start + 20) {
-    s.setInput({ powerW: powerFor(DEFAULT_MODEL, 38, 88), cadence: 88 });
+    s.setInput({ powerW: powerFor(DEFAULT_MODEL, knob, cadence), cadence });
+    s.update(0.5);
+  }
+  return { s, climb };
+}
+
+test('every step has a cadence target and a knob target from the model', () => {
+  const { s, climb } = rideToFirstClimb(38, 80);
+  const snap = s.snapshot();
+  assert.equal(snap.seg, climb);
+  assert.equal(snap.targetCadence, 80);
+  assert.equal(snap.targetW, 210);
+  // The knob target gives the step's watts at the step's cadence.
+  assert.ok(Math.abs(powerFor(DEFAULT_MODEL, snap.targetKnob, 80) - snap.targetW) < 6);
+  assert.ok(snap.targetKnob > 38);
+});
+
+test('knob is corrected first, then cadence', () => {
+  let snap = rideToFirstClimb(38, 80).s.snapshot();
+  assert.equal(snap.resistance, 38);
+  assert.equal(snap.knobStatus, 'low');
+  assert.equal(snap.cadenceStatus, 'on');
+  assert.deepEqual(snap.cue, { type: 'up', text: `Knob up to ${snap.targetKnob}` });
+
+  const tk = snap.targetKnob;
+  snap = rideToFirstClimb(tk, 95).s.snapshot();
+  assert.equal(snap.knobStatus, 'on');
+  assert.equal(snap.cadenceStatus, 'high');
+  assert.deepEqual(snap.cue, { type: 'down', text: 'Ease the cadence · 80 rpm' });
+
+  snap = rideToFirstClimb(tk, 81).s.snapshot();
+  assert.equal(snap.cue.type, 'ok');
+  assert.equal(snap.onTarget, true);
+});
+
+test('matching cadence and knob counts as on target even if the watts disagree', () => {
+  // The bike reports its knob directly and its watts read 15% high (an
+  // uncalibrated model): following the plan still counts.
+  const w = generateWorkout('intervals', 30, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const climb = w.segments.find((x) => x.kind === 'work');
+  const tg = s.targetsFor(climb);
+  while (s.t < climb.start + 30) {
+    const inClimb = s.t >= climb.start;
+    const knob = inClimb ? tg.knob : 20;
+    s.setInput({ powerW: powerFor(DEFAULT_MODEL, knob, tg.cadence) * 1.15, cadence: tg.cadence, resistance: knob });
     s.update(0.5);
   }
   const snap = s.snapshot();
-  assert.equal(snap.seg, climb);
-  assert.equal(snap.resistance, 38);
-  assert.equal(snap.cue.type, 'up');
-  assert.match(snap.cue.text, /^Knob 38 → \d+$/);
-  const want = Number(snap.cue.text.split('→ ')[1]);
-  assert.ok(Math.abs(powerFor(DEFAULT_MODEL, want, 88) - snap.targetW) < 6);
+  assert.equal(snap.knobStatus, 'on');
+  assert.equal(snap.cadenceStatus, 'on');
+  assert.equal(isOnTarget(climb, 200, snap.powerW, snap.cadence), false);
+  assert.equal(snap.onTarget, true);
+});
+
+test('summary reports average cadence and knob for each hard effort', () => {
+  const w = generateWorkout('intervals', 22, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  while (!s.done) {
+    const seg = s.snapshot().seg;
+    const tg = s.targetsFor(seg);
+    s.setInput({ powerW: powerFor(DEFAULT_MODEL, tg.knob, tg.cadence), cadence: tg.cadence });
+    s.update(0.5);
+  }
+  const c = s.summary().climbs[0];
+  assert.equal(c.avgCadence, c.targetCadence);
+  assert.ok(Math.abs(c.avgKnob - c.targetKnob) <= 1);
+  assert.ok(c.onTargetPct > 90);
 });
 
 test('a bike that reports resistance is believed over the model', () => {

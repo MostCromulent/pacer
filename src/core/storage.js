@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lastType: 'intervals',
   lastGhost: 'pb',
   simReportsResistance: false,
+  targetMode: 'knob',
 });
 
 function safeGet(store, key) {

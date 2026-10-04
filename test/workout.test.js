@@ -17,6 +17,7 @@ test('every type, duration and variant fills the exact time with contiguous step
           assert.ok(s.label, `${w.code} labelled`);
           expect += s.dur;
         }
+        assert.ok(w.segments.every((s) => s.cadence >= 60 && s.cadence <= 120), `${w.code} cadence targets`);
         assert.equal(w.segments[0].kind, 'warmup');
         assert.equal(w.segments.at(-1).kind, 'cooldown');
       }

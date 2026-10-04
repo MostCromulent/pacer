@@ -23,7 +23,7 @@ const $ = (id) => {
   return found;
 };
 
-const SCENE_HEIGHT = 230;
+const SCENE_HEIGHT = 214;
 const ROUTE_W = 328;
 const ROUTE_H = 40;
 
@@ -184,6 +184,24 @@ function renderSetup() {
     ? 'Knob calibrated for your bike.'
     : 'Knob hints use a generic model until you calibrate.';
   $('baseline').value = settings.baselineW;
+  for (const b of document.querySelectorAll('.mode-toggle .seg')) {
+    const on = b.dataset.mode === settings.targetMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+  $('calib-nudge').hidden = settings.targetMode !== 'knob' || !knobIsEstimate();
+}
+
+/** Knob numbers come from the generic model and may not match the bike's screen. */
+function knobIsEstimate() {
+  return !settings.model.calibrated && state.latest.resistance === undefined;
+}
+
+for (const b of document.querySelectorAll('.mode-toggle .seg')) {
+  b.addEventListener('click', () => {
+    saveSettings({ targetMode: b.dataset.mode });
+    renderSetup();
+  });
 }
 
 const MIN_MINUTES = 10;
@@ -365,7 +383,7 @@ $('btn-sim').addEventListener('click', () => {
     const s = state.session;
     if (!s || state.screen !== 'ride') return null;
     const snap = s.snapshot();
-    return { seg: snap.seg, targetW: snap.targetW, baselineW: s.baselineW };
+    return { seg: snap.seg, targetW: snap.targetW, targetCadence: snap.targetCadence, targetKnob: snap.targetKnob, baselineW: s.baselineW };
   };
   attachBike(sim, 'sim');
   sim.start();
@@ -513,32 +531,38 @@ function renderRide() {
   const seg = snap.seg;
   const next = s.workout.segments[snap.segIndex + 1];
   $('step-label').textContent = seg.label;
-  $('next-label').textContent = next ? `Next: ${shortLabel(next)} · ${stepTarget(next, s.baselineW)}` : 'Last step';
+  $('next-name').textContent = next ? shortLabel(next) : 'Finish';
+  $('next-target').textContent = next ? stepTarget(next, s) : '';
   $('step-time').textContent = fmtClock(snap.stepLeft);
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && snap.stepLeft <= 10);
 
-  const drill = seg.kind === 'drill' && seg.cadence;
-  if (drill) {
-    $('target-big').textContent = String(seg.cadence);
-    $('target-unit').textContent = 'rpm';
-  } else if (seg.kind === 'sprint') {
-    $('target-big').textContent = 'All out';
-    $('target-unit').textContent = '';
+  const live = state.started && !snap.noSignal;
+  const sprint = seg.kind === 'sprint';
+  const approx = knobIsEstimate() ? '≈' : '';
+  const knobNow = snap.resistance === null ? '–' : String(snap.resistance);
+  const cadenceTile = {
+    label: 'Cadence',
+    big: sprint ? `${snap.targetCadence}+` : String(snap.targetCadence),
+    unit: 'rpm',
+    now: String(snap.cadence),
+    status: live ? snap.cadenceStatus : '',
+  };
+  if (settings.targetMode === 'watts') {
+    setTile('a', {
+      label: 'Power',
+      big: sprint ? 'All out' : String(snap.targetW),
+      unit: sprint ? '' : 'W',
+      now: `${snap.powerW} W`,
+      status: live ? (snap.onTarget ? 'on' : sprint || snap.powerW < snap.targetW ? 'low' : 'high') : '',
+    });
+    setTile('b', cadenceTile);
+    $('aside-line').textContent = `Knob ${approx}${snap.targetKnob} · now ${knobNow}`;
   } else {
-    $('target-big').textContent = String(snap.targetW);
-    $('target-unit').textContent = 'W';
+    setTile('a', cadenceTile);
+    setTile('b', { label: 'Knob', big: `${approx}${snap.targetKnob}`, unit: '', now: knobNow, status: live ? snap.knobStatus : '' });
+    $('aside-line').textContent = sprint ? `All out! · now ${snap.powerW} W` : `Target ${snap.targetW} W · now ${snap.powerW} W`;
   }
-  $('now-big').textContent = String(drill ? snap.cadence : snap.powerW);
-  $('now-unit').textContent = drill ? 'rpm' : 'W';
-  $('now-sub').textContent = drill ? `${snap.powerW} W` : `${snap.cadence} rpm`;
-  let status = '';
-  if (state.started && !snap.noSignal) {
-    if (snap.onTarget) status = 'on';
-    else if (drill) status = snap.cadence < seg.cadence ? 'low' : 'high';
-    else status = seg.kind === 'sprint' || snap.powerW < snap.targetW ? 'low' : 'high';
-  }
-  $('now-col').className = `num-col now ${status}`;
   const cue = $('cue');
   cue.className = `cue cue-${snap.cue.type}`;
   if (cue.dataset.icon !== snap.cue.type) {
@@ -568,10 +592,18 @@ function shortLabel(seg) {
   return seg.label.replace(/ of \d+$/, '');
 }
 
-function stepTarget(seg, baselineW) {
-  if (seg.kind === 'sprint') return 'all out';
-  if (seg.kind === 'drill' && seg.cadence) return `${seg.cadence} rpm`;
-  return `${Math.round(targetWatts(seg, baselineW))} W`;
+function stepTarget(seg, session) {
+  const tg = session.targetsFor(seg);
+  if (settings.targetMode === 'watts') return seg.kind === 'sprint' ? 'all out' : `${tg.watts} W`;
+  return `${tg.cadence} rpm · knob ${tg.knob}`;
+}
+
+function setTile(key, { label, big, unit, now, status }) {
+  $(`tile-${key}-lbl`).textContent = label;
+  $(`tile-${key}-big`).textContent = big;
+  $(`tile-${key}-unit`).textContent = unit;
+  $(`tile-${key}-now`).textContent = now;
+  $(`tile-${key}`).className = `num-col ${status || ''}`;
 }
 
 function updatePauseButton() {
@@ -768,7 +800,10 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
       const d = p ? c.avgW - p.avgW : null;
       const cls = d === null ? '' : d >= 0 ? 'up' : 'down';
       const txt = d === null ? 'new' : `${d >= 0 ? '+' : '−'}${Math.abs(d)} W`;
-      return `<div class="climb"><span>${esc(c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${c.avgW} W</span>
+      const metric = settings.targetMode === 'watts'
+        ? `${c.avgW} W`
+        : `knob ${c.avgKnob ?? '–'} · ${c.avgCadence} rpm`;
+      return `<div class="climb"><span>${esc(c.label.replace(/ of \d+$/, ''))}</span><span class="muted">${metric}</span>
         <span class="bar"><i style="width:${c.onTargetPct}%"></i></span><span class="muted">${c.onTargetPct}%</span>
         <span class="delta ${cls}">${txt}</span></div>`;
     }).join('')
@@ -795,7 +830,17 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
     const actual = work.reduce((a, { st }) => a + st.powerSum, 0) / work.reduce((a, { st }) => a + st.total, 0);
     const target = work.reduce((a, { seg, st }) => a + targetWatts(seg, session.baselineW) * st.total, 0) / work.reduce((a, { st }) => a + st.total, 0);
     const ratio = actual / target;
-    if (ratio > 1.04 || ratio < 0.9) {
+    if ((ratio > 1.04 || ratio < 0.9) && settings.targetMode === 'knob' && knobIsEstimate()) {
+      // Following estimated knob numbers: the gap is most likely the estimate, not fitness.
+      $('baseline-tip-text').textContent = `Following the knob, your hard efforts came out ${Math.round(Math.abs(ratio - 1) * 100)}% ${ratio > 1 ? 'above' : 'below'} target. Calibrate so the knob numbers match your bike.`;
+      $('btn-apply-baseline').textContent = 'Calibrate knob';
+      tip.hidden = false;
+      $('btn-apply-baseline').onclick = () => {
+        tip.hidden = true;
+        calib.start();
+      };
+    } else if (ratio > 1.04 || ratio < 0.9) {
+      $('btn-apply-baseline').textContent = 'Update baseline';
       const suggested = Math.round((session.baselineW * Math.min(1.08, Math.max(0.92, ratio))) / 5) * 5;
       if (suggested !== session.baselineW) {
         $('baseline-tip-text').textContent = ratio > 1
@@ -982,6 +1027,7 @@ const calib = {
 };
 
 $('btn-calibrate').addEventListener('click', () => calib.start());
+$('btn-calibrate-nudge').addEventListener('click', () => calib.start());
 $('calib-cancel').addEventListener('click', () => calib.close());
 $('calib-skip').addEventListener('click', () => calib.nextLevel());
 $('calib').addEventListener('cancel', () => calib.close());

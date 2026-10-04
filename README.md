@@ -42,17 +42,28 @@ arrow keys (↑ ↓ cadence, ← → knob).
    window, so you can put your show full screen. Drag the window bigger and
    everything in it scales up, which helps if the screen is across the room.
 
+### Targets are cadence and knob
+
+Each step gives you two numbers to match, the way a spin class does: a
+**cadence** (rpm) and a **knob** setting. Heavy climbs are ridden at around
+80 rpm with more knob, recoveries spin at about 92 rpm, and sprints at 105+.
+Each tile shows the target big and what you're doing now underneath, and turns
+sage when you're on it, mustard when you're under, and blue when you're over.
+The line underneath says which to change first, e.g. `Knob up to 63`.
+
+Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
+
 ### Calibrate the knob once
 
 The 800IC has no power meter: the console works watts out from cadence and the
 knob position. **Calibrate knob** (on the setup screen) walks you through seven
-knob settings for about two minutes and learns that formula. After that the app:
+knob settings for about two minutes and learns that formula. After that the
+knob numbers in the app match the numbers on your bike's screen, and the app
+can tell your knob position from the watts and cadence alone.
 
-- knows your knob position without you telling it, and
-- tells you exactly where to set it for each step, e.g. `Knob 38 → 45`.
-
-Until you calibrate, knob hints use a generic spin-bike curve. If your bike
-reports its resistance level over Bluetooth, the app reads it directly.
+Until you calibrate, knob numbers are estimates from a generic spin-bike curve
+and show with a `≈`. If your bike reports its resistance level over Bluetooth,
+the app reads it directly.
 
 ## What's in the box
 
@@ -69,10 +80,10 @@ reports its resistance level over Bluetooth, the app reads it directly.
   road ahead before they arrive. Riders pedal at their real cadence.
 - **Glanceable mini window**, built to be read from the bike at a glance:
   - a huge countdown for the current step, which turns coral and pulses for
-    the last 10 seconds, plus what's next and its target;
-  - **Target** and **Now** side by side in big numbers, with *Now* coloured by
-    how you're doing (sage on target, mustard too low, blue too high) and a
-    one-line knob hint underneath;
+    the last 10 seconds, with the next step's cadence and knob beside it;
+  - **Cadence** and **Knob** targets side by side in big numbers, each with
+    what you're doing now and coloured by how close you are, plus a one-line
+    hint saying what to change (watts are shown small underneath);
   - ride time left with a progress bar, the gap to the ghost, the next sprint
     gate, and the route ahead;
   - soft chimes before each change (mute button in the corner).

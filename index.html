@@ -52,6 +52,17 @@
           <legend>Race against</legend>
           <div id="ghosts" class="ghosts"></div>
         </fieldset>
+        <fieldset class="group">
+          <legend>Show targets as</legend>
+          <div class="seg-toggle mode-toggle" role="group" aria-label="Show targets as">
+            <button id="mode-knob" class="seg" type="button" data-mode="knob">Cadence + knob</button>
+            <button id="mode-watts" class="seg" type="button" data-mode="watts">Watts</button>
+          </div>
+          <p id="calib-nudge" class="nudge small" hidden>
+            Knob numbers are estimates until you calibrate, and may not match your bike's screen.
+            <button id="btn-calibrate-nudge" class="link" type="button">Calibrate now (2 min)</button>
+          </p>
+        </fieldset>
       </div>
 
       <div class="setup-right">
@@ -116,7 +127,7 @@
           </div>
 
           <div class="scene-wrap">
-            <canvas id="scene" width="360" height="230" role="img" aria-label="Papercraft race scene"></canvas>
+            <canvas id="scene" width="360" height="214" role="img" aria-label="Papercraft race scene"></canvas>
             <div class="scene-hud">
               <span id="gap-pill" class="pill gap">Ready</span>
               <span id="next-pill" class="pill paper"></span>
@@ -128,27 +139,32 @@
             <div class="cd-head">
               <span id="zone-chip" class="zone-chip">Z1</span>
               <span id="step-label" class="step-label">Warm-up</span>
-              <span id="next-label" class="next-label"></span>
             </div>
             <div class="cd-row">
               <span id="step-time" class="cd-num">0:00</span>
-              <span class="cd-side"><span class="cd-side-lbl">left in step</span></span>
+              <span class="cd-next">
+                <span class="cd-next-lbl">Next</span>
+                <span id="next-name" class="cd-next-name"></span>
+                <span id="next-target" class="cd-next-target"></span>
+              </span>
             </div>
             <div class="cd-bar" aria-hidden="true"><i id="step-bar"></i></div>
           </div>
 
           <div class="card numbers">
             <div class="num-cols">
-              <div class="num-col">
-                <span class="num-lbl">Target</span>
-                <span class="num-big"><span id="target-big">100</span><span id="target-unit" class="num-unit">W</span></span>
+              <div id="tile-a" class="num-col">
+                <span id="tile-a-lbl" class="num-lbl">Cadence</span>
+                <span class="num-big"><span id="tile-a-big">85</span><span id="tile-a-unit" class="num-unit">rpm</span></span>
+                <span class="num-now">now <b id="tile-a-now">0</b></span>
               </div>
-              <div id="now-col" class="num-col now">
-                <span class="num-lbl">Now</span>
-                <span class="num-big"><span id="now-big">0</span><span id="now-unit" class="num-unit">W</span></span>
-                <span id="now-sub" class="num-sub">0 rpm</span>
+              <div id="tile-b" class="num-col">
+                <span id="tile-b-lbl" class="num-lbl">Knob</span>
+                <span class="num-big"><span id="tile-b-big">40</span><span id="tile-b-unit" class="num-unit"></span></span>
+                <span class="num-now">now <b id="tile-b-now">0</b></span>
               </div>
             </div>
+            <p id="aside-line" class="aside-line"></p>
             <div id="cue" class="cue cue-up"><span id="cue-icon" class="cue-icon" aria-hidden="true"></span><span id="cue-text">Start pedalling</span></div>
           </div>
 

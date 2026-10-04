@@ -8,8 +8,10 @@ import { targetWatts } from './ghost.js';
 
 const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
-const CADENCE_WINDOW_S = 30;
+const CADENCE_TOLERANCE = 5;
+const KNOB_TOLERANCE = 2;
 
+/** Power-based check, used when the knob position isn't known. */
 export function isOnTarget(segment, baselineW, powerW, cadence) {
   if (segment.kind === 'sprint') return powerW >= baselineW * 1.2;
   if (segment.kind === 'drill' && segment.cadence) return Math.abs(cadence - segment.cadence) <= 5;
@@ -24,14 +26,12 @@ export class RideSession {
    * @param {number} o.baselineW
    * @param {object} o.model       resistance model
    * @param {import('./ghost.js').Ghost} o.ghost
-   * @param {number} [o.defaultCadence]
    */
-  constructor({ workout, baselineW, model, ghost, defaultCadence = 85 }) {
+  constructor({ workout, baselineW, model, ghost }) {
     this.workout = workout;
     this.baselineW = baselineW;
     this.model = model;
     this.ghost = ghost;
-    this.defaultCadence = defaultCadence;
 
     this.t = 0;
     this.dist = 0;
@@ -39,7 +39,7 @@ export class RideSession {
     this.input = { powerW: 0, cadence: 0, resistance: null, at: -Infinity };
     this.samples = { d: [0], p: [], c: [], r: [] };
     this.onTargetS = 0;
-    this.segOnTarget = workout.segments.map(() => ({ on: 0, total: 0, powerSum: 0 }));
+    this.segOnTarget = workout.segments.map(() => ({ on: 0, total: 0, powerSum: 0, cadSum: 0, knobSum: 0, knobT: 0 }));
     this.gateResults = [];
     this._activeGate = null;
     this._lastSeg = 0;
@@ -79,11 +79,14 @@ export class RideSession {
 
     const si = segmentIndexAt(this.workout, Math.max(0, this.t - 1e-6));
     const seg = this.workout.segments[si];
-    const on = isOnTarget(seg, this.baselineW, powerW, cadence);
+    const knob = stale ? null : this.currentResistance();
+    const on = this.status(seg, powerW, cadence, knob).onTarget;
     if (on) this.onTargetS += realDt;
     const so = this.segOnTarget[si];
     so.total += realDt;
     so.powerSum += powerW * realDt;
+    so.cadSum += cadence * realDt;
+    if (knob !== null) { so.knobSum += knob * realDt; so.knobT += realDt; }
     if (on) so.on += realDt;
 
     // One sample per whole second, averaged over the second.
@@ -155,12 +158,38 @@ export class RideSession {
     return null;
   }
 
-  /** The rider's usual cadence lately, used to turn target watts into a knob level. */
-  preferredCadence() {
-    const c = this.samples.c.slice(-CADENCE_WINDOW_S).filter((x) => x > 40);
-    if (c.length < 5) return this.defaultCadence;
-    const sorted = [...c].sort((a, b) => a - b);
-    return sorted[Math.floor(sorted.length / 2)];
+  /**
+   * What to aim for in a step: power, cadence, and the knob level that gives
+   * that power at that cadence (from the resistance model).
+   */
+  targetsFor(seg) {
+    const watts = targetWatts(seg, this.baselineW);
+    const cadence = seg.cadence ?? 85;
+    return {
+      watts: Math.round(watts),
+      cadence,
+      knob: Math.round(resistanceFor(this.model, watts, cadence)),
+    };
+  }
+
+  /**
+   * How the rider is doing against the step's targets.
+   * Each of cadence/knob is 'on' | 'low' | 'high' (knob is null when unknown).
+   */
+  status(seg, powerW, cadence, knob) {
+    const tg = this.targetsFor(seg);
+    const sprint = seg.kind === 'sprint';
+    const judge = (have, want, tol) => {
+      if (have === null) return null;
+      if (sprint) return have >= want - tol ? 'on' : 'low';
+      if (Math.abs(have - want) <= tol) return 'on';
+      return have < want ? 'low' : 'high';
+    };
+    const cadenceStatus = judge(cadence, tg.cadence, CADENCE_TOLERANCE);
+    const knobStatus = judge(knob === null ? null : Math.round(knob), tg.knob, KNOB_TOLERANCE);
+    // On target if the power is right, or if cadence and knob both match the plan.
+    const onTarget = isOnTarget(seg, this.baselineW, powerW, cadence) || (cadenceStatus === 'on' && knobStatus === 'on');
+    return { targets: tg, cadenceStatus, knobStatus, onTarget };
   }
 
   /** Everything the UI needs to draw a frame. */
@@ -174,28 +203,23 @@ export class RideSession {
     const ghostDist = this.ghost.distanceAt(this.t);
     const resistance = stale ? null : this.currentResistance();
 
+    const st = this.status(seg, powerW, cadence, resistance);
+    const tg = st.targets;
     let cue;
-    if (seg.kind === 'sprint') {
-      cue = { type: 'gate', text: 'All out!' };
-    } else if (seg.kind === 'drill' && seg.cadence) {
-      const diff = seg.cadence - cadence;
-      cue = Math.abs(diff) <= 5
-        ? { type: 'ok', text: `${seg.cadence} rpm · spot on` }
-        : { type: diff > 0 ? 'up' : 'down', text: `Spin ${diff > 0 ? 'faster' : 'slower'} · ${seg.cadence} rpm` };
+    if (resistance === null) {
+      cue = { type: 'up', text: `Set knob to ${tg.knob}` };
+    } else if (st.knobStatus === 'low') {
+      cue = { type: 'up', text: `Knob up to ${tg.knob}` };
+    } else if (st.knobStatus === 'high') {
+      cue = { type: 'down', text: `Knob down to ${tg.knob}` };
+    } else if (st.cadenceStatus === 'low') {
+      cue = { type: 'up', text: `Pedal faster · ${tg.cadence} rpm` };
+    } else if (st.cadenceStatus === 'high') {
+      cue = { type: 'down', text: `Ease the cadence · ${tg.cadence} rpm` };
     } else {
-      const target = targetWatts(seg, this.baselineW);
-      const wantR = Math.round(resistanceFor(this.model, target, this.preferredCadence()));
-      const onTarget = isOnTarget(seg, this.baselineW, powerW, cadence);
-      if (resistance === null) {
-        cue = { type: 'up', text: `Knob ~${wantR}` };
-      } else if (onTarget) {
-        cue = { type: 'ok', text: `Knob ${Math.round(resistance)} · on target` };
-      } else {
-        const have = Math.round(resistance);
-        const dir = powerW < target ? 'up' : 'down';
-        cue = { type: dir, text: have === wantR ? `${dir === 'up' ? 'Pedal faster' : 'Ease off'}` : `Knob ${have} → ${wantR}` };
-      }
+      cue = { type: 'ok', text: 'Spot on, hold it' };
     }
+    if (seg.kind === 'sprint') cue = { ...cue, type: 'gate', text: cue.type === 'ok' ? 'All out!' : cue.text };
 
     let gate = null;
     if (this._activeGate) {
@@ -224,11 +248,15 @@ export class RideSession {
       seg,
       zone: zoneOf(seg.pct),
       stepLeft: seg.start + seg.dur - this.t,
-      targetW: Math.round(targetWatts(seg, this.baselineW)),
+      targetW: tg.watts,
+      targetCadence: tg.cadence,
+      targetKnob: tg.knob,
       powerW: Math.round(powerW),
       cadence: Math.round(cadence),
       resistance: resistance === null ? null : Math.round(resistance),
-      onTarget: isOnTarget(seg, this.baselineW, powerW, cadence),
+      cadenceStatus: st.cadenceStatus,
+      knobStatus: st.knobStatus,
+      onTarget: st.onTarget,
       cue,
       gate,
       nextGate: upcoming ? { index: upcoming.index, count: w.gates.length, inS: upcoming.start - this.t } : null,
@@ -251,9 +279,14 @@ export class RideSession {
       .filter(({ s, i }) => (s.kind === 'work' || s.kind === 'sprint' || s.kind === 'drill') && this.segOnTarget[i].total > 0)
       .map(({ s, i }) => {
         const so = this.segOnTarget[i];
+        const tg = this.targetsFor(s);
         return {
           label: s.label,
           avgW: so.total ? Math.round(so.powerSum / so.total) : 0,
+          avgCadence: so.total ? Math.round(so.cadSum / so.total) : 0,
+          avgKnob: so.knobT ? Math.round(so.knobSum / so.knobT) : null,
+          targetCadence: tg.cadence,
+          targetKnob: tg.knob,
           onTargetPct: so.total ? Math.round((so.on / so.total) * 100) : 0,
         };
       });

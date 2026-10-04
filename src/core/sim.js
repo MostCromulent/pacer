@@ -2,7 +2,7 @@
 // It behaves like the console: it computes watts from cadence and knob position
 // with its own (hidden) formula and reports roughly once a second.
 
-import { powerFor, resistanceFor } from './resistance.js';
+import { powerFor } from './resistance.js';
 
 // Deliberately a little different from the app's default model, so calibration
 // has something real to learn.
@@ -77,15 +77,12 @@ export class SimulatedBike extends EventTarget {
       if (!t) {
         wantCad = 78;
         wantR = 28;
-      } else if (t.seg.kind === 'sprint') {
-        wantCad = 112;
-        wantR = resistanceFor(this.model, t.baselineW * 1.55, wantCad);
-      } else if (t.seg.kind === 'drill' && t.seg.cadence) {
-        wantCad = t.seg.cadence;
-        wantR = resistanceFor(this.model, t.targetW, wantCad);
       } else {
-        wantCad = 88;
-        wantR = resistanceFor(this.model, t.targetW * this.skill, wantCad);
+        // Do what the screen says: spin the target cadence, set the target knob.
+        // With an uncalibrated model the watts come out a bit off, as they would
+        // on a real bike.
+        wantCad = t.seg.kind === 'sprint' ? Math.max(t.targetCadence, 108) : t.targetCadence;
+        wantR = t.targetKnob + (this.skill - 1) * 20;
       }
       wantCad += noise() * 2;
     }
