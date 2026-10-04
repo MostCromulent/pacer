@@ -394,15 +394,17 @@ export function pctAt(workout, t) {
   return workout.segments[segmentIndexAt(workout, t)].pct;
 }
 
-export function workoutStats(workout, baselineW) {
+/** `effort` scales every step, as the rider's effort setting does (1 = as written). */
+export function workoutStats(workout, baselineW, effort = 1) {
   const total = workout.totalS;
   let hard = 0;
   let sum = 0;
   let sq = 0;
   for (const s of workout.segments) {
-    if (s.pct >= 91) hard += s.dur;
-    sum += s.dur * s.pct;
-    sq += s.dur * (s.pct / 100) ** 2;
+    const pct = s.pct * effort;
+    if (pct >= 91) hard += s.dur;
+    sum += s.dur * pct;
+    sq += s.dur * (pct / 100) ** 2;
   }
   const intensity = Math.sqrt(sq / total);
   return {

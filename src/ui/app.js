@@ -194,6 +194,20 @@ const TYPE_COLORS = {
 
 const SETUP_STEPS = ['Length', 'Type', 'Effort', 'Race'];
 
+const GROUP_COLORS = { Steady: '#9CC5A1', Natural: '#B3A2DD', Intervals: '#F6A96B', Mixed: '#8FD3C6' };
+
+/** A plain word for an effort setting, to go with the percentage. */
+function effortWord(effort) {
+  const pct = Math.round(effort * 100);
+  if (pct <= 75) return 'Very easy';
+  if (pct <= 85) return 'Easy';
+  if (pct <= 95) return 'Gentle';
+  if (pct === 100) return 'Normal';
+  if (pct <= 110) return 'Challenging';
+  if (pct <= 120) return 'Hard';
+  return 'Very hard';
+}
+
 function renderSetup() {
   const w = currentWorkout();
   state.workout = w;
@@ -208,14 +222,13 @@ function renderSetup() {
 
   // One group of types open at a time; a closed group shows the pick inside it.
   const groups = [...new Set(TYPES.map((t) => t.group))];
-  const picked = TYPES.find((t) => t.id === state.type);
-  if (state.typeGroup === undefined) state.typeGroup = picked?.group;
+  if (state.typeGroup === undefined) state.typeGroup = TYPES.find((t) => t.id === state.type)?.group;
   $('types').innerHTML = groups.map((g) => {
     const list = TYPES.filter((t) => t.group === g);
     const open = g === state.typeGroup;
-    const head = `<button type="button" class="type-group" data-group="${esc(g)}" aria-expanded="${open}">
+    const head = `<button type="button" class="type-group" data-group="${esc(g)}" aria-expanded="${open}" style="background:${GROUP_COLORS[g] ?? ''}">
       <span>${esc(g)}</span>
-      <span class="type-group-pick">${picked?.group === g ? esc(picked.name) : `${list.length} rides`}</span>
+      <span class="type-group-pick">${list.length} rides</span>
       <span class="type-group-arrow" aria-hidden="true"></span>
     </button>`;
     if (!open) return head;
@@ -235,12 +248,12 @@ function renderSetup() {
 
   $('preview-title').textContent = `${w.name} · ${w.minutes} min`;
   $('preview-code').textContent = `#${w.code}`;
-  $('preview-chart').innerHTML = profileSvg(w, 600, 196);
+  $('preview-chart').innerHTML = profileSvg(w, 600, 196, settings.effort);
   $('axis-mid').textContent = String(Math.round(w.minutes / 2));
   $('axis-end').textContent = `${w.minutes} min`;
   $('zones').innerHTML = [['Z1 recover', 1], ['Z2 endurance', 2], ['Z3 tempo', 3], ['Z4 threshold', 4], ['Z5 max', 5]]
     .map(([n, z]) => `<span><i style="background:${ZONE_COLORS[z]}"></i>${n}</span>`).join('');
-  const st = workoutStats(w, settings.baselineW * settings.effort);
+  const st = workoutStats(w, settings.baselineW, settings.effort);
   renderEffort(w);
   $('stat-hard').textContent = `${st.hardMinutes} min`;
   $('stat-avg').textContent = `${st.avgTargetW} W`;
@@ -294,6 +307,7 @@ $('btn-sim').hidden = !DEV;
 /** The effort the ride starts at, and what it means on the bike for this workout. */
 function renderEffort(w) {
   $('effort-val').textContent = `${Math.round(settings.effort * 100)}%`;
+  $('effort-word').textContent = effortWord(settings.effort);
   $('effort-minus').disabled = settings.effort <= DIFFICULTY_MIN + 1e-9;
   $('effort-plus').disabled = settings.effort >= DIFFICULTY_MAX - 1e-9;
   const steps = w.segments

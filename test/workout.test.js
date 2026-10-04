@@ -145,3 +145,12 @@ test('spin class has standing climbs at low cadence and jumps', () => {
   assert.equal(standing.cadence, 65);
   assert.ok(w.segments.filter((s) => s.name === 'Jump').length >= 4);
 });
+
+test('a higher effort setting means more hard minutes and a higher average', () => {
+  const w = generateWorkout('intervals', 30, 0);
+  const easy = workoutStats(w, 200, 0.8);
+  const normal = workoutStats(w, 200);
+  const hard = workoutStats(w, 200, 1.2);
+  assert.ok(easy.hardMinutes < normal.hardMinutes && normal.hardMinutes <= hard.hardMinutes);
+  assert.ok(easy.avgTargetW < normal.avgTargetW && normal.avgTargetW < hard.avgTargetW);
+});

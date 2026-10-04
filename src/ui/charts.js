@@ -9,15 +9,19 @@ export function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** Workout preview: one rounded block per step, height by intensity, colour by zone. */
-export function profileSvg(workout, width, height) {
+/**
+ * Workout preview: one rounded block per step, height by intensity, colour by zone.
+ * `effort` scales every step, so the blocks grow and change zone with the effort setting.
+ */
+export function profileSvg(workout, width, height, effort = 1) {
   const total = workout.totalS;
   const gap = 2;
   let x = 0;
   const rects = workout.segments.map((s) => {
     const w = Math.max(1, (s.dur / total) * width - gap);
-    const h = Math.round(14 + (Math.min(s.pct, 150) / 150) * (height - 20));
-    const r = `<rect x="${x.toFixed(1)}" y="${height - h}" width="${w.toFixed(1)}" height="${h}" rx="${Math.min(6, w / 2).toFixed(1)}" fill="${ZONE_COLORS[zoneOf(s.pct)]}"/>`;
+    const pct = s.pct * effort;
+    const h = Math.round(14 + (Math.min(pct, 150) / 150) * (height - 20));
+    const r = `<rect x="${x.toFixed(1)}" y="${height - h}" width="${w.toFixed(1)}" height="${h}" rx="${Math.min(6, w / 2).toFixed(1)}" fill="${ZONE_COLORS[zoneOf(pct)]}"/>`;
     x += (s.dur / total) * width;
     return r;
   });
