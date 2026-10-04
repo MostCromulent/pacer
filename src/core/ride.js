@@ -70,33 +70,63 @@ export function stepAction(seg, knobChange = 0) {
 }
 
 /**
- * What to say out loud when a step begins: its name and the two numbers to aim
- * for. Short reps get a single word, since there's no time for more.
- * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'. Getting out
- * of the saddle, or back into it after the step before (`prev`), is called too,
- * and the first step of a spin class block is introduced by the block's name.
+ * What to say out loud when a step begins. `targets` comes from stepTargets();
+ * `mode` is 'knob' or 'watts'; `prev` is the step before.
+ *
+ * - An ordinary step: its name and the two numbers. "Hill. Resistance 56, cadence 68."
+ * - The first step of a spin class block: the block and its rounds first, then
+ *   the numbers, so they are heard once. "Cadence pushes, 3 rounds. Settle.
+ *   Resistance 28, cadence 83."
+ * - A step the block has already called (`repeat`): just its name. "Settle."
+ * - Short steps: a single word, since there is no time for more. "Go.", "Up.",
+ *   "Attack.", "Rest.", or the cadence in a spin-up.
+ * - Getting out of the saddle, and back into it, is always called.
  */
-export function spokenCue(seg, targets, mode = 'knob', prev = null) {
-  const intro = seg.blockStart && seg.block && seg.block !== 'Recovery'
-    ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. `
-    : '';
-  return intro + stepCue(seg, targets, mode, prev);
-}
-
-function stepCue(seg, targets, mode, prev) {
+export function spokenCue(seg, targets, mode = 'knob', prev = null, repeat = false) {
   const said = seg.label.split('·').pop().replace(/[\d/]+|\bof\b/g, '').replace(/\s+/g, ' ').trim();
   const name = said.charAt(0).toUpperCase() + said.slice(1);
   const standing = seg.position === 'standing';
   const wasStanding = prev?.position === 'standing';
   const saddle = standing === wasStanding ? '' : standing ? ' Out of the saddle.' : ' Back in the saddle.';
-  if (seg.kind === 'sprint') return `Sprint. All out.${saddle}`;
-  // A creeping climb only moves the resistance, so that is all that is said.
-  if (seg.creep) return mode === 'watts' ? `${targets.watts} watts.` : `Resistance ${targets.knob}.`;
-  if (seg.dur < SHORT_STEP_S) return seg.kind === 'work' ? (standing ? 'Up.' : 'Go.') : `${name}.`;
-  if (seg.hold) return `${name}.${saddle} Same resistance, cadence ${targets.cadence}.`;
-  return mode === 'watts'
-    ? `${name}.${saddle} ${targets.watts} watts, cadence ${targets.cadence}.`
-    : `${name}.${saddle} Resistance ${targets.knob}, cadence ${targets.cadence}.`;
+  const numbers = seg.hold
+    ? `Same resistance, cadence ${targets.cadence}.`
+    : mode === 'watts'
+      ? `${targets.watts} watts, cadence ${targets.cadence}.`
+      : `Resistance ${targets.knob}, cadence ${targets.cadence}.`;
+
+  const opens = !!(seg.blockStart && seg.block && seg.block !== 'Recovery');
+  const intro = opens ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. ` : '';
+  // No need to say "Time trial. Time trial."
+  const named = opens && name.toLowerCase() === seg.block.toLowerCase() ? '' : `${name}.`;
+  const short = seg.dur < SHORT_STEP_S;
+
+  if (seg.kind === 'sprint') return `${intro}${opens ? '' : 'Sprint. '}All out.${saddle}`;
+  // A creeping climb only moves the resistance, so after the first step that is all that is said.
+  if (seg.creep) return opens ? intro + numbers : mode === 'watts' ? `${targets.watts} watts.` : `Resistance ${targets.knob}.`;
+  if (short) {
+    const word = seg.kind === 'drill' ? `Cadence ${targets.cadence}.`
+      : seg.kind !== 'work' ? `${name}.`
+        : standing ? 'Up.'
+          : seg.name ? `${name}.` : 'Go.';
+    // The first of a run of short steps still needs its numbers, once.
+    const leads = opens || !(prev && prev.dur < SHORT_STEP_S);
+    if (!leads || repeat) return word;
+    return seg.kind === 'drill' ? intro + numbers : `${intro}${numbers} ${word}`;
+  }
+  if (repeat) return `${name}.${saddle}`;
+  return `${intro}${named}${saddle} ${numbers}`.replace(/\s+/g, ' ').trim();
+}
+
+/** Whether this step repeats one already ridden in the same spin class block. */
+export function repeatsInBlock(segments, index) {
+  const seg = segments[index];
+  if (!seg.block || seg.blockStart) return false;
+  for (let i = index - 1; i >= 0 && segments[i].block === seg.block; i--) {
+    const s = segments[i];
+    if (s.name === seg.name && s.cadence === seg.cadence && s.pct === seg.pct && !!s.hold === !!seg.hold) return true;
+    if (s.blockStart) break;
+  }
+  return false;
 }
 
 /** "80–90", or "105+" when there's no upper limit. */

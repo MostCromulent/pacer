@@ -1,5 +1,5 @@
 import { TYPES, DURATIONS, SPIN_BLOCKS, generateWorkout, parseWorkoutCode, workoutStats, randomVariant } from '../core/workout.js';
-import { RideSession, formatRange, stepTargets, spokenCue, stepAction, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
+import { RideSession, formatRange, stepTargets, spokenCue, repeatsInBlock, stepAction, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
@@ -849,8 +849,8 @@ function onRideEvent(ev) {
     chimes.play(ev);
     if (ev === 'stepChange') {
       const snap = state.session.snapshot();
-      const prev = state.session.workout.segments[snap.segIndex - 1];
-      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode, prev));
+      const steps = state.session.workout.segments;
+      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode, steps[snap.segIndex - 1], repeatsInBlock(steps, snap.segIndex)));
     }
   }
 }

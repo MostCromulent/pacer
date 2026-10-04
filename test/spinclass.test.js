@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateWorkout, parseWorkoutCode, SPIN_BLOCKS } from '../src/core/workout.js';
 import { excludeMask, excludeFromMask } from '../src/core/spinclass.js';
-import { stepTargets, spokenCue } from '../src/core/ride.js';
+import { stepTargets, spokenCue, repeatsInBlock } from '../src/core/ride.js';
 import { DEFAULT_MODEL } from '../src/core/resistance.js';
 
 const main = (w) => w.segments.filter((s) => s.kind !== 'warmup' && s.kind !== 'cooldown');
@@ -169,4 +169,31 @@ test('the first step of a block is introduced by name when spoken', () => {
   assert.equal(spokenCue({ ...first, blockStart: false }, tg), 'Settle. Resistance 31, cadence 80.');
   const rest = { kind: 'recovery', dur: 180, label: 'Recover', block: 'Recovery', blockStart: true, position: 'seated' };
   assert.equal(spokenCue(rest, tg), 'Recover. Resistance 31, cadence 80.');
+});
+
+test('a block gives its numbers once, then just names the steps it repeats', () => {
+  const { w, steps } = findBlock('Cadence pushes');
+  const at = (seg) => w.segments.indexOf(seg);
+  const say = (seg) => spokenCue(seg, stepTargets(seg, w.segments, 300, DEFAULT_MODEL), 'knob', w.segments[at(seg) - 1], repeatsInBlock(w.segments, at(seg)));
+  assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Settle\. Resistance \d+, cadence \d+\.$/);
+  assert.match(say(steps[1]), /^Cadence push\. Same resistance, cadence \d+\.$/);
+  assert.equal(say(steps[2]), 'Settle.');
+  assert.equal(say(steps[3]), 'Cadence push.');
+});
+
+test('blocks that open on a short step still say their numbers, and titles are not repeated', () => {
+  const tg = { knob: 60, cadence: 100, watts: 460 };
+  const tabata = { kind: 'work', dur: 20, label: 'Tabata 1/8', block: 'Tabata', blockStart: true, rounds: 8, position: 'seated' };
+  assert.equal(spokenCue(tabata, tg), 'Tabata, 8 rounds. Resistance 60, cadence 100. Go.');
+  assert.equal(spokenCue({ ...tabata, blockStart: false, label: 'Tabata 2/8' }, tg, 'knob', { dur: 10 }), 'Go.');
+  const trial = { kind: 'work', dur: 300, label: 'Time trial', name: 'Time trial', block: 'Time trial', blockStart: true, position: 'seated' };
+  assert.equal(spokenCue(trial, tg), 'Time trial. Resistance 60, cadence 100.');
+  const spin = { kind: 'drill', dur: 20, label: 'Spin-up 2 of 8', name: 'Spin-up', hold: true, block: 'Spin-ups', position: 'seated' };
+  assert.equal(spokenCue(spin, { knob: 23, cadence: 90, watts: 150 }, 'knob', { dur: 20 }), 'Cadence 90.');
+  assert.equal(spokenCue({ ...spin, hold: false, blockStart: true, rounds: 2 }, { knob: 23, cadence: 80, watts: 120 }), 'Spin-ups, 2 rounds. Resistance 23, cadence 80.');
+  const attack = { kind: 'work', dur: 15, label: 'Attack 1 of 4', name: 'Attack', hold: true, block: 'Climb with attacks', position: 'seated' };
+  assert.equal(spokenCue(attack, tg), 'Same resistance, cadence 100. Attack.');
+  assert.equal(spokenCue(attack, tg, 'knob', null, true), 'Attack.');
+  const last = { kind: 'sprint', dur: 60, label: 'Last push', name: 'Last push', block: 'Last push', blockStart: true, position: 'seated' };
+  assert.equal(spokenCue(last, tg), 'Last push. All out.');
 });

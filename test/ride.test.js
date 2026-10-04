@@ -288,8 +288,11 @@ test('spoken cues name the step and its two targets', async () => {
   assert.equal(spokenCue({ kind: 'work', dur: 150, label: 'Mountain 1 · climb 2/4' }, tg), 'Climb. Resistance 45, cadence 70.');
   assert.equal(spokenCue({ kind: 'work', dur: 120, label: 'Hill' }, tg, 'watts'), 'Hill. 260 watts, cadence 70.');
   assert.equal(spokenCue({ kind: 'sprint', dur: 30, label: 'Sprint 1 of 4' }, tg), 'Sprint. All out.');
-  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Tabata 1 · rep 3/8' }, tg), 'Go.');
-  assert.equal(spokenCue({ kind: 'recovery', dur: 10, hold: true, label: 'Rest' }, tg), 'Rest.');
+  // In a run of short reps only the first gets the numbers.
+  const rest = { kind: 'recovery', dur: 10, hold: true, label: 'Rest' };
+  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Tabata 1 · rep 1/8' }, tg), 'Resistance 45, cadence 70. Go.');
+  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Tabata 1 · rep 3/8' }, tg, 'knob', rest), 'Go.');
+  assert.equal(spokenCue(rest, tg, 'knob', { dur: 20 }), 'Rest.');
   assert.equal(spokenCue({ kind: 'steady', dur: 30, hold: true, label: 'Settle' }, tg), 'Settle. Same resistance, cadence 70.');
 });
 
@@ -301,7 +304,7 @@ test('spoken cues call getting out of the saddle and back into it', async () => 
   assert.equal(spokenCue(climb, tg, 'knob', flat), 'Standing climb. Out of the saddle. Resistance 55, cadence 65.');
   assert.equal(spokenCue(climb, tg, 'knob', climb), 'Standing climb. Resistance 55, cadence 65.');
   assert.equal(spokenCue(flat, tg, 'knob', climb), 'Flat road. Back in the saddle. Resistance 55, cadence 65.');
-  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Jump 1 of 4', position: 'standing' }, tg), 'Up.');
+  assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Jump 2 of 4', position: 'standing' }, tg, 'knob', flat, true), 'Up.');
 });
 
 test('a creeping climb just calls the new resistance', async () => {
