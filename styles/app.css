@@ -77,6 +77,9 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .pace-row { margin-bottom: 10px; }
 .pace-row .link { font-size: 15px; }
 
+.app-foot { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; padding: 8px 32px 28px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.app-foot a { color: var(--lavender-text); text-underline-offset: 3px; }
+
 /* ---------- buttons ---------- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;

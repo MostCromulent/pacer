@@ -1,0 +1,18 @@
+{
+  "name": "Pacer",
+  "short_name": "Pacer",
+  "description": "Keep your spin-bike workout on track while you watch TV.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FBF3EA",
+  "theme_color": "#B9AEE0",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

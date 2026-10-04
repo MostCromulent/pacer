@@ -1,0 +1,27 @@
+name: Release
+
+# Pushing a tag such as v0.2.0 attaches a zip of the app to a GitHub release,
+# for anyone who wants to run it locally (unzip, then `npm start`).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir pacer
+          cp -r index.html manifest.webmanifest icon.svg LICENSE README.md package.json src styles scripts pacer/
+          zip -r "pacer-${GITHUB_REF_NAME}.zip" pacer
+      - run: gh release create "$GITHUB_REF_NAME" "pacer-${GITHUB_REF_NAME}.zip" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

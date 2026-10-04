@@ -22,14 +22,17 @@ IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
 
 ## 🚀 Get started
 
-You need **Chrome or Edge**, Bluetooth, and [Node.js](https://nodejs.org) 18+.
+**Open <https://mostcromulent.github.io/pacer/> in Chrome or Edge.** There is
+nothing to install. (Firefox and Safari can't talk to Bluetooth bikes.)
 
-1. Download this repository and run `npm start` in its folder.
-2. Open <http://localhost:5173>.
-3. Pedal to wake the bike, click **Connect bike** and pick it from the list.
+1. Pedal to wake the bike, click **Connect bike** and pick it from the list.
    Close Peloton, Zwift or JRNY first: a bike takes one connection at a time.
-4. Calibrate when prompted (about two and a half minutes of pedalling), then
+2. Calibrate when prompted (about two and a half minutes of pedalling), then
    set your **easy pace**: the resistance and cadence you could chat at.
+3. Put your show on, build a ride and press **Start ride**.
+
+Chrome can also install Pacer as an app, from the install button in the address
+bar, so it opens in a window of its own.
 
 ## 🛠️ Build a ride
 
@@ -93,51 +96,27 @@ its resistance (the 800IC does) it keeps learning from every ride.
   **Calibration** in the top bar.
 - **Watts look high?** They're the bike's own estimate. You only race yourself,
   so it doesn't matter.
-- **Your data stays on your computer.** **Statistics** has a backup button,
-  and lets you delete a ride.
+- **Your data stays in your browser.** Rides, settings and your bike's
+  calibration are kept on your own computer and never sent anywhere. Clearing
+  the browser's site data deletes them, so use the backup on the
+  **Statistics** page now and then; it is also how you move to another browser
+  or computer.
 
 ---
 
-## 👩‍💻 For developers
+## 👩‍💻 Running it yourself, and contributing
 
-Pacer is plain JavaScript: no dependencies, no build step, and a
-[75-line static server](scripts/serve.js).
+Pacer is plain JavaScript with no dependencies and no build step. With
+[Node.js](https://nodejs.org) 18 or newer:
 
 ```sh
 npm start    # serve the app at http://localhost:5173
-npm test     # unit tests (node:test)
 ```
 
-```
-src/core/   logic with no browser code, covered by unit tests
-  ftms.js        reads the bike's Bluetooth data packets
-  bike.js        Web Bluetooth connection, with auto-reconnect
-  sim.js         a simulated bike
-  workout.js     the workout generator
-  resistance.js  the resistance/cadence/watts model and its calibration fit
-  learn.js       pools ride readings and refits the model from them
-  spinclass.js   the spin class generator: blocks, arc, finale
-  physics.js     power to virtual speed
-  ghost.js       ghost riders
-  ride.js        the ride engine: targets, gates, events, summary
-  storage.js     saving rides and settings, export and import
-src/ui/     the browser interface
-  app.js         screens, the ride loop, calibration
-  scene.js       the papercraft race scene
-  charts.js      charts and previews
-  pip.js         the floating mini window
-  audio.js       chimes
-scripts/serve.js  the local server, which also saves calibration.json
-```
+[CONTRIBUTING.md](CONTRIBUTING.md) covers how the code is laid out, how to add
+a kind of ride or a spin class block, and the tests.
 
-- Add `?dev` to the address to show a **Use simulator** button, which rides
-  without a bike. Add `?speed=20` to also run the clock twenty times faster.
-- Every workout has a code such as `HIL-45-K7Q`. The same code always produces
-  the same ride, which is what keeps ghost races fair.
-- Distance comes from power, not the bike's speed reading: many spin bikes
-  work out speed from cadence alone, which would reward spinning fast against
-  no resistance.
-- The screenshots above use sample rides, not real ones.
+The screenshots above use sample rides, not real ones.
 
 ## 📄 Licence
 

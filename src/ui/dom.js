@@ -39,6 +39,7 @@ export function showScreen(name) {
   for (const s of SCREENS) $(`screen-${s}`).hidden = s !== name;
   // No wandering off mid-ride.
   $('top-nav').hidden = name === 'ride';
+  $('app-foot').hidden = name === 'ride';
   for (const b of document.querySelectorAll('#top-nav [data-screen]')) {
     if (b.dataset.screen === name) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
