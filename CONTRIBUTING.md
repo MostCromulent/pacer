@@ -83,7 +83,7 @@ The code uses the same words the rider sees.
 | resistance | the number on the bike's resistance dial, 1 to 100 |
 | cadence | pedalling speed in rpm |
 | effort | the rider's adjustment to a whole ride, 50% to 150% |
-| `baselineW` | the rider's fitness in watts. It is set and shown as an *easy pace* (a resistance and a cadence) and never shown as a number |
+| `baselineW` | the rider's fitness in watts. It is set and shown as an *easy pace* (the resistance and cadence of comfortable flat-road riding, which is 70% of the baseline) and never shown as a number |
 | step | one part of a ride, with a cadence and an effort to hold (see the `Step` typedef in `workout.js`) |
 | block | a themed run of steps in a spin class |
 | ghost | the rider you race: a past ride, or the pacer that hits every target |

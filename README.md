@@ -33,7 +33,7 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
    Close Peloton, Zwift or JRNY first: a bike takes one connection at a time.
 3. Calibrate when prompted. It takes about two and a half minutes of pedalling
    and makes Pacer's resistance numbers match your bike's screen.
-4. Set your **easy pace**: the resistance and cadence you could chat at. Every
+4. Set your **easy pace**: the resistance and cadence you could chat at on a flat road. Every
    ride is sized from that.
 5. Put your show on, build a ride and press **Start ride**.
 

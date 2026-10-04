@@ -14,7 +14,9 @@ import { updateMute } from './ride-view.js';
 // Rides are scaled from a baseline in watts, which means nothing to most riders.
 // So it is set and shown as an easy spin on the bike: a resistance and a cadence.
 
-const EASY_PCT = 0.55; // an easy spin as a share of the baseline, as in recovery steps
+// The easy pace is comfortable flat-road riding: 70% of the baseline, the same
+// as a "Flat road" step. Recovery steps sit a little below it.
+const EASY_PCT = 0.7;
 const PACE_EXAMPLES = [
   { name: 'Recovery spin', pct: 0.55, cadence: 90 },
   { name: 'Flat road', pct: 0.7, cadence: 90 },
