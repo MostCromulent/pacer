@@ -15,7 +15,8 @@ function plainName(seg) {
 
 /**
  * The ride as a run of named spans: a spin class's blocks, or otherwise each
- * stretch of steps with the same name. Times are in seconds.
+ * stretch of steps with the same name. Times are in seconds; `segs` are the
+ * indexes of the steps in each span.
  */
 export function rideSpans(workout) {
   const spans = [];

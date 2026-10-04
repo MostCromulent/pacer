@@ -234,6 +234,10 @@ main { padding: 0 32px 40px; }
 .code-btn { background: none; border: 0; padding: 0; color: var(--lavender-text); font-weight: 800; text-decoration: underline dotted; text-underline-offset: 3px; }
 .preview-chart { height: 210px; padding: 10px 6px 4px; border-radius: 16px; background: var(--peach); }
 .preview-chart svg { display: block; filter: drop-shadow(0 2px 2px rgba(122, 78, 58, 0.18)); }
+.preview-chart rect { cursor: pointer; }
+.preview-chart svg.picked .step-bar:not(.on) { opacity: 0.4; }
+.preview-pick { margin: 0; min-height: 2.8em; line-height: 1.4; }
+.preview-pick b { color: var(--ink); }
 .axis { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: var(--muted); }
 .zones { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; font-weight: 800; color: var(--ink-soft); }
 .zones span { display: inline-flex; align-items: center; gap: 6px; }

@@ -3,6 +3,7 @@
 import { TYPES, DURATIONS, SPIN_BLOCKS, generateWorkout, workoutStats, randomVariant } from '../core/workout.js';
 import { stepTargets, EFFORT_MIN, EFFORT_MAX, EFFORT_STEP } from '../core/ride.js';
 import { formatRange } from '../core/cues.js';
+import { rideSpans } from '../core/review.js';
 import { pacerGhost, ghostFromRide } from '../core/ghost.js';
 import { DEV, storage, settings, saveSettings, calibration, activeModel, state } from './store.js';
 import { $, toast } from './dom.js';
@@ -34,6 +35,49 @@ export function pickGhost(workout) {
   // The pacer rides exactly what the screen shows, held-resistance rests included.
   return pacerGhost(workout, settings.baselineW, (seg) => stepTargets(seg, workout.segments, settings.baselineW, activeModel()).watts);
 }
+
+// The part of the ride picked on the preview chart, remembered while the ride stays the same.
+const picked = { code: null, span: null };
+
+/** Tap or hover a part of the preview to read what it is: its name, length and targets. */
+function showPicked(w) {
+  if (picked.code !== w.code) Object.assign(picked, { code: w.code, span: null });
+  const spans = rideSpans(w);
+  const span = spans[picked.span];
+  const svg = $('preview-chart').querySelector('svg');
+  svg.classList.toggle('picked', !!span);
+  for (const bar of svg.querySelectorAll('.step-bar')) bar.classList.toggle('on', !!span && span.segs.includes(Number(bar.dataset.seg)));
+  if (!span) {
+    $('preview-pick').textContent = 'Tap a part of the ride to see what it is.';
+    return;
+  }
+  const steps = span.segs.map((i) => w.segments[i]);
+  const targets = steps.map((seg) => stepTargets(seg, w.segments, settings.baselineW * settings.effort, activeModel()));
+  const cadences = targets.map((t) => t.cadence);
+  const lows = targets.map((t) => t.resistanceRange[0]);
+  const highs = targets.map((t) => t.resistanceRange[1] ?? t.resistance);
+  const span2 = (lo, hi) => (lo === hi ? String(lo) : `${lo}–${hi}`);
+  const facts = [
+    `${fmtClock(span.to - span.from)}, from ${fmtClock(span.from)}`,
+    steps[0].rounds ? `${steps[0].rounds} rounds` : '',
+    `resistance ${span2(Math.min(...lows), Math.max(...highs))}`,
+    `cadence ${span2(Math.min(...cadences), Math.max(...cadences))}`,
+    steps.every((x) => x.position === 'standing') ? 'out of the saddle' : steps.some((x) => x.position === 'standing') ? 'in and out of the saddle' : '',
+  ];
+  $('preview-pick').innerHTML = `<b>${esc(span.name)}</b> · ${facts.filter(Boolean).join(' · ')}`;
+}
+
+function pickAt(e) {
+  const seg = e.target.dataset?.seg;
+  if (seg === undefined) return;
+  const w = currentWorkout();
+  const span = rideSpans(w).findIndex((sp) => sp.segs.includes(Number(seg)));
+  // Tapping the picked part again lets go of it; hovering never does.
+  picked.span = e.type === 'click' && picked.span === span ? null : span;
+  showPicked(w);
+}
+$('preview-chart').addEventListener('click', pickAt);
+$('preview-chart').addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') pickAt(e); });
 
 const TYPE_COLORS = {
   endurance: '#9CC5A1', recovery: '#C3DDC6', lowimpact: '#A9D3D0', sweetspot: '#F2C14E', progression: '#F0B35A',
@@ -109,6 +153,7 @@ export function renderSetup() {
   $('preview-title').textContent = `${w.name} · ${w.minutes} min`;
   $('preview-code').textContent = `#${w.code}`;
   $('preview-chart').innerHTML = profileSvg(w, 600, 196, settings.effort);
+  showPicked(w);
   $('axis-mid').textContent = String(Math.round(w.minutes / 2));
   $('axis-end').textContent = `${w.minutes} min`;
   $('zones').innerHTML = [['Z1 recover', 1], ['Z2 endurance', 2], ['Z3 tempo', 3], ['Z4 threshold', 4], ['Z5 max', 5]]
