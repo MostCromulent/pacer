@@ -25,7 +25,8 @@ npm start          # serves the app at http://localhost:5173
 Open <http://localhost:5173> in Chrome or Edge. No install step: there are no
 dependencies.
 
-Want to try it without the bike? Click **Use simulator**. The simulated bike
+Want to try it without the bike? Open <http://localhost:5173/?dev> and click
+**Use simulator** (it is hidden otherwise). The simulated bike
 pedals along to the workout by itself, or switch it to *I'll drive* and use the
 arrow keys (↑ ↓ cadence, ← → resistance).
 
@@ -92,7 +93,7 @@ With the dev server (`npm start`), a real bike's calibration is saved to
 reports its resistance over Bluetooth, the model keeps learning: every steady
 second of a ride is one more measurement of resistance, cadence and watts, and
 the model is refitted and saved when the ride ends. **Bike model** on the setup
-screen shows the result: watts at each resistance for three cadences, the
+screen shows the result: watts at each resistance for four cadences from 50 to 100 rpm, the
 levels measured so far and how many readings are behind each.
 
 Connecting a bike that has no calibration puts a prompt at the top of the setup
@@ -179,7 +180,7 @@ npm test                    # unit tests (node:test, no dependencies)
 npm start                   # dev server
 ```
 
-Add `?speed=20` to the URL to run the ride clock and simulator 20× faster, which
+Add `?dev` to the URL to show the simulator button. Add `?speed=20` to run the ride clock and simulator 20× faster, which
 is handy for checking a whole ride in a minute or two.
 
 ## Troubleshooting

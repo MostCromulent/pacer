@@ -96,6 +96,7 @@ export function gapChartSvg(gaps, width = 960, height = 150) {
 // Plot area of the bike model chart, shared with the hover readout in app.js.
 export const MODEL_PLOT = { width: 468, height: 230, left: 40, right: 60, top: 10, bottom: 30 };
 export const MODEL_CADENCES = [
+  { rpm: 50, color: '#B7791F' },
   { rpm: 70, color: '#159A9C' },
   { rpm: 85, color: '#6A55B8' },
   { rpm: 100, color: '#C95A43' },
@@ -144,7 +145,7 @@ export function modelSvg(model) {
       ${hi > to ? `<path d="${path(rpm, to, hi)}" ${dashed}/>` : ''}
       <text x="${width - right + 6}" y="${(y(powerFor(model, hi, rpm)) + 4).toFixed(1)}">${rpm} rpm</text>`;
   }).join('');
-  return `<svg id="model-svg" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Watts at each resistance level, at 70, 85 and 100 rpm" font-size="11" font-weight="700" fill="${P.muted}">
+  return `<svg id="model-svg" viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Watts at each resistance level, at ${MODEL_CADENCES.map((c) => c.rpm).join(', ')} rpm" font-size="11" font-weight="700" fill="${P.muted}">
     ${grid.join('')}${ticks.join('')}${rug}
     <text x="${(left + width - right) / 2}" y="${height - 1}" text-anchor="middle">Resistance</text>
     ${lines}

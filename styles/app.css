@@ -107,6 +107,16 @@ main { padding: 0 32px 40px; }
 .title { font-family: var(--display); font-weight: 700; font-size: 36px; margin: 4px 0 16px; }
 .title-sm { font-family: var(--display); font-weight: 700; font-size: 26px; margin: 0 0 10px; }
 .setup-grid { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 32px; }
+.steps { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 22px; padding: 0; }
+.step {
+  width: 100%; border: 0; border-radius: 14px; padding: 8px 10px; text-align: left; cursor: pointer;
+  background: var(--sand); color: var(--ink-soft); font-family: inherit; display: flex; flex-direction: column; gap: 1px;
+}
+.step .step-name { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.step .step-pick { font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step[aria-current="step"] { background: var(--lavender); color: var(--ink); box-shadow: 0 3px 0 var(--lavender-deep); }
+.step-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.step-nav .btn { min-width: 110px; }
 .group { border: 0; padding: 0; margin: 0 0 20px; }
 .group legend { font-family: var(--display); font-weight: 600; font-size: 18px; margin-bottom: 10px; padding: 0; }
 

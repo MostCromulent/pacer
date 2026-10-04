@@ -20,7 +20,7 @@
   <div class="bike-controls">
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
     <button id="btn-connect" class="btn btn-paper" type="button">Connect bike</button>
-    <button id="btn-sim" class="btn btn-ghostly" type="button">Use simulator</button>
+    <button id="btn-sim" class="btn btn-ghostly" type="button" hidden>Use simulator</button>
     <button id="btn-pace" class="chip chip-btn" type="button" title="Change your easy pace">Easy pace <b id="pace-chip">–</b></button>
   </div>
 </header>
@@ -39,7 +39,8 @@
     <div class="setup-grid">
       <div class="setup-left">
         <h1 id="setup-title" class="title">Build a ride</h1>
-        <fieldset class="group">
+        <ol id="steps" class="steps" aria-label="Setup steps"></ol>
+        <fieldset class="group" data-step="0">
           <legend>How long?</legend>
           <div id="durations" class="durations"></div>
           <div id="custom-dur" class="custom-dur">
@@ -52,11 +53,11 @@
             </span>
           </div>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" data-step="1">
           <legend>What kind?</legend>
           <div id="types" class="types"></div>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" data-step="2">
           <legend>How hard?</legend>
           <div class="custom-dur">
             <span class="custom-label">Effort</span>
@@ -68,11 +69,11 @@
           </div>
           <p id="effort-note" class="muted small effort-note"></p>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" data-step="3">
           <legend>Race against</legend>
           <div id="ghosts" class="ghosts"></div>
         </fieldset>
-        <fieldset class="group">
+        <fieldset class="group" data-step="2">
           <legend>Show targets as</legend>
           <div class="seg-toggle mode-toggle" role="group" aria-label="Show targets as">
             <button id="mode-knob" class="seg" type="button" data-mode="knob">Cadence + resistance</button>
@@ -83,6 +84,10 @@
             <button id="btn-calibrate-nudge" class="link" type="button">Calibrate</button>
           </p>
         </fieldset>
+        <div class="step-nav">
+          <button id="step-back" class="btn btn-paper" type="button">Back</button>
+          <button id="step-next" class="btn btn-lilac" type="button">Next</button>
+        </div>
       </div>
 
       <div class="setup-right">

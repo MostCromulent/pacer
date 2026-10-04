@@ -28,8 +28,11 @@ const SCENE_HEIGHT = 222;
 const ROUTE_W = 328;
 const ROUTE_H = 40;
 
-// Dev aid: ?speed=20 runs the ride clock (and simulator) 20x faster.
-const TIME_SCALE = Math.min(60, Math.max(1, Number(new URLSearchParams(location.search).get('speed')) || 1));
+// Dev aids: ?dev shows the simulator, and ?speed=20 also runs the ride clock
+// (and simulator) 20x faster.
+const QUERY = new URLSearchParams(location.search);
+const DEV = QUERY.has('dev') || QUERY.has('speed');
+const TIME_SCALE = Math.min(60, Math.max(1, Number(QUERY.get('speed')) || 1));
 const clock = () => performance.now() * TIME_SCALE;
 
 const storage = new Storage();
@@ -81,6 +84,7 @@ const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 const state = {
   screen: 'setup',
+  step: 0,
   duration: settings.lastDuration,
   type: settings.lastType,
   variant: 0,
@@ -187,6 +191,8 @@ const TYPE_COLORS = {
   spinclass: '#B9AEE0', surprise: '#8FD3C6',
 };
 
+const SETUP_STEPS = ['Length', 'Type', 'Effort', 'Race'];
+
 function renderSetup() {
   const w = currentWorkout();
   state.workout = w;
@@ -233,7 +239,17 @@ function renderSetup() {
   const versus = chosen?.ride ? `${chosen.id === 'pb' ? 'your best' : 'your last ride'} (${fmtKm(chosen.ride.distanceM)})` : 'the pacer';
   $('start-hint').textContent = state.bikeState === 'connected'
     ? `You'll race ${versus}.`
-    : 'Connect your bike, or use the simulator, to start.';
+    : 'Connect your bike to start.';
+
+  // One step of the setup at a time; each step's tab shows what is picked.
+  const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer'];
+  $('steps').innerHTML = SETUP_STEPS.map((name, i) => `
+    <li><button type="button" class="step" data-go="${i}" ${i === state.step ? 'aria-current="step"' : ''}>
+      <span class="step-name">${i + 1} · ${name}</span><span class="step-pick">${esc(picks[i])}</span>
+    </button></li>`).join('');
+  for (const el of document.querySelectorAll('[data-step]')) el.hidden = Number(el.dataset.step) !== state.step;
+  $('step-back').style.visibility = state.step === 0 ? 'hidden' : 'visible';
+  $('step-next').style.visibility = state.step === SETUP_STEPS.length - 1 ? 'hidden' : 'visible';
   $('model-note').textContent = settings.model.calibrated ? 'Calibrated.' : 'Not calibrated yet.';
   const banner = needsCalibration() && state.bannerDismissed !== state.bike.name;
   $('calib-banner').hidden = !banner;
@@ -243,7 +259,7 @@ function renderSetup() {
       ? `The saved calibration is for ${calibration.bike}. Until ${name} is calibrated, its resistance targets will be off. It takes about two and a half minutes of pedalling.`
       : `${name} hasn't been calibrated, so the resistance targets are a rough guess and probably won't match its screen. It takes about two and a half minutes of pedalling.`;
   }
-  $('pace-chip').textContent = `${easyResistance()} at ${settings.easyCadence} rpm`;
+  $('pace-chip').textContent = `${easyResistance()} resistance at ${settings.easyCadence} rpm`;
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
     b.classList.toggle('on', on);
@@ -251,6 +267,19 @@ function renderSetup() {
   }
   $('calib-nudge').hidden = settings.targetMode !== 'knob' || !knobIsEstimate();
 }
+
+function goToStep(i) {
+  state.step = Math.min(SETUP_STEPS.length - 1, Math.max(0, i));
+  renderSetup();
+}
+
+$('steps').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-go]');
+  if (b) goToStep(Number(b.dataset.go));
+});
+$('step-back').addEventListener('click', () => goToStep(state.step - 1));
+$('step-next').addEventListener('click', () => goToStep(state.step + 1));
+$('btn-sim').hidden = !DEV;
 
 /** The effort the ride starts at, and what it means on the bike for this workout. */
 function renderEffort(w) {
@@ -636,7 +665,7 @@ function onRideEvent(ev) {
 
 function startRide(workout) {
   if (state.bikeState !== 'connected') {
-    toast('Connect your bike or use the simulator first.');
+    toast('Connect your bike first.');
     return;
   }
   chimes.unlock();
@@ -1073,7 +1102,7 @@ function renderSummary({ sum, workout, prevBest, prevLast, completed, saved, ses
         $('btn-apply-baseline').onclick = () => {
           saveSettings({ baselineW: suggested, effort: 1 });
           tip.hidden = true;
-          toast(`Your easy pace is now resistance ${easyResistance(suggested)} at ${settings.easyCadence} rpm.`);
+          toast(`Your easy pace is now ${easyResistance(suggested)} resistance at ${settings.easyCadence} rpm.`);
         };
       }
     }
