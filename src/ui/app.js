@@ -33,6 +33,31 @@ const clock = () => performance.now() * TIME_SCALE;
 
 const storage = new Storage();
 let settings = storage.loadSettings();
+
+// A real bike's calibration lives in the repo (calibration.json, written by the
+// dev server), so it survives clearing the browser and travels with the code.
+const CALIBRATION_URL = 'calibration.json';
+try {
+  const res = await fetch(CALIBRATION_URL, { cache: 'no-store' });
+  const saved = res.ok ? await res.json() : null;
+  if (saved?.model?.calibrated) saveSettings({ model: saved.model });
+} catch {
+  // no saved calibration, or not running under the dev server
+}
+
+async function saveCalibrationFile(calibration) {
+  try {
+    const res = await fetch(CALIBRATION_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(calibration),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 const chimes = new Chimes();
 chimes.muted = settings.muted;
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
@@ -960,13 +985,19 @@ $('btn-new').addEventListener('click', () => {
 const STEPS = CALIBRATION_STEPS;
 const SETTLE_S = 5;
 const RECORD_S = 10;
+const CADENCE_TOL = 8; // rpm either side of the step's cadence that counts as on target
+const MIN_READINGS = 5;
+const STALE_MS = 2000; // no packet for this long means the rider has stopped
 const round1 = (x) => Math.round(x * 10) / 10;
 
 const calib = {
   open: false,
   phase: 'intro',
   level: 0,
-  started: 0,
+  started: null, // when the rider first reached the step's cadence
+  recordedS: 0,
+  lastTick: 0,
+  lastReading: 0,
   samples: [],
   levelSamples: [],
   model: null,
@@ -999,7 +1030,9 @@ const calib = {
   beginLevel(i) {
     this.phase = 'level';
     this.level = i;
-    this.started = performance.now();
+    this.started = null;
+    this.recordedS = 0;
+    this.lastTick = performance.now();
     this.levelSamples = [];
     if (state.bikeKind === 'sim') {
       // Stand-in for the rider setting resistance and cadence.
@@ -1010,21 +1043,42 @@ const calib = {
     this.render();
   },
 
-  onReading(f) {
+  // Pedalling at the step's cadence, going by the latest packets from the bike.
+  onTarget() {
+    const l = state.latest;
+    return performance.now() - this.lastReading < STALE_MS
+      && l.powerW > 0
+      && Math.abs((l.cadence ?? 0) - STEPS[this.level].cadence) <= CADENCE_TOL;
+  },
+
+  settled() {
+    return this.started !== null && (performance.now() - this.started) / 1000 >= SETTLE_S;
+  },
+
+  onReading() {
     if (!this.open || this.phase !== 'level') return;
-    const elapsed = (performance.now() - this.started) / 1000;
-    if (elapsed >= SETTLE_S && f.powerW > 0 && f.cadence > 20) {
-      this.levelSamples.push({ resistance: STEPS[this.level].resistance, cadence: f.cadence, power: f.powerW });
+    this.lastReading = performance.now();
+    // A bike may split one reading over several packets, so read the merged latest.
+    if (this.settled() && this.onTarget()) {
+      this.levelSamples.push({ resistance: STEPS[this.level].resistance, cadence: state.latest.cadence, power: state.latest.powerW });
     }
   },
 
   tick() {
     if (!this.open) return;
     if (this.phase === 'level') {
-      const elapsed = (performance.now() - this.started) / 1000;
-      if (elapsed >= SETTLE_S + RECORD_S) {
-        if (this.levelSamples.length >= 3) this.samples.push(...this.levelSamples);
-        else toast(`Not enough steady pedalling at resistance ${STEPS[this.level].resistance}; skipped it.`);
+      const now = performance.now();
+      const dt = (now - this.lastTick) / 1000;
+      this.lastTick = now;
+      // The step's clock only starts once the rider is up to cadence, and the
+      // recording only counts time spent there, so every level gets its full share.
+      if (this.started === null) {
+        if (this.onTarget()) this.started = now;
+      } else if (this.settled() && this.onTarget()) {
+        this.recordedS += dt;
+      }
+      if (this.recordedS >= RECORD_S && this.levelSamples.length >= MIN_READINGS) {
+        this.samples.push(...this.levelSamples);
         this.nextLevel();
         return;
       }
@@ -1057,7 +1111,7 @@ const calib = {
         <p>${native
           ? 'Good news: your bike reports its resistance level directly, so the app reads it as you ride. You can still calibrate to improve the resistance targets.'
           : 'Your bike works out watts from cadence and the resistance level. Ride a few short steps so the app can learn that formula; then it can work out your resistance by itself and give resistance targets that match your bike’s screen.'}</p>
-        <p class="muted">About ${Math.round((STEPS.length * (SETTLE_S + RECORD_S)) / 60 * 2) / 2} minutes, ${STEPS.length} steps. Each step asks for a resistance <b>and a cadence</b>: some levels are ridden both slow and fast, which is how the app learns what cadence does to your watts. Check the resistance on the bike's screen.</p>`;
+        <p class="muted">About ${Math.round((STEPS.length * (SETTLE_S + RECORD_S)) / 60 * 2) / 2} minutes of riding, ${STEPS.length} steps. Each step waits until you're pedalling at its cadence, then records ${RECORD_S} seconds there. Each step asks for a resistance <b>and a cadence</b>: some levels are ridden both slow and fast, which is how the app learns what cadence does to your watts. Check the resistance on the bike's screen.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
       const st = STEPS[this.level];
@@ -1067,7 +1121,7 @@ const calib = {
           <div><span class="calib-ask-lbl">Resistance</span><span class="knob-big">${st.resistance}</span></div>
           <div><span class="calib-ask-lbl">Cadence</span><span class="knob-big">${st.cadence}<small> rpm</small></span></div>
         </div>
-        <p id="calib-phase" class="muted">Settle in…</p>
+        <p id="calib-phase" class="muted">Set the resistance, then pedal up to the cadence</p>
         <div class="calib-progress"><i id="calib-bar"></i></div>
         <div class="calib-live">
           <div id="cl-c-box" class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Your cadence</span></div>
@@ -1098,18 +1152,21 @@ const calib = {
   renderLive() {
     const l = state.latest;
     if (this.phase === 'level') {
-      const elapsed = (performance.now() - this.started) / 1000;
       const bar = $('calib-bar');
       if (!bar) return;
       const want = STEPS[this.level].cadence;
       const cad = Math.round(l.cadence ?? 0);
       const off = cad - want;
-      bar.style.width = `${Math.min(100, (elapsed / (SETTLE_S + RECORD_S)) * 100)}%`;
-      $('calib-phase').textContent = elapsed < SETTLE_S
-        ? 'Settle in…'
-        : Math.abs(off) > 6 ? (off < 0 ? 'Recording · pedal a little faster' : 'Recording · ease off a little') : 'Recording, keep it steady';
+      const settleS = this.started === null ? 0 : Math.min(SETTLE_S, (performance.now() - this.started) / 1000);
+      bar.style.width = `${Math.min(100, ((settleS + this.recordedS) / (SETTLE_S + RECORD_S)) * 100)}%`;
+      const nudge = off < 0 ? 'pedal a little faster' : 'ease off a little';
+      const left = Math.max(1, Math.ceil(RECORD_S - this.recordedS));
+      $('calib-phase').textContent = this.started === null
+        ? 'Set the resistance, then pedal up to the cadence'
+        : !this.settled() ? 'Settle in…'
+          : this.onTarget() ? `Recording, keep it steady · ${left}s to go` : `Paused · ${nudge}`;
       $('cl-c').textContent = String(cad);
-      $('cl-c-box').className = `stat ${cad > 0 ? (Math.abs(off) <= 6 ? 'good' : 'off') : ''}`;
+      $('cl-c-box').className = `stat ${cad > 0 ? (Math.abs(off) <= CADENCE_TOL ? 'good' : 'off') : ''}`;
       $('cl-p').textContent = `${Math.round(l.powerW ?? 0)} W`;
       $('cl-n').textContent = String(this.levelSamples.length);
     } else if (this.phase === 'result' && this.model) {
@@ -1124,12 +1181,24 @@ $('btn-calibrate-nudge').addEventListener('click', () => calib.start());
 $('calib-cancel').addEventListener('click', () => calib.close());
 $('calib-skip').addEventListener('click', () => calib.nextLevel());
 $('calib').addEventListener('cancel', () => calib.close());
-$('calib-next').addEventListener('click', () => {
+$('calib-next').addEventListener('click', async () => {
   if (calib.phase === 'intro') calib.beginLevel(0);
   else if (calib.phase === 'result') {
     if (calib.model) {
       saveSettings({ model: calib.model });
-      toast('Calibration saved. Resistance targets now match your bike.');
+      // The simulator's formula is made up, so only a real bike is written to the repo.
+      const filed = state.bikeKind === 'ble' && await saveCalibrationFile({
+        bike: state.bike.name,
+        date: new Date().toISOString(),
+        model: calib.model,
+        check: calib.check,
+        samples: calib.samples,
+      });
+      toast(filed
+        ? 'Calibration saved to calibration.json. Resistance targets now match your bike.'
+        : state.bikeKind === 'ble'
+          ? 'Calibration saved in this browser only: could not write calibration.json.'
+          : 'Calibration saved. Resistance targets now match your bike.');
       calib.close();
       renderSetup();
     } else {

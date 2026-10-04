@@ -3,7 +3,7 @@
 //   node scripts/serve.js [port]
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,9 +20,41 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
+// The one thing the app may write: the bike's calibration, kept in the repo.
+const CALIBRATION_FILE = join(root, 'calibration.json');
+const MAX_BODY = 1024 * 1024;
+
+async function saveCalibration(req, res) {
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > MAX_BODY) {
+      res.writeHead(413).end('Too large');
+      return;
+    }
+  }
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    data = null;
+  }
+  if (!data?.model?.calibrated) {
+    res.writeHead(400).end('Not a calibration');
+    return;
+  }
+  await writeFile(CALIBRATION_FILE, `${JSON.stringify(data, null, 1)}\n`);
+  console.log(`Saved calibration to ${CALIBRATION_FILE}`);
+  res.writeHead(204).end();
+}
+
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    if (req.method === 'PUT' && url.pathname === '/calibration.json') {
+      await saveCalibration(req, res);
+      return;
+    }
     let path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
     if (path === '' || path.endsWith('/')) path = join(path, 'index.html');
     const file = resolve(root, path);

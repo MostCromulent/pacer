@@ -65,8 +65,10 @@ Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 
 The 800IC has no power meter: the console works watts out from cadence and the
 resistance level. **Calibrate resistance** (on the setup screen) takes about
-two and a half minutes: nine short steps, each asking for a resistance *and* a
-cadence. Two levels are ridden both slow and fast, which is how the app learns
+two and a half minutes of riding: nine short steps, each asking for a
+resistance *and* a cadence. A step waits until you're pedalling at its cadence,
+then records ten seconds there, pausing whenever you drift off, so take as long
+as you need to change the resistance. Two levels are ridden both slow and fast, which is how the app learns
 what cadence does to your watts. After that the resistance numbers in the app
 match the numbers on your bike's screen, and the app can tell your resistance
 from the watts and cadence alone.

@@ -1,0 +1,549 @@
+{
+ "bike": "IC Bike",
+ "date": "2026-10-04T10:16:05.095Z",
+ "model": {
+  "kind": "table",
+  "b": 1.5837001691297448,
+  "knots": [
+   [
+    20,
+    -1.823638222711939
+   ],
+   [
+    30,
+    -1.5155271421734664
+   ],
+   [
+    40,
+    -1.2730117099367786
+   ],
+   [
+    50,
+    -1.0646737381527986
+   ],
+   [
+    60,
+    -0.9108960923934231
+   ],
+   [
+    70,
+    -0.7860238947155597
+   ],
+   [
+    80,
+    -0.6395402930914896
+   ]
+  ],
+  "calibrated": true
+ },
+ "check": {
+  "meanAbs": 1.4050696644172431,
+  "maxAbs": 2.7099241339710005,
+  "interiorMeanAbs": 1.1475839322461876,
+  "interiorMaxAbs": 1.7180096004696992,
+  "results": [
+   {
+    "level": 20,
+    "cadence": 86.2,
+    "predicted": 17.290075866029
+   },
+   {
+    "level": 30,
+    "cadence": 71.5,
+    "predicted": 30.93078101379418
+   },
+   {
+    "level": 30,
+    "cadence": 99.7,
+    "predicted": 31.45233060173509
+   },
+   {
+    "level": 40,
+    "cadence": 83.8,
+    "predicted": 40.76418495419542
+   },
+   {
+    "level": 50,
+    "cadence": 70.7,
+    "predicted": 51.7180096004697
+   },
+   {
+    "level": 50,
+    "cadence": 96.8,
+    "predicted": 51.33011419936196
+   },
+   {
+    "level": 60,
+    "cadence": 82.6,
+    "predicted": 61.04366592559345
+   },
+   {
+    "level": 70,
+    "cadence": 74.54545454545455,
+    "predicted": 69.20599876942649
+   },
+   {
+    "level": 80,
+    "cadence": 67.1,
+    "predicted": 81.90261532006087
+   }
+  ]
+ },
+ "samples": [
+  {
+   "resistance": 20,
+   "cadence": 91,
+   "power": 198
+  },
+  {
+   "resistance": 20,
+   "cadence": 89,
+   "power": 198
+  },
+  {
+   "resistance": 20,
+   "cadence": 85,
+   "power": 185
+  },
+  {
+   "resistance": 20,
+   "cadence": 85,
+   "power": 185
+  },
+  {
+   "resistance": 20,
+   "cadence": 86,
+   "power": 185
+  },
+  {
+   "resistance": 20,
+   "cadence": 88,
+   "power": 192
+  },
+  {
+   "resistance": 20,
+   "cadence": 88,
+   "power": 192
+  },
+  {
+   "resistance": 20,
+   "cadence": 86,
+   "power": 188
+  },
+  {
+   "resistance": 20,
+   "cadence": 83,
+   "power": 178
+  },
+  {
+   "resistance": 20,
+   "cadence": 81,
+   "power": 175
+  },
+  {
+   "resistance": 30,
+   "cadence": 70,
+   "power": 180
+  },
+  {
+   "resistance": 30,
+   "cadence": 70,
+   "power": 184
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 192
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 192
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 188
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 188
+  },
+  {
+   "resistance": 30,
+   "cadence": 71,
+   "power": 192
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 188
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 192
+  },
+  {
+   "resistance": 30,
+   "cadence": 72,
+   "power": 196
+  },
+  {
+   "resistance": 30,
+   "cadence": 97,
+   "power": 316
+  },
+  {
+   "resistance": 30,
+   "cadence": 98,
+   "power": 310
+  },
+  {
+   "resistance": 30,
+   "cadence": 100,
+   "power": 323
+  },
+  {
+   "resistance": 30,
+   "cadence": 99,
+   "power": 323
+  },
+  {
+   "resistance": 30,
+   "cadence": 101,
+   "power": 323
+  },
+  {
+   "resistance": 30,
+   "cadence": 101,
+   "power": 335
+  },
+  {
+   "resistance": 30,
+   "cadence": 98,
+   "power": 316
+  },
+  {
+   "resistance": 30,
+   "cadence": 100,
+   "power": 323
+  },
+  {
+   "resistance": 30,
+   "cadence": 101,
+   "power": 329
+  },
+  {
+   "resistance": 30,
+   "cadence": 102,
+   "power": 329
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 310
+  },
+  {
+   "resistance": 40,
+   "cadence": 83,
+   "power": 304
+  },
+  {
+   "resistance": 40,
+   "cadence": 85,
+   "power": 322
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 316
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 316
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 316
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 310
+  },
+  {
+   "resistance": 40,
+   "cadence": 83,
+   "power": 304
+  },
+  {
+   "resistance": 40,
+   "cadence": 83,
+   "power": 310
+  },
+  {
+   "resistance": 40,
+   "cadence": 84,
+   "power": 304
+  },
+  {
+   "resistance": 50,
+   "cadence": 69,
+   "power": 284
+  },
+  {
+   "resistance": 50,
+   "cadence": 72,
+   "power": 296
+  },
+  {
+   "resistance": 50,
+   "cadence": 72,
+   "power": 303
+  },
+  {
+   "resistance": 50,
+   "cadence": 73,
+   "power": 310
+  },
+  {
+   "resistance": 50,
+   "cadence": 72,
+   "power": 303
+  },
+  {
+   "resistance": 50,
+   "cadence": 70,
+   "power": 284
+  },
+  {
+   "resistance": 50,
+   "cadence": 69,
+   "power": 284
+  },
+  {
+   "resistance": 50,
+   "cadence": 69,
+   "power": 290
+  },
+  {
+   "resistance": 50,
+   "cadence": 70,
+   "power": 290
+  },
+  {
+   "resistance": 50,
+   "cadence": 71,
+   "power": 290
+  },
+  {
+   "resistance": 50,
+   "cadence": 96,
+   "power": 479
+  },
+  {
+   "resistance": 50,
+   "cadence": 95,
+   "power": 469
+  },
+  {
+   "resistance": 50,
+   "cadence": 94,
+   "power": 460
+  },
+  {
+   "resistance": 50,
+   "cadence": 97,
+   "power": 469
+  },
+  {
+   "resistance": 50,
+   "cadence": 96,
+   "power": 469
+  },
+  {
+   "resistance": 50,
+   "cadence": 96,
+   "power": 460
+  },
+  {
+   "resistance": 50,
+   "cadence": 99,
+   "power": 508
+  },
+  {
+   "resistance": 50,
+   "cadence": 98,
+   "power": 498
+  },
+  {
+   "resistance": 50,
+   "cadence": 99,
+   "power": 498
+  },
+  {
+   "resistance": 50,
+   "cadence": 98,
+   "power": 498
+  },
+  {
+   "resistance": 60,
+   "cadence": 81,
+   "power": 416
+  },
+  {
+   "resistance": 60,
+   "cadence": 81,
+   "power": 432
+  },
+  {
+   "resistance": 60,
+   "cadence": 84,
+   "power": 449
+  },
+  {
+   "resistance": 60,
+   "cadence": 84,
+   "power": 440
+  },
+  {
+   "resistance": 60,
+   "cadence": 81,
+   "power": 432
+  },
+  {
+   "resistance": 60,
+   "cadence": 82,
+   "power": 424
+  },
+  {
+   "resistance": 60,
+   "cadence": 85,
+   "power": 455
+  },
+  {
+   "resistance": 60,
+   "cadence": 83,
+   "power": 449
+  },
+  {
+   "resistance": 60,
+   "cadence": 83,
+   "power": 432
+  },
+  {
+   "resistance": 60,
+   "cadence": 82,
+   "power": 440
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 427
+  },
+  {
+   "resistance": 70,
+   "cadence": 73,
+   "power": 412
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 427
+  },
+  {
+   "resistance": 70,
+   "cadence": 76,
+   "power": 427
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 427
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 421
+  },
+  {
+   "resistance": 70,
+   "cadence": 74,
+   "power": 421
+  },
+  {
+   "resistance": 70,
+   "cadence": 73,
+   "power": 403
+  },
+  {
+   "resistance": 70,
+   "cadence": 74,
+   "power": 421
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 421
+  },
+  {
+   "resistance": 70,
+   "cadence": 75,
+   "power": 421
+  },
+  {
+   "resistance": 80,
+   "cadence": 70,
+   "power": 453
+  },
+  {
+   "resistance": 80,
+   "cadence": 74,
+   "power": 483
+  },
+  {
+   "resistance": 80,
+   "cadence": 63,
+   "power": 386
+  },
+  {
+   "resistance": 80,
+   "cadence": 71,
+   "power": 424
+  },
+  {
+   "resistance": 80,
+   "cadence": 68,
+   "power": 434
+  },
+  {
+   "resistance": 80,
+   "cadence": 63,
+   "power": 341
+  },
+  {
+   "resistance": 80,
+   "cadence": 65,
+   "power": 395
+  },
+  {
+   "resistance": 80,
+   "cadence": 63,
+   "power": 377
+  },
+  {
+   "resistance": 80,
+   "cadence": 66,
+   "power": 415
+  },
+  {
+   "resistance": 80,
+   "cadence": 68,
+   "power": 424
+  }
+ ]
+}
