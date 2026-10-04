@@ -196,7 +196,13 @@ main { padding: 0 32px 40px; }
 .mode-toggle { max-width: 420px; }
 .nudge { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: #FFF6DE; border: 2px dashed var(--mustard-deep); line-height: 1.4; }
 .nudge .link { padding: 0; font-size: 13px; }
-.setup-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 28px; color: var(--muted); }
+.top-nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-right: auto; padding-left: 12px; }
+.top-nav .link { text-decoration: none; color: var(--ink-soft); font-size: 15px; }
+.top-nav .link:hover { color: var(--lavender-text); text-decoration: underline; text-underline-offset: 3px; }
+.stats-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stats-card { padding: 20px 24px; margin-bottom: 16px; }
+.stats-card .calib-table td, .stats-card .calib-table th { padding: 7px 6px; }
+.stats-card .calib-table td:nth-child(2), .stats-card .calib-table th:nth-child(2) { text-align: left; padding-left: 24px; }
 
 /* ---------- ride ---------- */
 .ride-layout { display: flex; justify-content: center; align-items: flex-start; gap: 28px; flex-wrap: wrap; }

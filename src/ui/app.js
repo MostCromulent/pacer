@@ -7,7 +7,7 @@ import { SimulatedBike } from '../core/sim.js';
 import { fitModel, crossValidate, resistanceFor, powerFor, CALIBRATION_STEPS } from '../core/resistance.js';
 import { Learner, addToBins, fitBins, levelCounts, totalReadings } from '../core/learn.js';
 import { Scene } from './scene.js';
-import { profileSvg, routeSvg, updateRoute, gapChartSvg, esc, modelSvg, modelRange, MODEL_PLOT, MODEL_CADENCES } from './charts.js';
+import { profileSvg, routeSvg, updateRoute, gapChartSvg, weeksSvg, esc, modelSvg, modelRange, MODEL_PLOT, MODEL_CADENCES } from './charts.js';
 import { Chimes } from './audio.js';
 import { popOut, pipSupported } from './pip.js';
 import { ZONE_COLORS } from './palette.js';
@@ -150,7 +150,8 @@ function saveSettings(patch) {
 
 function showScreen(name) {
   state.screen = name;
-  for (const s of ['setup', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
+  for (const s of ['setup', 'stats', 'ride', 'summary']) $(`screen-${s}`).hidden = s !== name;
+  $('top-nav').hidden = name === 'ride';
   window.scrollTo(0, 0);
 }
 
@@ -260,7 +261,6 @@ function renderSetup() {
   for (const el of document.querySelectorAll('[data-step]')) el.hidden = Number(el.dataset.step) !== state.step;
   $('step-back').style.visibility = state.step === 0 ? 'hidden' : 'visible';
   $('step-next').style.visibility = state.step === SETUP_STEPS.length - 1 ? 'hidden' : 'visible';
-  $('model-note').textContent = settings.model.calibrated ? 'Calibrated.' : 'Not calibrated yet.';
   const banner = needsCalibration() && state.bannerDismissed !== state.bike.name;
   $('calib-banner').hidden = !banner;
   if (banner) {
@@ -481,10 +481,87 @@ $('import-file').addEventListener('change', async (e) => {
     settings = storage.loadSettings();
     toast(`Imported ${n} ride${n === 1 ? '' : 's'}.`);
     renderSetup();
+    if (state.screen === 'stats') renderStats();
   } catch (err) {
     toast(`Couldn't import that file: ${err.message}`);
   }
   e.target.value = '';
+});
+
+// ---------------------------------------------------------------- statistics
+
+const STATS_WEEKS = 8;
+const STATS_ROWS = 30;
+
+function rideName(code) {
+  const p = parseWorkoutCode(code);
+  return TYPES.find((t) => t.id === p?.type)?.name ?? code;
+}
+
+function fmtHours(s) {
+  const m = Math.round(s / 60);
+  return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+}
+
+function renderStats() {
+  const rides = storage.allRides().sort((a, b) => b.date.localeCompare(a.date));
+  if (!rides.length) {
+    $('stats-sub').textContent = '';
+    $('stats-body').innerHTML = '<p class="muted">No rides yet. Finish a ride and it will show up here.</p>';
+    return;
+  }
+  const sum = (f) => rides.reduce((a, r) => a + f(r), 0);
+  const totalS = sum((r) => r.durationS);
+  $('stats-sub').textContent = `Since ${new Date(rides.at(-1).date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  // Weeks start on Monday.
+  const monday = (d) => {
+    const m = new Date(d);
+    m.setHours(0, 0, 0, 0);
+    m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+    return m;
+  };
+  const thisWeek = monday(new Date());
+  const weeks = Array.from({ length: STATS_WEEKS }, (_, i) => {
+    const start = new Date(thisWeek);
+    start.setDate(start.getDate() - 7 * (STATS_WEEKS - 1 - i));
+    const inWeek = rides.filter((r) => monday(r.date).getTime() === start.getTime());
+    return {
+      label: start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+      minutes: Math.round(inWeek.reduce((a, r) => a + r.durationS, 0) / 60),
+      rides: inWeek.length,
+    };
+  });
+
+  const rows = rides.slice(0, STATS_ROWS).map((r) => `<tr>
+    <td>${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+    <td>${esc(rideName(r.code))}</td><td>${Math.round(r.durationS / 60)} min</td><td>${fmtKm(r.distanceM)}</td>
+    <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td></tr>`).join('');
+
+  $('stats-body').innerHTML = `
+    <div class="stats-tiles">
+      <div class="tile"><span class="tile-label">Rides</span><span class="tile-num">${rides.length}</span><span class="tile-sub">${weeks.at(-1).rides} this week</span></div>
+      <div class="tile"><span class="tile-label">Time ridden</span><span class="tile-num">${fmtHours(totalS)}</span><span class="tile-sub">${fmtHours(weeks.at(-1).minutes * 60)} this week</span></div>
+      <div class="tile"><span class="tile-label">Distance</span><span class="tile-num">${fmtKm(sum((r) => r.distanceM))}</span><span class="tile-sub">virtual, from your power</span></div>
+      <div class="tile"><span class="tile-label">On target</span><span class="tile-num">${Math.round(sum((r) => r.onTargetPct * r.durationS) / totalS)}%</span><span class="tile-sub">of ride time, all rides</span></div>
+    </div>
+    <div class="card stats-card">
+      <h2 class="card-title">Minutes each week</h2>
+      ${weeksSvg(weeks)}
+    </div>
+    <div class="card stats-card">
+      <h2 class="card-title">${rides.length > STATS_ROWS ? `Last ${STATS_ROWS} rides` : 'Every ride'}</h2>
+      <table class="calib-table"><thead><tr><th>Date</th><th>Ride</th><th>Length</th><th>Distance</th><th>Average power</th><th>On target</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+$('btn-stats').addEventListener('click', () => {
+  renderStats();
+  showScreen('stats');
+});
+$('stats-back').addEventListener('click', () => {
+  renderSetup();
+  showScreen('setup');
 });
 
 // ---------------------------------------------------------------- bike connection
@@ -1367,7 +1444,6 @@ const calib = {
   },
 };
 
-$('btn-calibrate').addEventListener('click', () => calib.start());
 $('btn-calibrate-nudge').addEventListener('click', () => calib.start());
 $('calib-cancel').addEventListener('click', () => calib.close());
 $('calib-skip').addEventListener('click', () => calib.nextLevel());

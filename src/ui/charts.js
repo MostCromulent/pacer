@@ -153,6 +153,25 @@ export function modelSvg(model) {
   </svg>`;
 }
 
+/** Minutes ridden in each of the last few weeks: [{ label, minutes }], oldest first. */
+export function weeksSvg(weeks, width = 960, height = 170) {
+  const top = 22;
+  const bottom = 24;
+  const max = Math.max(30, ...weeks.map((w) => w.minutes));
+  const slot = width / weeks.length;
+  const bw = Math.min(64, slot - 24);
+  const bars = weeks.map((w, i) => {
+    const cx = i * slot + slot / 2;
+    const h = (w.minutes / max) * (height - top - bottom);
+    const y = height - bottom - h;
+    return `${w.minutes ? `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${P.teal}"><title>Week of ${esc(w.label)}: ${w.minutes} min</title></rect>
+      <text x="${cx.toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle" fill="${P.ink}">${w.minutes}</text>` : ''}
+      <text x="${cx.toFixed(1)}" y="${height - 6}" text-anchor="middle">${esc(w.label)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Minutes ridden each week" font-size="13" font-weight="700" fill="${P.muted}">
+    ${bars}<rect x="0" y="${height - bottom - 1}" width="${width}" height="2" fill="#E3D3C3"/></svg>`;
+}
+
 function clamp01(x) {
   return Math.min(1, Math.max(0, x));
 }

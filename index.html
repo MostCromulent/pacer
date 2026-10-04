@@ -17,6 +17,13 @@
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16" r="4"/><circle cx="18.5" cy="16" r="4"/><path d="M5.5 16L9.5 9h6l-3.5 7h-6.5M9.5 9l2.5 7M15.5 9l3 7M15.5 9l-.6-2.5h2.6M8 7h3"/></svg></span>
     <span class="brand-name">Pacer</span>
   </div>
+  <nav id="top-nav" class="top-nav" aria-label="Pacer">
+    <button id="btn-stats" class="link" type="button">Statistics</button>
+    <button id="btn-model" class="link" type="button">Calibration</button>
+    <button id="btn-export" class="link" type="button">Export rides</button>
+    <label class="link" for="import-file">Import rides</label>
+    <input id="import-file" type="file" accept="application/json,.json" hidden>
+  </nav>
   <div class="bike-controls">
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
     <button id="btn-connect" class="btn btn-paper" type="button">Connect bike</button>
@@ -121,18 +128,18 @@
         <p id="start-hint" class="muted small center"></p>
       </div>
     </div>
-    <footer class="setup-foot">
-      <button id="btn-calibrate" class="link" type="button">Calibrate resistance</button>
-      <span aria-hidden="true">·</span>
-      <button id="btn-model" class="link" type="button">Bike model</button>
-      <span aria-hidden="true">·</span>
-      <button id="btn-export" class="link" type="button">Export rides</button>
-      <span aria-hidden="true">·</span>
-      <label class="link" for="import-file">Import rides</label>
-      <input id="import-file" type="file" accept="application/json,.json" hidden>
-      <span aria-hidden="true">·</span>
-      <span id="model-note" class="muted small"></span>
-    </footer>
+  </section>
+
+  <!-- STATISTICS -->
+  <section id="screen-stats" class="screen" hidden aria-labelledby="stats-title">
+    <div class="sum-head">
+      <div>
+        <h1 id="stats-title" class="title">Statistics</h1>
+        <p id="stats-sub" class="muted"></p>
+      </div>
+      <button id="stats-back" class="btn btn-paper" type="button">Back to Build a ride</button>
+    </div>
+    <div id="stats-body"></div>
   </section>
 
   <!-- RIDE -->
@@ -300,7 +307,7 @@
 
 <!-- BIKE MODEL -->
 <dialog id="model-dialog" class="dialog dialog-wide" aria-labelledby="model-title">
-  <h2 id="model-title" class="title-sm">Bike model</h2>
+  <h2 id="model-title" class="title-sm">Calibration</h2>
   <div id="model-body"></div>
   <div class="dialog-actions">
     <button id="model-calibrate" class="btn btn-paper" type="button">Calibrate again</button>

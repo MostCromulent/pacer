@@ -72,7 +72,7 @@ Prefer watts? Switch **Show targets as** to *Watts* on the setup screen.
 ### Calibrate resistance once
 
 The 800IC has no power meter: the console works watts out from cadence and the
-resistance level. **Calibrate resistance** (on the setup screen) takes about
+resistance level. **Calibration** in the top bar opens the bike's model, with a button to calibrate. It takes about
 two and a half minutes of riding: nine short steps, each asking for a
 resistance *and* a cadence. A step waits until you're pedalling at its cadence,
 then records ten seconds there, pausing whenever you drift off, so take as long
@@ -92,8 +92,8 @@ With the dev server (`npm start`), a real bike's calibration is saved to
 `calibration.json` in the repo and loaded from there on startup. If the bike
 reports its resistance over Bluetooth, the model keeps learning: every steady
 second of a ride is one more measurement of resistance, cadence and watts, and
-the model is refitted and saved when the ride ends. **Bike model** on the setup
-screen shows the result: watts at each resistance for four cadences from 50 to 100 rpm, the
+the model is refitted and saved when the ride ends. **Calibration** in the top
+bar shows the result: watts at each resistance for four cadences from 50 to 100 rpm, the
 levels measured so far and how many readings are behind each.
 
 Connecting a bike that has no calibration puts a prompt at the top of the setup
@@ -141,8 +141,9 @@ level over Bluetooth, the app reads it directly.
 - **Summary**: the gap to the ghost minute by minute, each hard effort compared
   with last time, and every ride of that workout. If the hard efforts were
   clearly too easy or too hard, it offers to make rides harder or easier.
-- **Your data stays local**: rides are kept in this browser. Use *Export rides*
-  / *Import rides* to back them up or move to another computer.
+- **Your data stays local**: rides are kept in this browser. *Export rides*
+  and *Import rides* in the top bar back them up or move them to another
+  computer. **Statistics** shows totals, minutes per week and every ride.
 
 ## How it works
 
