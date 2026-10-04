@@ -318,7 +318,7 @@ function renderTiles(snap) {
     setTile('a', cadenceTile);
     setTile('b', {
       label: estimate ? 'Resistance · est.' : 'Resistance',
-      aim: formatRange(snap.resistanceRange),
+      aim: snap.resistanceIsExact ? String(snap.targetResistance) : formatRange(snap.resistanceRange),
       now: resistanceNow,
       status: live ? snap.resistanceStatus : '',
     });
@@ -525,11 +525,16 @@ function nudgeEffort(steps) {
   const s = state.session;
   if (!s || state.screen !== 'ride') return;
   const before = s.effort;
+  const blockBefore = String(s.snapshot().resistanceRange);
   if (s.nudgeEffort(steps) === before) return;
-  const dv = $('ride-effort');
-  dv.classList.remove('flash');
-  void dv.offsetWidth; // restart the animation
-  dv.classList.add('flash');
+  // Flash what changed: the effort, and the resistance tile if its block moved.
+  const changed = [$('ride-effort')];
+  if (String(s.snapshot().resistanceRange) !== blockBefore) changed.push($('tile-b-aim'));
+  for (const el of changed) {
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart the animation
+    el.classList.add('flash');
+  }
   applyTerrain();
   state.lastDom = 0;
 }

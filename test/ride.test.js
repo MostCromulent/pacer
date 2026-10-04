@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateWorkout } from '../src/core/workout.js';
 import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
 import { Ghost, pacerGhost, targetWatts } from '../src/core/ghost.js';
-import { RideSession, isOnTarget, stepTargets } from '../src/core/ride.js';
+import { RideSession, isOnTarget, stepTargets, resistanceBlock } from '../src/core/ride.js';
 import { formatRange, spokenCue, stepAction } from '../src/core/cues.js';
 import { speedFromPower } from '../src/core/physics.js';
 import { Storage } from '../src/core/storage.js';
@@ -97,7 +97,9 @@ test('resistance and cadence are each judged against their own range', () => {
   assert.equal(snap.resistance, 38);
   assert.equal(snap.resistanceStatus, 'low');
   assert.equal(snap.cadenceStatus, 'on');
-  assert.deepEqual(snap.resistanceRange, [snap.targetResistance - 2, snap.targetResistance + 2]);
+  // The target is shown as the block of five levels it falls in.
+  const [lo, hi] = snap.resistanceRange;
+  assert.ok(lo % 5 === 0 && hi - lo === 5 && lo <= snap.targetResistance && snap.targetResistance <= hi);
   assert.deepEqual(snap.cadenceRange, [75, 85]);
 
   const tk = snap.targetResistance;
@@ -146,16 +148,16 @@ test('effort control scales power and resistance targets, not cadence', () => {
   const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
   const climb = w.segments.find((x) => x.kind === 'work');
   const base = s.targetsFor(climb);
-  assert.equal(s.nudgeEffort(+2), 1.1);
+  assert.equal(s.nudgeEffort(+1), 1.1);
   const harder = s.targetsFor(climb);
   assert.equal(harder.watts, Math.round(base.watts * 1.1));
   assert.equal(harder.cadence, base.cadence);
   assert.ok(harder.resistance > base.resistance);
   assert.equal(s.snapshot().effort, 1.1);
-  // Clamped and snapped to 5% steps.
+  // Clamped and snapped to 10% steps.
   assert.equal(s.setEffort(2), 1.5);
   assert.equal(s.setEffort(0.1), 0.5);
-  assert.equal(s.setEffort(1.02), 1);
+  assert.equal(s.setEffort(1.04), 1);
   for (let i = 0; i < 20; i++) s.nudgeEffort(-1);
   assert.equal(s.effort, 0.5);
 });
@@ -371,4 +373,42 @@ test('the backup carries the calibration with the rides and settings', async () 
   assert.equal(b.loadSettings().baselineW, 319);
   assert.equal(b.loadCalibration().bike, 'IC Bike');
   assert.deepEqual(b.loadCalibration().bins, a.loadCalibration().bins);
+});
+
+test('targets come in round numbers: cadence to the nearest 5, resistance in blocks of 5', () => {
+  assert.deepEqual(resistanceBlock(43.2), [40, 45]);
+  assert.deepEqual(resistanceBlock(45), [45, 50]);
+  assert.deepEqual(resistanceBlock(3), [1, 5]);
+  assert.deepEqual(resistanceBlock(100), [95, 100]);
+  assert.deepEqual(resistanceBlock(50, 50), [45, 50]); // never above a cap
+
+  for (const type of ['hills', 'mountain', 'spinclass', 'fartlek']) {
+    const w = generateWorkout(type, 45, 0);
+    for (const seg of w.segments) {
+      const t = stepTargets(seg, w.segments, 250, DEFAULT_MODEL);
+      assert.equal(t.cadence % 5, 0, `${w.code} ${seg.label} cadence ${t.cadence}`);
+      assert.equal(t.cadenceRange[0] % 5, 0);
+      if (seg.creep) continue;
+      const [lo, hi] = t.resistanceRange;
+      assert.ok(lo === 1 || lo % 5 === 0, `${w.code} ${seg.label} block from ${lo}`);
+      if (hi !== null) assert.ok(hi % 5 === 0 && t.resistance >= lo && t.resistance <= hi);
+    }
+  }
+});
+
+test('a creeping climb is called as one exact number, a level or two at a time', () => {
+  const segs = [0, 1, 2, 3].map((i) => ({ kind: 'work', dur: 20, pct: 72 + i * 3.5, cadence: 80, creep: true, label: `Creep ${i + 1}/4` }));
+  const ts = segs.map((seg) => stepTargets(seg, segs, 250, DEFAULT_MODEL));
+  for (const t of ts) {
+    assert.equal(t.resistanceIsExact, true);
+    assert.deepEqual(t.resistanceRange, [t.resistance - 1, t.resistance + 1]);
+  }
+  for (let i = 1; i < ts.length; i++) assert.ok(ts[i].resistance - ts[i - 1].resistance >= 1 && ts[i].resistance - ts[i - 1].resistance <= 3);
+  assert.equal(spokenCue(segs[1], ts[1], 'resistance', segs[0]), `Resistance ${ts[1].resistance}.`);
+});
+
+test('the voice calls the resistance block', () => {
+  const seg = { kind: 'work', dur: 120, label: 'Hill 2 of 7' };
+  const tg = { resistance: 43, resistanceRange: [40, 45], cadence: 70, watts: 260 };
+  assert.equal(spokenCue(seg, tg), 'Hill. Resistance 40 to 45, cadence 70.');
 });

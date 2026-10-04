@@ -176,7 +176,7 @@ test('a block gives its numbers once, then just names the steps it repeats', () 
   const { w, steps } = findBlock('Cadence pushes');
   const at = (seg) => w.segments.indexOf(seg);
   const say = (seg) => spokenCue(seg, stepTargets(seg, w.segments, 300, DEFAULT_MODEL), 'resistance', w.segments[at(seg) - 1], repeatsInBlock(w.segments, at(seg)));
-  assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Settle\. Resistance \d+, cadence \d+\.$/);
+  assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Settle\. Resistance \d+ to \d+, cadence \d+\.$/);
   assert.match(say(steps[1]), /^Cadence push\. Same resistance, cadence \d+\.$/);
   assert.equal(say(steps[2]), 'Settle.');
   assert.equal(say(steps[3]), 'Cadence push.');

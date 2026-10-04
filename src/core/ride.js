@@ -5,15 +5,19 @@ import { stepSpeed } from './physics.js';
 import { segmentIndexAt, zoneOf } from './workout.js';
 import { resistanceFor, powerFor } from './resistance.js';
 import { targetWatts } from './ghost.js';
+import { roundTo } from './util.js';
 
 const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
 export const SHORT_STEP_S = 25;
+// Targets are given in round numbers, the way an instructor calls them: a
+// cadence range like 80-90 and a resistance block like 40-45.
+const ROUND_TO = 5;
 const CADENCE_TOLERANCE = 5;
-const RESISTANCE_TOLERANCE = 2;
+const CREEP_TOLERANCE = 1; // a creeping climb moves a level or two at a time, so it is exact
 export const EFFORT_MIN = 0.5;
 export const EFFORT_MAX = 1.5;
-export const EFFORT_STEP = 0.05;
+export const EFFORT_STEP = 0.1; // about one resistance block
 
 /**
  * What to aim for in a step: power, cadence, and the resistance that gives that
@@ -21,33 +25,51 @@ export const EFFORT_STEP = 0.05;
  * Steps marked `hold` keep the previous step's resistance; their watts follow
  * from the lower cadence.
  */
+/**
+ * The block of five resistance levels that holds `resistance`: [40, 45] for 43.
+ * `cap` is the highest level allowed (100, or lower for a gentle ride).
+ */
+export function resistanceBlock(resistance, cap = 100) {
+  const lo = Math.min(Math.floor(resistance / ROUND_TO) * ROUND_TO, cap - ROUND_TO);
+  return [Math.max(1, lo), lo + ROUND_TO];
+}
+
 export function stepTargets(seg, segments, baselineW, model) {
-  const cadence = seg.cadence ?? 85;
+  const cadence = roundTo(seg.cadence ?? 85, ROUND_TO);
   let watts = targetWatts(seg, baselineW);
-  let resistance = Math.round(resistanceFor(model, watts, cadence));
+  // The exact resistance the model works out; the rider is shown the block it falls in.
+  let exact = resistanceFor(model, watts, cadence);
   if (seg.hold) {
     // Back to the step that set the resistance, through any others that held it.
     let i = segments.indexOf(seg) - 1;
     while (i > 0 && segments[i].hold) i--;
     const base = segments[i];
     if (base && !base.hold) {
-      resistance = stepTargets(base, segments, baselineW, model).resistance;
-      watts = powerFor(model, resistance, cadence);
+      exact = stepTargets(base, segments, baselineW, model).exactResistance;
+      watts = powerFor(model, exact, cadence);
     }
   }
-  if (seg.resistanceCap && resistance > seg.resistanceCap) {
-    resistance = seg.resistanceCap;
-    watts = powerFor(model, resistance, cadence);
+  const cap = seg.resistanceCap ?? 100;
+  if (exact > cap) {
+    exact = cap;
+    watts = powerFor(model, exact, cadence);
   }
+  const resistance = Math.round(exact);
   const wattsTol = Math.max(10, watts * 0.06);
   const sprint = seg.kind === 'sprint';
+  const [lo, hi] = seg.creep
+    ? [Math.max(1, resistance - CREEP_TOLERANCE), Math.min(cap, resistance + CREEP_TOLERANCE)]
+    : resistanceBlock(exact, cap);
   // The ranges that count as on target. Sprints have no upper limit.
   return {
     watts: Math.round(watts),
     cadence,
     resistance,
+    exactResistance: exact,
+    // A creeping climb is called as one number ("aim 37"), not a block.
+    resistanceIsExact: !!seg.creep,
     cadenceRange: [cadence - CADENCE_TOLERANCE, sprint ? null : cadence + CADENCE_TOLERANCE],
-    resistanceRange: [Math.max(1, resistance - RESISTANCE_TOLERANCE), sprint ? null : Math.min(100, resistance + RESISTANCE_TOLERANCE)],
+    resistanceRange: [lo, sprint ? null : hi],
     wattsRange: sprint ? [Math.round(baselineW * 1.2), null] : [Math.round(watts - wattsTol), Math.round(watts + wattsTol)],
   };
 }
@@ -250,15 +272,14 @@ export class RideSession {
    */
   status(seg, powerW, cadence, resistance) {
     const tg = this.targetsFor(seg);
-    const sprint = seg.kind === 'sprint';
-    const judge = (have, want, tol) => {
+    // Inside the range is on target; a range with no top (a sprint) can't be overshot.
+    const judge = (have, [lo, hi]) => {
       if (have === null) return null;
-      if (sprint) return have >= want - tol ? 'on' : 'low';
-      if (Math.abs(have - want) <= tol) return 'on';
-      return have < want ? 'low' : 'high';
+      if (have < lo) return 'low';
+      return hi !== null && have > hi ? 'high' : 'on';
     };
-    const cadenceStatus = judge(cadence, tg.cadence, CADENCE_TOLERANCE);
-    const resistanceStatus = judge(resistance === null ? null : Math.round(resistance), tg.resistance, RESISTANCE_TOLERANCE);
+    const cadenceStatus = judge(Math.round(cadence), tg.cadenceRange);
+    const resistanceStatus = judge(resistance === null ? null : Math.round(resistance), tg.resistanceRange);
     // On target if the power is right, or if cadence and resistance both match the plan.
     const onTarget = isOnTarget(seg, this.effectiveBaselineW, powerW, cadence) || (cadenceStatus === 'on' && resistanceStatus === 'on');
     return { targets: tg, cadenceStatus, resistanceStatus, onTarget };
@@ -309,6 +330,7 @@ export class RideSession {
       targetResistance: tg.resistance,
       cadenceRange: tg.cadenceRange,
       resistanceRange: tg.resistanceRange,
+      resistanceIsExact: tg.resistanceIsExact,
       wattsRange: tg.wattsRange,
       effort: this.effort,
       powerW: Math.round(powerW),

@@ -2,6 +2,8 @@
 
 import { parseWorkoutCode, hasBlocks } from '../core/workout.js';
 import { resistanceFor, powerFor } from '../core/resistance.js';
+import { resistanceBlock } from '../core/ride.js';
+import { formatRange } from '../core/cues.js';
 import { storage, settings, saveSettings, reloadFromStorage, activeModel, state } from './store.js';
 import { $, toast } from './dom.js';
 import { renderSetup } from './setup.js';
@@ -14,9 +16,9 @@ import { updateMute } from './ride-view.js';
 
 const EASY_PCT = 0.55; // an easy spin as a share of the baseline, as in recovery steps
 const PACE_EXAMPLES = [
-  { name: 'Recovery spin', pct: 0.55, cadence: 92 },
-  { name: 'Flat road', pct: 0.7, cadence: 88 },
-  { name: 'Seated climb', pct: 0.9, cadence: 68 },
+  { name: 'Recovery spin', pct: 0.55, cadence: 90 },
+  { name: 'Flat road', pct: 0.7, cadence: 90 },
+  { name: 'Seated climb', pct: 0.9, cadence: 70 },
   // The same watts ridden two ways: heavy and slow, or light and fast.
   { name: 'Hill climb', pct: 1.05, cadence: 65 },
   { name: 'Downhill sprint', pct: 1.05, cadence: 100 },
@@ -39,7 +41,7 @@ function renderPace() {
   const baselineW = baselineFor(pace.resistance, pace.cadence);
   $('pace-rows').innerHTML = PACE_EXAMPLES.map(({ name, pct, cadence }) => {
     const watts = baselineW * pct;
-    return `<tr><td>${name}</td><td>resistance ${Math.round(resistanceFor(activeModel(), watts, cadence))} at ${cadence} rpm</td><td>${Math.round(watts)} W</td></tr>`;
+    return `<tr><td>${name}</td><td>resistance ${formatRange(resistanceBlock(resistanceFor(activeModel(), watts, cadence)))} at ${cadence} rpm</td><td>${Math.round(watts)} W</td></tr>`;
   }).join('');
   $('pace-note').textContent = activeModel().calibrated
     ? 'The hill climb and the downhill sprint are the same watts: one is heavy and slow, the other light and fast. Watts are as the bike reports them.'

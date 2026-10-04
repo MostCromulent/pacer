@@ -43,7 +43,7 @@ export function spokenCue(seg, targets, mode = 'resistance', prev = null, repeat
     ? `Same resistance, cadence ${targets.cadence}.`
     : mode === 'watts'
       ? `${targets.watts} watts, cadence ${targets.cadence}.`
-      : `Resistance ${targets.resistance}, cadence ${targets.cadence}.`;
+      : `Resistance ${saidResistance(targets)}, cadence ${targets.cadence}.`;
 
   const opens = !!(seg.blockStart && seg.block && seg.block !== 'Recovery');
   const intro = opens ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. ` : '';
@@ -66,6 +66,12 @@ export function spokenCue(seg, targets, mode = 'resistance', prev = null, repeat
   }
   if (repeat) return `${name}.${saddle}`;
   return `${intro}${named}${saddle} ${numbers}`.replace(/\s+/g, ' ').trim();
+}
+
+/** "40 to 45", or the one number where a step is exact (or has no upper limit). */
+function saidResistance(targets) {
+  const [lo, hi] = targets.resistanceRange ?? [];
+  return targets.resistanceIsExact || lo === undefined || hi === null ? String(targets.resistance) : `${lo} to ${hi}`;
 }
 
 /** Whether this step repeats one already ridden in the same spin class block. */
