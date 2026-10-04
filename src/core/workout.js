@@ -199,13 +199,13 @@ export function generateWorkout(type, minutes, variant = 0, options = {}) {
 }
 
 // Target cadence for each step, spin-class style: heavy climbs are ridden slower
-// with more resistance (hills and mountains set their own, down to 60 rpm), short hard efforts and recoveries spin faster. Together
+// with more resistance (hills and mountains set their own, down to 60 rpm), short hard efforts spin faster, and recoveries ease off to 75 rpm. Together
 // with the step's power this fixes the resistance for the step.
 function targetCadenceFor(s) {
   switch (s.kind) {
     case 'sprint': return 105;
     case 'work': return s.pct >= 110 ? 95 : s.pct >= 100 ? 80 : 85;
-    case 'recovery': return 92;
+    case 'recovery': return 75;
     case 'steady': return 88;
     default: return 85;
   }

@@ -76,13 +76,13 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   // Each returns { parts: [[seconds, pct, kind, opts]], rounds? }.
   const makers = {
     flat: () => ({ parts: [[step(between(180, 270), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road' }]] }),
-    recover: () => ({ parts: [[step(between(150, 210), 30), 55, 'recovery', { cadence: 90 }]] }),
+    recover: () => ({ parts: [[step(between(150, 210), 30), 55, 'recovery', { cadence: 75 }]] }),
     seated: () => {
       const cadence = int(68, 73);
       const pct = near(82, 87, cadence);
       return { parts: [[120, pct, 'work', { cadence, name: 'Seated climb' }], [120, pct + between(4, 7), 'work', { cadence: cadence - int(3, 5), name: 'Seated climb' }]] };
     },
-    standing: () => ({ parts: [[step(between(150, 210), 30), between(92, 98), 'work', { cadence: int(62, 67), name: 'Standing climb', stand: true }], [60, 58, 'recovery', { cadence: 90 }]] }),
+    standing: () => ({ parts: [[step(between(150, 210), 30), between(92, 98), 'work', { cadence: int(62, 67), name: 'Standing climb', stand: true }], [60, 55, 'recovery', { cadence: 75 }]] }),
     jumps: () => {
       const rounds = int(3, 5);
       const pct = between(92, 98);
@@ -91,7 +91,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
     },
     sprints: () => {
       const rounds = int(2, 3);
-      return { rounds, parts: times(rounds, () => [[[20, 30][int(0, 1)], 150, 'sprint', {}], [step(between(75, 105)), 55, 'recovery', { cadence: 90 }]]) };
+      return { rounds, parts: times(rounds, () => [[[20, 30][int(0, 1)], 150, 'sprint', {}], [step(between(75, 105)), 55, 'recovery', { cadence: 75 }]]) };
     },
     // Out of the saddle for longer each time, sitting between at the same resistance.
     ladder: () => {

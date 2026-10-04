@@ -18,7 +18,7 @@ import { updateMute } from './ride-view.js';
 // as a "Flat road" step. Recovery steps sit a little below it.
 const EASY_PCT = 0.7;
 const PACE_EXAMPLES = [
-  { name: 'Recovery spin', pct: 0.55, cadence: 90 },
+  { name: 'Recovery spin', pct: 0.55, cadence: 75 },
   { name: 'Flat road', pct: 0.7, cadence: 90 },
   { name: 'Seated climb', pct: 0.9, cadence: 70 },
   // The same watts ridden two ways: heavy and slow, or light and fast.

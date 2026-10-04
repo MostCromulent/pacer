@@ -59,11 +59,11 @@ export function makeBuilders(add, v, rand, exclude = []) {
 
     recovery(budget) {
       const blk = step(300 * stretch(budget), 60);
-      const ps = [[55, 60], [52, 58], [58, 62]][v];
+      const ps = [[52, 55], [50, 54], [53, 55]][v];
       let left = budget;
       let i = 0;
-      while (left >= blk) { add(blk, ps[i % 2], 'steady', { cadence: 95, name: 'Easy spin' }); left -= blk; i++; }
-      add(left, ps[0], 'steady', { cadence: 95, name: 'Easy spin' });
+      while (left >= blk) { add(blk, ps[i % 2], 'steady', { cadence: 75, name: 'Easy spin' }); left -= blk; i++; }
+      add(left, ps[0], 'steady', { cadence: 75, name: 'Easy spin' });
     },
 
     // Seated throughout at a moderate effort: flat road broken by gentle rises,
@@ -152,7 +152,7 @@ export function makeBuilders(add, v, rand, exclude = []) {
     sprints(budget) {
       // Sprints stay the same length however long the ride; there are just more sets.
       const [on, off] = [[30, 150], [15, 105], [30, 210]][v];
-      cruise(budget - inSets(budget, on + off, () => { add(on, 150, 'sprint'); add(off, 58, 'recovery'); }));
+      cruise(budget - inSets(budget, on + off, () => { add(on, 150, 'sprint'); add(off, 55, 'recovery'); }));
     },
 
     cadence(budget) {
