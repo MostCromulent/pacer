@@ -46,6 +46,25 @@ export function stepTargets(seg, segments, baselineW, model) {
 }
 
 /**
+ * The one-word instruction for a step, shown as a badge: what to do, as an
+ * instructor would call it. `knobChange` is how far the resistance target moved
+ * from the step before (for a creeping climb's "Add 2").
+ * Returns { text, tone } where tone is 'push' | 'recover' | 'steady' | 'add'.
+ */
+export function stepAction(seg, knobChange = 0) {
+  if (seg.creep) return { text: knobChange > 0 ? `Add ${knobChange}` : 'Build', tone: 'add' };
+  switch (seg.kind) {
+    case 'sprint': return { text: 'All out', tone: 'push' };
+    case 'work': return { text: 'Push', tone: 'push' };
+    case 'recovery': return { text: 'Recover', tone: 'recover' };
+    case 'warmup': return { text: 'Warm up', tone: 'steady' };
+    case 'cooldown': return { text: 'Cool down', tone: 'recover' };
+    case 'drill': return { text: 'Spin', tone: 'steady' };
+    default: return { text: 'Steady', tone: 'steady' };
+  }
+}
+
+/**
  * What to say out loud when a step begins: its name and the two numbers to aim
  * for. Short reps get a single word, since there's no time for more.
  * `targets` comes from stepTargets(); `mode` is 'knob' or 'watts'. Getting out
@@ -58,6 +77,8 @@ export function spokenCue(seg, targets, mode = 'knob', prev = null) {
   const wasStanding = prev?.position === 'standing';
   const saddle = standing === wasStanding ? '' : standing ? ' Out of the saddle.' : ' Back in the saddle.';
   if (seg.kind === 'sprint') return `Sprint. All out.${saddle}`;
+  // A creeping climb only moves the resistance, so that is all that is said.
+  if (seg.creep) return mode === 'watts' ? `${targets.watts} watts.` : `Resistance ${targets.knob}.`;
   if (seg.dur < SHORT_STEP_S) return seg.kind === 'work' ? (standing ? 'Up.' : 'Go.') : `${name}.`;
   if (seg.hold) return `${name}.${saddle} Same resistance, cadence ${targets.cadence}.`;
   return mode === 'watts'

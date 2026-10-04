@@ -140,7 +140,7 @@ test('mix pairs a natural first half with an interval second half', () => {
 });
 
 test('spin class has standing climbs at low cadence and jumps', () => {
-  const w = generateWorkout('spinclass', 45, 0);
+  const w = generateWorkout('spinclass', 60, 0);
   const standing = w.segments.find((s) => s.name === 'Standing climb');
   assert.equal(standing.cadence, 65);
   assert.ok(w.segments.filter((s) => s.name === 'Jump').length >= 4);
@@ -227,7 +227,7 @@ test('every step is seated or standing, and only the steep slow ones stand', () 
   }
   assert.ok(generateWorkout('lowimpact', 45, 0).segments.every((s) => s.position === 'seated'));
   const spin = generateWorkout('spinclass', 45, 0);
-  assert.ok(spin.segments.filter((s) => s.position === 'standing').every((s) => /Standing climb|Jump|Stand/.test(s.label)));
+  assert.ok(spin.segments.filter((s) => s.position === 'standing').every((s) => /Standing climb|Jump|Stand|Heavy push/.test(s.label)));
   assert.ok(spin.segments.some((s) => s.position === 'standing'));
 });
 
@@ -240,4 +240,26 @@ test('spin class includes a block of standing efforts that get longer', () => {
   const sit = w.segments[w.segments.indexOf(stands[0]) + 1];
   assert.equal(sit.hold, true);
   assert.equal(sit.position, 'seated');
+});
+
+test('spin class has cadence pushes, resistance pushes and a creeping climb', () => {
+  const w = generateWorkout('spinclass', 60, 0);
+  const at = (re) => w.segments.findIndex((s) => re.test(s.label));
+  // Cadence push: same resistance as the step before, 20 rpm faster.
+  const cp = w.segments[at(/^Cadence push/)];
+  const before = w.segments[at(/^Cadence push/) - 1];
+  assert.equal(cp.hold, true);
+  assert.equal(cp.cadence - before.cadence, 20);
+  // Resistance push: same cadence, harder.
+  const rp = w.segments[at(/^Resistance push/)];
+  const settle = w.segments[at(/^Resistance push/) - 1];
+  assert.equal(rp.cadence, settle.cadence);
+  assert.ok(rp.pct > settle.pct + 15);
+  // Creep: nine 20-second steps, each a little harder, cadence unchanged.
+  const creep = w.segments.filter((s) => s.creep);
+  assert.ok(creep.length >= 9);
+  for (let i = 1; i < 9; i++) assert.ok(creep[i].pct > creep[i - 1].pct && creep[i].cadence === creep[0].cadence && creep[i].dur === 20);
+  // The heavy version comes early in another running order.
+  const heavy = generateWorkout('spinclass', 45, 2).segments.filter((s) => /^Heavy push/.test(s.label));
+  assert.ok(heavy.length >= 3 && heavy.every((s) => s.position === 'standing'));
 });

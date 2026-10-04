@@ -1,5 +1,5 @@
 import { TYPES, DURATIONS, generateWorkout, parseWorkoutCode, workoutStats } from '../core/workout.js';
-import { RideSession, formatRange, stepTargets, spokenCue, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
+import { RideSession, formatRange, stepTargets, spokenCue, stepAction, DIFFICULTY_MIN, DIFFICULTY_MAX, DIFFICULTY_STEP, SHORT_STEP_S } from '../core/ride.js';
 import { pacerGhost, ghostFromRide, targetWatts } from '../core/ghost.js';
 import { Storage } from '../core/storage.js';
 import { BleBike } from '../core/bike.js';
@@ -914,8 +914,27 @@ function renderRide() {
   $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
   $('step-time').textContent = fmtClock(snap.stepLeft);
   const standing = seg.position === 'standing';
-  $('saddle').textContent = standing ? 'Out of the saddle' : 'In the saddle';
-  $('saddle').classList.toggle('standing', standing);
+  // Badges pulse a few times when they change, then sit still.
+  const pulse = (el) => {
+    el.classList.remove('changed');
+    void el.offsetWidth; // restart the animation
+    if (state.started) el.classList.add('changed');
+  };
+  const saddle = $('saddle');
+  if (saddle.classList.contains('standing') !== standing) {
+    saddle.textContent = standing ? 'Out of the saddle' : 'In the saddle';
+    saddle.classList.toggle('standing', standing);
+    pulse(saddle);
+  }
+  const before = s.workout.segments[snap.segIndex - 1];
+  const act = stepAction(seg, before ? snap.targetKnob - s.targetsFor(before).knob : 0);
+  const action = $('action');
+  if (action.dataset.step !== String(snap.segIndex)) {
+    action.dataset.step = String(snap.segIndex);
+    if (action.textContent !== act.text) pulse(action);
+    action.textContent = act.text;
+    action.className = `action ${act.tone}${action.classList.contains('changed') ? ' changed' : ''}`;
+  }
   $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);
 

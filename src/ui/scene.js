@@ -355,18 +355,17 @@ export class Scene {
     ctx.fillStyle = P.ink;
     ctx.fillRect(l - 2, top, 4, yl - top + 2);
     ctx.fillRect(r - 2, top, 4, yr - top + 2);
-    roundRect(ctx, x - 32, top - 12, 64, 24, 5, '#FFFFFF');
+    roundRect(ctx, x - 30, top - 14, 60, 28, 5, '#FFFFFF');
     this._shadow(ctx, false);
-    // A chequered strip along the top and bottom of the banner.
+    // The word on a plain white banner, with one chequered band underneath.
     ctx.fillStyle = P.ink;
-    for (let i = 0; i < 10; i++) {
-      ctx.fillRect(x - 30 + i * 6, top - 10 + (i % 2 ? 0 : 3), 6, 3);
-      ctx.fillRect(x - 30 + i * 6, top + 4 + (i % 2 ? 3 : 0), 6, 3);
-    }
-    ctx.font = '700 10px Fredoka, Nunito, sans-serif';
+    ctx.font = '700 11px Fredoka, Nunito, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('FINISH', x, top + 0.5);
+    ctx.fillText('FINISH', x, top - 5);
+    for (let row = 0; row < 2; row++) {
+      for (let col = row; col < 14; col += 2) ctx.fillRect(x - 28 + col * 4, top + 4 + row * 4, 4, 4);
+    }
   }
 
   _flag(ctx, x, t) {

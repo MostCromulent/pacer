@@ -69,6 +69,7 @@ export function parseWorkoutCode(code) {
  * kind: 'warmup' | 'work' | 'recovery' | 'steady' | 'sprint' | 'drill' | 'cooldown'
  * `name` (optional) is what the step is called in the app ("Hill", "Rep", "Descent").
  * `hold: true` means "keep the previous step's resistance, change only cadence".
+ * `creep: true` marks one step of a creeping climb, where only the resistance moves.
  * `position` is 'seated' or 'standing' (out of the saddle); steps are seated
  * unless they are built with `stand: true`.
  */
@@ -404,11 +405,20 @@ function makeBuilders(add, v, rand) {
         // at the same resistance: about four minutes in all.
         ladder: () => [30, 45, 60].map((up) => [[up, 98, 'work', { cadence: 72, name: 'Stand', stand: true }], [30, 70, 'recovery', { cadence: 62, hold: true, name: 'Sit' }]]).flat(),
         recover: () => [[180, 55, 'recovery', { cadence: 90 }]],
+        // Pushes: three times up and back, changing one thing and holding the other.
+        // Cadence: 80 to 100 rpm on the same resistance.
+        cadencePush: () => Array.from({ length: 3 }, () => [[45, 74, 'steady', { cadence: 80, name: 'Settle' }], [30, 100, 'work', { cadence: 100, hold: true, name: 'Cadence push' }]]).flat(),
+        // Resistance: about ten levels heavier at the same cadence.
+        resistancePush: () => Array.from({ length: 3 }, () => [[45, 72, 'steady', { cadence: 80, name: 'Settle' }], [30, 94, 'work', { cadence: 80, name: 'Resistance push' }]]).flat(),
+        // The same push on a heavy climb, out of the saddle.
+        heavyPush: () => Array.from({ length: 3 }, () => [[60, 84, 'work', { cadence: 66, name: 'Heavy climb' }], [30, 104, 'work', { cadence: 64, name: 'Heavy push', stand: true }]]).flat(),
+        // A creeping climb: a level or two more resistance every 20 seconds.
+        creep: () => Array.from({ length: 9 }, (_, i) => [20, 72 + i * 3.5, 'work', { cadence: 80, creep: true, label: `Creep ${i + 1}/9` }]),
       };
       const order = [
-        ['flat', 'seated', 'ladder', 'recover', 'jumps', 'standing', 'recover', 'sprints'],
-        ['jumps', 'seated', 'sprints', 'recover', 'ladder', 'flat', 'standing'],
-        ['seated', 'ladder', 'recover', 'jumps', 'sprints', 'flat', 'standing'],
+        ['flat', 'cadencePush', 'seated', 'creep', 'recover', 'ladder', 'jumps', 'recover', 'resistancePush', 'standing', 'recover', 'heavyPush', 'sprints'],
+        ['jumps', 'resistancePush', 'recover', 'seated', 'creep', 'sprints', 'recover', 'ladder', 'flat', 'cadencePush', 'heavyPush', 'recover', 'standing'],
+        ['seated', 'heavyPush', 'recover', 'cadencePush', 'jumps', 'creep', 'recover', 'sprints', 'flat', 'ladder', 'resistancePush', 'standing'],
       ][v];
       const k = stretch(budget);
       let left = budget;

@@ -303,3 +303,20 @@ test('spoken cues call getting out of the saddle and back into it', async () => 
   assert.equal(spokenCue(flat, tg, 'knob', climb), 'Flat road. Back in the saddle. Resistance 55, cadence 65.');
   assert.equal(spokenCue({ kind: 'work', dur: 20, label: 'Jump 1 of 4', position: 'standing' }, tg), 'Up.');
 });
+
+test('a creeping climb just calls the new resistance', async () => {
+  const { spokenCue } = await import('../src/core/ride.js');
+  const seg = { kind: 'work', dur: 20, creep: true, label: 'Creep 3/9', position: 'seated' };
+  assert.equal(spokenCue(seg, { knob: 41, cadence: 80, watts: 250 }), 'Resistance 41.');
+  assert.equal(spokenCue(seg, { knob: 41, cadence: 80, watts: 250 }, 'watts'), '250 watts.');
+});
+
+test('each step has a one-word instruction', async () => {
+  const { stepAction } = await import('../src/core/ride.js');
+  assert.deepEqual(stepAction({ kind: 'work' }), { text: 'Push', tone: 'push' });
+  assert.deepEqual(stepAction({ kind: 'recovery' }), { text: 'Recover', tone: 'recover' });
+  assert.deepEqual(stepAction({ kind: 'work', creep: true }, 2), { text: 'Add 2', tone: 'add' });
+  assert.deepEqual(stepAction({ kind: 'work', creep: true }, -20), { text: 'Build', tone: 'add' });
+  assert.deepEqual(stepAction({ kind: 'sprint' }), { text: 'All out', tone: 'push' });
+  assert.equal(stepAction({ kind: 'steady' }).text, 'Steady');
+});
