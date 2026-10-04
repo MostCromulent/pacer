@@ -14,6 +14,11 @@
 </head>
 <body>
 
+<div id="browser-notice" class="browser-notice" role="alert" hidden>
+  <span class="notice-mark" aria-hidden="true">!</span>
+  <span><b id="notice-title"></b><br><span id="notice-text"></span></span>
+</div>
+
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="16" r="4"/><circle cx="18.5" cy="16" r="4"/><path d="M5.5 16L9.5 9h6l-3.5 7h-6.5M9.5 9l2.5 7M15.5 9l3 7M15.5 9l-.6-2.5h2.6M8 7h3"/></svg></span>
@@ -341,7 +346,7 @@
   <h2 id="calib-title" class="title-sm">Calibrate resistance</h2>
   <div id="calib-body"></div>
   <div class="dialog-actions">
-    <button id="calib-skip" class="btn btn-paper" type="button" hidden>Skip this level</button>
+    <button id="calib-skip" class="btn btn-paper" type="button" hidden>Skip this step</button>
     <button id="calib-cancel" class="btn btn-paper" type="button">Close</button>
     <button id="calib-next" class="btn btn-start small-btn" type="button">Begin</button>
   </div>

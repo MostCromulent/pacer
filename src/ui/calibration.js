@@ -12,6 +12,8 @@ import { setSimMode } from './ride-view.js';
 const STEPS = CALIBRATION_STEPS;
 const SETTLE_S = 5;
 const RECORD_S = 10;
+const RESISTANCE_TOL = 1; // levels either side of the step's resistance, when the bike reports it
+const RING = 2 * Math.PI * 26; // circumference of the recording ring
 const CADENCE_TOL = 8; // rpm either side of the step's cadence that counts as on target
 const MIN_READINGS = 5;
 const STALE_MS = 2000; // no packet for this long means the rider has stopped
@@ -69,12 +71,25 @@ export const calib = {
     this.render();
   },
 
-  // Pedalling at the step's cadence, going by the latest packets from the bike.
-  onTarget() {
+  /** How the cadence and resistance compare with what the step asks: 'on' | 'low' | 'high' | ''. */
+  status() {
     const l = state.latest;
+    const step = STEPS[this.level];
+    const judge = (have, want, tol) => (Math.abs(have - want) <= tol ? 'on' : have < want ? 'low' : 'high');
+    const cadence = l.cadence > 0 ? judge(l.cadence, step.cadence, CADENCE_TOL) : '';
+    // A bike that reports its resistance lets us check the level is set right.
+    const resistance = l.resistance === undefined ? '' : judge(Math.round(l.resistance), step.resistance, RESISTANCE_TOL);
+    return { cadence, resistance };
+  },
+
+  // Pedalling at the step's cadence (and resistance, where it can be checked),
+  // going by the latest packets from the bike.
+  onTarget() {
+    const { cadence, resistance } = this.status();
     return performance.now() - this.lastReading < STALE_MS
-      && l.powerW > 0
-      && Math.abs((l.cadence ?? 0) - STEPS[this.level].cadence) <= CADENCE_TOL;
+      && state.latest.powerW > 0
+      && cadence === 'on'
+      && (resistance === 'on' || resistance === '');
   },
 
   settled() {
@@ -86,11 +101,8 @@ export const calib = {
     this.lastReading = performance.now();
     // A bike may split one reading over several packets, so read the merged latest.
     if (this.settled() && this.onTarget()) {
-      // Trust the bike's own resistance reading when it agrees with the step, in
-      // case the resistance is a level out; ignore it if it's on some other scale.
-      const asked = STEPS[this.level].resistance;
-      const reported = state.latest.resistance;
-      const resistance = Math.abs(reported - asked) <= 5 ? reported : asked;
+      // The bike's own resistance reading is the truth where there is one.
+      const resistance = state.latest.resistance ?? STEPS[this.level].resistance;
       this.levelSamples.push({ resistance, cadence: state.latest.cadence, power: state.latest.powerW });
     }
   },
@@ -101,7 +113,7 @@ export const calib = {
       const now = performance.now();
       const dt = (now - this.lastTick) / 1000;
       this.lastTick = now;
-      // The step's clock only starts once the rider is up to cadence, and the
+      // The step's clock only starts once the rider is on target, and the
       // recording only counts time spent there, so every level gets its full share.
       if (this.started === null) {
         if (this.onTarget()) this.started = now;
@@ -139,23 +151,33 @@ export const calib = {
     if (this.phase === 'intro') {
       body.innerHTML = `
         <p>You'll ride ${STEPS.length} short steps. Each one gives you a resistance and a cadence.</p>
-        <p>Set the resistance by the number on the bike's screen, then pedal up to the cadence. Recording starts when you get there and takes ${RECORD_S} seconds. If you drift off the cadence, it pauses until you're back.</p>
+        <p>Set the resistance by the number on the bike's screen, then pedal up to the cadence. The tiles turn green when you're there; recording then takes ${RECORD_S} seconds, and pauses if you drift off.</p>
         <p class="muted">About two and a half minutes of pedalling in total. Two of the resistances come up twice, once slow and once fast.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
       const st = STEPS[this.level];
+      const reports = state.latest.resistance !== undefined;
       body.innerHTML = `
-        <p class="muted small">Step ${this.level + 1} of ${STEPS.length}</p>
-        <div class="calib-ask">
-          <div><span class="calib-ask-lbl">Resistance</span><span class="big-number">${st.resistance}</span></div>
-          <div><span class="calib-ask-lbl">Cadence</span><span class="big-number">${st.cadence}<small> rpm</small></span></div>
+        <div class="calib-dots" role="img" aria-label="Step ${this.level + 1} of ${STEPS.length}">${STEPS.map((_, i) => `<i class="${i < this.level ? 'done' : i === this.level ? 'now' : ''}"></i>`).join('')}</div>
+        <div class="num-cols">
+          <div id="ct-c" class="num-col">
+            <span class="num-lbl">Cadence</span>
+            <span class="num-big"><span id="ct-c-now">0</span><span id="ct-c-arrow" class="num-arrow" aria-hidden="true"></span></span>
+            <span class="num-aim">aim <b>${st.cadence}</b></span>
+          </div>
+          <div id="ct-r" class="num-col">
+            <span class="num-lbl">Resistance</span>
+            <span class="num-big"><span id="ct-r-now">${reports ? '–' : st.resistance}</span><span id="ct-r-arrow" class="num-arrow" aria-hidden="true"></span></span>
+            <span class="num-aim">${reports ? `set to <b>${st.resistance}</b>` : "on the bike's screen"}</span>
+          </div>
         </div>
-        <p id="calib-phase" class="muted">Waiting for you to reach the cadence</p>
-        <div class="calib-progress"><i id="calib-bar"></i></div>
-        <div class="calib-live">
-          <div id="cl-c-box" class="stat"><span id="cl-c" class="stat-num">0</span><span class="stat-label">Cadence now</span></div>
-          <div class="stat"><span id="cl-r" class="stat-num">–</span><span class="stat-label">Resistance now</span></div>
-          <div class="stat"><span id="cl-p" class="stat-num">0 W</span><span class="stat-label">Power</span></div>
+        <div class="calib-ring">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="var(--track)" stroke-width="8"/>
+            <circle id="calib-ring" cx="32" cy="32" r="26" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 ${RING}" transform="rotate(-90 32 32)"/>
+            <text id="calib-count" x="32" y="38" text-anchor="middle">${RECORD_S}</text>
+          </svg>
+          <span><b id="calib-phase"></b><span id="calib-sub"></span></span>
         </div>`;
       next.hidden = true;
     } else {
@@ -182,22 +204,48 @@ export const calib = {
   renderLive() {
     const l = state.latest;
     if (this.phase === 'level') {
-      const bar = $('calib-bar');
-      if (!bar) return;
-      const want = STEPS[this.level].cadence;
-      const cad = Math.round(l.cadence ?? 0);
-      const off = cad - want;
-      const settleS = this.started === null ? 0 : Math.min(SETTLE_S, (performance.now() - this.started) / 1000);
-      bar.style.width = `${Math.min(100, ((settleS + this.recordedS) / (SETTLE_S + RECORD_S)) * 100)}%`;
+      const ring = $('calib-ring');
+      if (!ring) return;
+      const step = STEPS[this.level];
+      const { cadence, resistance } = this.status();
+      const reports = l.resistance !== undefined;
+      const arrow = { low: '↑', high: '↓' };
+
+      $('ct-c-now').textContent = String(Math.round(l.cadence ?? 0));
+      $('ct-c-arrow').textContent = arrow[cadence] ?? '';
+      $('ct-c').className = `num-col ${cadence}`;
+      if (reports) {
+        $('ct-r-now').textContent = String(Math.round(l.resistance));
+        $('ct-r-arrow').textContent = arrow[resistance] ?? '';
+        $('ct-r').className = `num-col ${resistance}`;
+      }
+
+      // What to put right first: the resistance, then the cadence.
+      const fix = resistance === 'low' || resistance === 'high'
+        ? `Turn the resistance ${resistance === 'low' ? 'up' : 'down'} to ${step.resistance}`
+        : cadence === 'on' ? '' : `Pedal ${cadence === 'high' ? 'slower' : 'faster'}, to ${step.cadence} rpm`;
+      const recording = this.settled() && this.onTarget();
       const left = Math.max(1, Math.ceil(RECORD_S - this.recordedS));
-      $('calib-phase').textContent = this.started === null
-        ? 'Waiting for you to reach the cadence'
-        : !this.settled() ? 'Hold it there…'
-          : this.onTarget() ? `Recording · ${left}s left` : `Paused · pedal ${off < 0 ? 'faster' : 'slower'}`;
-      $('cl-r').textContent = l.resistance === undefined ? '–' : String(Math.round(l.resistance));
-      $('cl-c').textContent = String(cad);
-      $('cl-c-box').className = `stat ${cad > 0 ? (Math.abs(off) <= CADENCE_TOL ? 'good' : 'off') : ''}`;
-      $('cl-p').textContent = `${Math.round(l.powerW ?? 0)} W`;
+      let phase;
+      let sub;
+      if (this.started === null) {
+        phase = fix || 'Hold it there…';
+        sub = reports ? 'Recording starts when both tiles are green.' : 'Recording starts when the cadence tile is green.';
+      } else if (!this.settled()) {
+        phase = 'Hold it there…';
+        sub = 'Recording in a moment.';
+      } else if (recording) {
+        phase = 'Recording · hold it there';
+        sub = `${left} second${left === 1 ? '' : 's'} left on this step.`;
+      } else {
+        phase = 'Paused';
+        sub = fix ? `${fix}.` : 'Keep pedalling.';
+      }
+      $('calib-phase').textContent = phase;
+      $('calib-sub').textContent = sub;
+      ring.setAttribute('stroke-dasharray', `${Math.min(1, this.recordedS / RECORD_S) * RING} ${RING}`);
+      ring.setAttribute('stroke', recording ? 'var(--sage)' : 'var(--mustard)');
+      $('calib-count').textContent = String(this.recordedS > 0 ? left : RECORD_S);
     } else if (this.phase === 'result' && this.model) {
       const el = $('calib-detect');
       if (el && l.powerW > 5 && l.cadence > 20) el.textContent = String(Math.round(resistanceFor(this.model, l.powerW, l.cadence)));

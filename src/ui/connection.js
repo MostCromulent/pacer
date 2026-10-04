@@ -51,6 +51,20 @@ function setBikeStatus(s, name) {
   if (state.screen === 'setup') renderSetup();
 }
 
+// Tell visitors whose browser can't reach a bike before they try to connect.
+if (!BleBike.supported()) {
+  // Every browser on an iPhone or iPad is Safari underneath, so switching doesn't help there.
+  const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('notice-title').textContent = apple
+    ? "iPhones and iPads can't connect to a bike from a web page."
+    : 'Pacer needs Chrome or Edge to reach your bike.';
+  $('notice-text').textContent = apple
+    ? 'Use a computer or an Android phone, in Chrome or Edge.'
+    : "This browser can't use Bluetooth. Open this page in Chrome or Edge and you're set.";
+  $('browser-notice').hidden = false;
+  $('btn-connect').classList.add('unavailable');
+}
+
 $('btn-connect').addEventListener('click', async (e) => {
   if (state.bikeKind === 'ble' && state.bikeState !== 'disconnected') {
     detachBike();
