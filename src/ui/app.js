@@ -278,7 +278,8 @@ function renderSetup() {
   const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer'];
   $('steps').innerHTML = SETUP_STEPS.map((name, i) => `
     <li><button type="button" class="step" data-go="${i}" ${i === state.step ? 'aria-current="step"' : ''}>
-      <span class="step-name">${i + 1} · ${name}</span><span class="step-pick">${esc(picks[i])}</span>
+      <span class="step-num" aria-hidden="true">${i + 1}</span>
+      <span class="step-name"><span class="sr-only">Step ${i + 1}: </span>${name}</span><span class="step-pick">${esc(picks[i])}</span>
     </button></li>`).join('');
   for (const el of document.querySelectorAll('[data-step]')) el.hidden = Number(el.dataset.step) !== state.step;
   $('step-back').style.visibility = state.step === 0 ? 'hidden' : 'visible';

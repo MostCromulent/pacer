@@ -107,14 +107,34 @@ main { padding: 0 32px 40px; }
 .title { font-family: var(--display); font-weight: 700; font-size: 36px; margin: 4px 0 16px; }
 .title-sm { font-family: var(--display); font-weight: 700; font-size: 26px; margin: 0 0 10px; }
 .setup-grid { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 32px; }
-.steps { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 22px; padding: 0; }
+/* The four setup steps: paper tags strung along a dashed line, each with a
+   numbered button of its own colour. The current one is lifted and tilted. */
+.steps { position: relative; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 10px 0 24px; padding: 0; }
+.steps::before { content: ''; position: absolute; left: 8%; right: 8%; top: 50%; border-top: 3px dashed var(--line); }
+.steps li { position: relative; }
 .step {
-  width: 100%; border: 0; border-radius: 14px; padding: 8px 10px; text-align: left; cursor: pointer;
-  background: var(--sand); color: var(--ink-soft); font-family: inherit; display: flex; flex-direction: column; gap: 1px;
+  position: relative; width: 100%; border: 0; border-radius: 16px; padding: 12px 10px 9px 14px; text-align: left; cursor: pointer;
+  background: var(--paper); color: var(--ink-soft); font-family: inherit; display: flex; flex-direction: column; gap: 1px;
+  box-shadow: 0 2px 0 #EAD8C6, 0 6px 12px rgba(122, 78, 58, 0.08); transition: transform 0.15s;
 }
-.step .step-name { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+.step:hover { transform: translateY(-2px); }
+.step-num {
+  position: absolute; top: -10px; left: -6px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--ink); background: var(--step, var(--sand));
+  border: 3px solid var(--cream); box-shadow: 0 2px 0 rgba(59, 51, 69, 0.15);
+}
+.steps li:nth-child(1) { --step: var(--mustard); --step-deep: var(--mustard-deep); }
+.steps li:nth-child(2) { --step: #9CC5A1; --step-deep: #6FA67E; }
+.steps li:nth-child(3) { --step: #F7A593; --step-deep: var(--coral-deep); }
+.steps li:nth-child(4) { --step: var(--mint); --step-deep: var(--mint-deep); }
+.step .step-name { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
 .step .step-pick { font-family: var(--display); font-weight: 600; font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step[aria-current="step"] { background: var(--lavender); color: var(--ink); box-shadow: 0 3px 0 var(--lavender-deep); }
+.step[aria-current="step"] {
+  background: var(--step); color: var(--ink); transform: rotate(-2deg) translateY(-2px);
+  box-shadow: 0 3px 0 var(--step-deep), 0 8px 14px rgba(122, 78, 58, 0.18);
+}
+.step[aria-current="step"] .step-num { background: var(--paper); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .step-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
 .step-nav .btn { min-width: 110px; }
 .group { border: 0; padding: 0; margin: 0 0 20px; }
