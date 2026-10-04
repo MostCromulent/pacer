@@ -522,6 +522,10 @@ main { padding: 0 32px 40px; }
   .sum-bottom > .card, .chart-card { padding: 16px; }
 
   /* Build a ride: one column, with Start always in reach at the bottom of the screen. */
+  /* Stacked in one column, the parts need more air between them than side by side. */
+  #setup-title { margin-top: 22px; }
+  .steps { margin-top: 16px; margin-bottom: 36px; }
+  .setup-grid { gap: 52px; }
   .types, .type-list { grid-template-columns: 1fr; }
   .type.wide { grid-column: auto; }
   .seg-toggle.effort-words { grid-template-columns: repeat(3, minmax(0, 1fr)); }
