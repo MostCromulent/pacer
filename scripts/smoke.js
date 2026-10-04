@@ -181,6 +181,36 @@ try {
     await click('#btn-new');
   });
 
+  await check('the ride pauses when the pedals stop, and carries on when they start', async () => {
+    await run(`(() => { const s = window.pacer.state; s.type = 'endurance'; s.duration = 45; s.variant = 0; })()`);
+    await click('.step[data-go="0"]');
+    await press('#btn-start');
+    await until('the ride to start', `window.pacer.state.screen === 'ride' && window.pacer.state.started`);
+    await click('#sim-manual');
+    await run(`window.pacer.state.bike.manualCadence = 0`);
+    await until('the auto-pause', `window.pacer.state.autoPaused && window.pacer.state.paused`, 15000);
+    await run(`window.pacer.state.bike.manualCadence = 85`);
+    await until('the ride to carry on', `!window.pacer.state.paused`);
+    await click('#sim-auto');
+  });
+
+  await check('an unfinished ride survives a reload', async () => {
+    await until('progress to be saved', `!!window.pacer.storage.loadResume()`, 15000);
+    const savedT = await run(`window.pacer.storage.loadResume().session.t`);
+    await send('Page.navigate', { url: `http://localhost:${APP_PORT}/?speed=60` });
+    await until('the app to start again', `!!window.pacer && !document.getElementById('screen-setup').hidden`);
+    expect(await run(`!document.getElementById('resume-banner').hidden`), 'no offer to carry on');
+    await click('#btn-sim');
+    await until('the simulator to connect', `window.pacer.state.bikeState === 'connected'`);
+    await press('#btn-resume');
+    await until('the ride to resume', `window.pacer.state.screen === 'ride' && window.pacer.state.started`);
+    expect((await run(`window.pacer.state.session.t`)) >= savedT, 'the ride restarted from the beginning');
+    await click('#btn-end');
+    await until('the summary', `window.pacer.state.screen === 'summary'`);
+    expect((await run(`window.pacer.storage.loadResume()`)) === null, 'the finished ride is still offered');
+    await click('#btn-new');
+  });
+
   await check('the calibration dialog', async () => {
     await click('#btn-model');
     await click('#model-calibrate');

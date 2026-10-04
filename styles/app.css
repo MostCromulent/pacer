@@ -444,6 +444,7 @@ main { padding: 0 32px 40px; }
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; padding: 18px 22px;
   border-radius: 22px; background: #FFF6DE; border: 3px solid var(--mustard-deep); box-shadow: var(--paper-shadow);
 }
+.resume-banner { background: var(--lavender-soft); border-color: var(--lavender-deep); }
 .calib-banner-text { flex: 1 1 320px; }
 .calib-banner .card-title { margin-bottom: 2px; }
 .calib-banner p { margin: 0; line-height: 1.4; }

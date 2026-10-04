@@ -6,8 +6,9 @@ import { formatRange } from '../core/cues.js';
 import { pacerGhost, ghostFromRide } from '../core/ghost.js';
 import { DEV, storage, settings, saveSettings, calibration, activeModel, state } from './store.js';
 import { $, toast } from './dom.js';
+import { startRide } from './ride-view.js';
 import { Voice } from './audio.js';
-import { fmtKm, fmtDate } from './format.js';
+import { fmtKm, fmtDate, fmtClock } from './format.js';
 import { profileSvg, esc } from './charts.js';
 import { ZONE_COLORS } from './palette.js';
 import { easyResistance } from './pace.js';
@@ -128,6 +129,7 @@ export function renderSetup() {
   for (const el of document.querySelectorAll('[data-step]')) el.hidden = Number(el.dataset.step) !== state.step;
   $('step-back').style.visibility = state.step === 0 ? 'hidden' : 'visible';
   $('step-next').style.visibility = state.step === SETUP_STEPS.length - 1 ? 'hidden' : 'visible';
+  renderResume();
   const banner = needsCalibration() && state.bannerDismissed !== state.bike.name;
   $('calib-banner').hidden = !banner;
   if (banner) {
@@ -161,6 +163,27 @@ function spinBlockChips() {
   }).join('');
   return `<div class="block-chips"><span class="block-chips-title">Blocks in the class · tap to leave one out</span>${chips}</div>`;
 }
+
+/** An unfinished ride, saved before a reload or a crash, can be carried on with. */
+function renderResume() {
+  const saved = storage.loadResume();
+  $('resume-banner').hidden = !saved;
+  if (!saved) return;
+  const w = generateWorkout(saved.type, saved.minutes, saved.variant, saved.options);
+  const ago = Math.max(1, Math.round((Date.now() - saved.savedAt) / 60000));
+  $('resume-what').textContent = `${w.name}, ${w.minutes} minutes: you were ${fmtClock(saved.session.t)} in, ${ago} minute${ago === 1 ? '' : 's'} ago.`;
+}
+
+$('btn-resume').addEventListener('click', () => {
+  const saved = storage.loadResume();
+  if (!saved) return renderSetup();
+  Object.assign(state, { type: saved.type, duration: saved.minutes, variant: saved.variant, ghostKind: saved.ghostKind });
+  startRide(generateWorkout(saved.type, saved.minutes, saved.variant, saved.options), saved);
+});
+$('resume-discard').addEventListener('click', () => {
+  storage.clearResume();
+  renderSetup();
+});
 
 function goToStep(i) {
   state.step = Math.min(SETUP_STEPS.length - 1, Math.max(0, i));

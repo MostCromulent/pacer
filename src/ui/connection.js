@@ -6,7 +6,7 @@ import { clock, settings, state } from './store.js';
 import { $, toast } from './dom.js';
 import { renderSetup } from './setup.js';
 import { learnWhileRiding } from './learning.js';
-import { advance } from './ride-view.js';
+import { advance, notePedalling } from './ride-view.js';
 import { calib } from './calibration.js';
 
 function attachBike(bike, kind) {
@@ -96,9 +96,11 @@ export function onReading(e) {
   const s = state.session;
   if (s && state.screen === 'ride') {
     s.setInput({ powerW: fields.powerW, cadence: fields.cadence, resistance: fields.resistance });
+    notePedalling(fields.cadence);
     if (!state.started && (fields.cadence ?? 0) > 0 && !state.paused) {
       state.started = true;
       state.lastAdvance = clock();
+      notePedalling(fields.cadence);
     }
     // Real-bike notifications keep the ride moving even if no window is drawing.
     if (state.bikeKind === 'ble') advance();

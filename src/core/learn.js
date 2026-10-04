@@ -8,9 +8,19 @@
 //   bins[level][cadenceBucket] = [count, sum of ln(cadence), sum of ln(watts)]
 
 import { DEFAULT_MODEL, fitModel } from './resistance.js';
+import { clamp } from './util.js';
 
 const CADENCE_BUCKET = 5;
 const STEADY_RPM = 3; // cadence change between readings that still counts as steady
+const STEADY_READINGS = 3; // this many steady readings in a row before one is kept
+
+// The cadence exponent says how watts change with cadence. It is only worked
+// out from levels ridden properly at two cadences well apart, and a ride may
+// only move it a little: a few readings while the cadence was drifting are
+// not evidence about the bike.
+const EXPONENT_MIN_PER_CADENCE = 5;
+const EXPONENT_MIN_SPREAD_RPM = 15;
+const EXPONENT_MAX_STEP = 0.03;
 export const MIN_LEVEL_READINGS = 5; // a level needs this many before it shapes the model
 
 function usable({ resistance, cadence, power }) {
@@ -55,8 +65,42 @@ export function binsToSamples(bins, minPerLevel = MIN_LEVEL_READINGS) {
   return out;
 }
 
-export function fitBins(bins, prior = DEFAULT_MODEL) {
-  return fitModel(binsToSamples(bins), prior);
+/**
+ * The cadence exponent, from levels with enough readings at two cadences at
+ * least 15 rpm apart. Null when no level has been ridden that way.
+ */
+export function cadenceExponent(bins) {
+  let sxy = 0;
+  let sxx = 0;
+  for (const row of Object.values(bins)) {
+    const cells = Object.entries(row).filter(([, cell]) => cell[0] >= EXPONENT_MIN_PER_CADENCE);
+    const buckets = cells.map(([bucket]) => Number(bucket));
+    if (cells.length < 2 || Math.max(...buckets) - Math.min(...buckets) < EXPONENT_MIN_SPREAD_RPM) continue;
+    const n = cells.reduce((a, [, cell]) => a + cell[0], 0);
+    const mx = cells.reduce((a, [, [, sumLnC]]) => a + sumLnC, 0) / n;
+    const my = cells.reduce((a, [, [, , sumLnP]]) => a + sumLnP, 0) / n;
+    for (const [, [count, sumLnC, sumLnP]] of cells) {
+      const x = sumLnC / count - mx;
+      sxy += count * x * (sumLnP / count - my);
+      sxx += count * x * x;
+    }
+  }
+  if (!(sxx > 0)) return null;
+  const b = sxy / sxx;
+  return b > 0.5 && b < 3 ? b : null;
+}
+
+/**
+ * Fit the model to everything in the bins.
+ * With `cautious` (learning from a ride, as opposed to calibrating), the
+ * cadence exponent moves at most a little from the model already in use.
+ */
+export function fitBins(bins, prior = DEFAULT_MODEL, { cautious = false } = {}) {
+  let b = cadenceExponent(bins);
+  if (cautious && prior.calibrated) {
+    b = b === null ? prior.b : clamp(b, prior.b - EXPONENT_MAX_STEP, prior.b + EXPONENT_MAX_STEP);
+  }
+  return fitModel(binsToSamples(bins), prior, b === null ? {} : { b });
 }
 
 /**
@@ -68,21 +112,24 @@ export class Learner {
     this.bins = bins;
     this.added = 0;
     this._prev = null;
+    this._steady = 0; // readings in a row at this resistance and cadence
   }
 
   observe(reading) {
     const prev = this._prev;
     this._prev = reading;
-    if (!prev || !usable(reading)) return false;
-    const steady = Math.round(prev.resistance) === Math.round(reading.resistance)
+    const steady = prev && usable(reading)
+      && Math.round(prev.resistance) === Math.round(reading.resistance)
       && Math.abs(prev.cadence - reading.cadence) <= STEADY_RPM;
-    if (!steady || !addToBins(this.bins, reading)) return false;
+    this._steady = steady ? this._steady + 1 : 1;
+    if (this._steady < STEADY_READINGS || !addToBins(this.bins, reading)) return false;
     this.added += 1;
     return true;
   }
 
-  /** Forget the last reading, e.g. across a pause. */
+  /** Forget the run so far, e.g. across a pause. */
   rest() {
     this._prev = null;
+    this._steady = 0;
   }
 }

@@ -320,3 +320,55 @@ test('each step has a one-word instruction', async () => {
   // Ordinary riding gets no badge.
   for (const kind of ['steady', 'warmup', 'cooldown', 'drill']) assert.equal(stepAction({ kind }), null);
 });
+
+test('a ride can be saved part-way and carried on with', () => {
+  const w = generateWorkout('intervals', 30, 0);
+  const make = () => new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  const first = make();
+  for (let i = 0; i < 600; i++) {
+    first.setInput({ powerW: 180, cadence: 85 });
+    first.update(1);
+  }
+  // Through JSON, as it would be in the browser's storage.
+  const second = make().restore(JSON.parse(JSON.stringify(first.save())));
+  assert.equal(second.t, 600);
+  assert.equal(second.dist, first.dist);
+  assert.equal(second.samples.d.length, first.samples.d.length);
+  for (const s of [first, second]) {
+    for (let i = 0; i < 60; i++) {
+      s.setInput({ powerW: 180, cadence: 85 });
+      s.update(1);
+    }
+  }
+  assert.equal(second.t, 660);
+  assert.ok(Math.abs(second.dist - first.dist) < 1e-6);
+  assert.deepEqual(second.summary().climbs, first.summary().climbs);
+});
+
+test('an unfinished ride is kept for a while, then forgotten', async () => {
+  const { Storage } = await import('../src/core/storage.js');
+  const items = new Map();
+  const st = new Storage({ getItem: (k) => items.get(k) ?? null, setItem: (k, v) => items.set(k, v), removeItem: (k) => items.delete(k) });
+  assert.equal(st.loadResume(), null);
+  st.saveResume({ type: 'intervals', minutes: 30, variant: 0, session: { t: 300 } });
+  assert.equal(st.loadResume().session.t, 300);
+  assert.equal(st.loadResume(Date.now() + 7 * 60 * 60 * 1000), null);
+  st.clearResume();
+  assert.equal(st.loadResume(), null);
+});
+
+test('the backup carries the calibration with the rides and settings', async () => {
+  const { Storage } = await import('../src/core/storage.js');
+  const store = () => { const items = new Map(); return { getItem: (k) => items.get(k) ?? null, setItem: (k, v) => items.set(k, v), removeItem: (k) => items.delete(k) }; };
+  const a = new Storage(store());
+  a.saveRide({ id: 'r1', code: 'INT-30-K7Q', date: '2026-01-01', distanceM: 9000 });
+  a.saveSettings({ ...a.loadSettings(), baselineW: 319 });
+  a.saveCalibration({ bike: 'IC Bike', model: { kind: 'table', b: 1.6, knots: [[20, -1.8], [80, -0.6]], calibrated: true }, bins: { 20: { 85: [10, 44.4, 52.3] } } });
+  const b = new Storage(store());
+  assert.equal(b.loadCalibration(), null);
+  b.importAll(a.exportAll());
+  assert.equal(b.allRides().length, 1);
+  assert.equal(b.loadSettings().baselineW, 319);
+  assert.equal(b.loadCalibration().bike, 'IC Bike');
+  assert.deepEqual(b.loadCalibration().bins, a.loadCalibration().bins);
+});

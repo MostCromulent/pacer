@@ -16,6 +16,7 @@ export function finishRide(completed) {
   const s = state.session;
   if (!s || state.screen !== 'ride') return;
   if (state.pipWin && !state.pipWin.closed) state.pipWin.close();
+  storage.clearResume();
   const sum = s.summary();
   const { workout, prevBest, prevLast } = state.ride;
 

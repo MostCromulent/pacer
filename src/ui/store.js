@@ -135,6 +135,7 @@ export const state = {
   ride: null, // { workout, ghost, prevBest, prevLast }
   started: false, // becomes true with the first pedal stroke
   paused: false,
+  autoPaused: false, // paused because the pedals stopped; pedalling resumes it
   pipWin: null, // the mini window, when open
   terrainRef: 0, // the resistance drawn as flat road
   routeHeight: null, // (step) => 0..1 height on the route strip

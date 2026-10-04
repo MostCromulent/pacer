@@ -4,6 +4,8 @@
 const KEY_SETTINGS = 'pacer.settings.v1';
 const KEY_RIDES = 'pacer.rides.v1';
 const KEY_CALIBRATION = 'pacer.calibration.v1';
+const KEY_RESUME = 'pacer.resume.v1';
+const RESUME_FOR_MS = 6 * 60 * 60 * 1000; // an unfinished ride can be picked up for six hours
 
 export const DEFAULT_SETTINGS = Object.freeze({
   baselineW: 200,
@@ -61,6 +63,28 @@ export class Storage {
 
   saveCalibration(calibration) {
     return safeSet(this.store, KEY_CALIBRATION, calibration);
+  }
+
+  /**
+   * The ride in progress, saved every few seconds so a reload or a crash
+   * doesn't lose it: { savedAt, type, minutes, variant, options, ghostKind, baselineW, session }.
+   */
+  saveResume(ride) {
+    return safeSet(this.store, KEY_RESUME, { ...ride, savedAt: Date.now() });
+  }
+
+  /** The unfinished ride, if there is one recent enough to carry on with. */
+  loadResume(now = Date.now()) {
+    const saved = safeGet(this.store, KEY_RESUME);
+    return saved?.session && now - saved.savedAt < RESUME_FOR_MS ? saved : null;
+  }
+
+  clearResume() {
+    try {
+      this.store?.removeItem(KEY_RESUME);
+    } catch {
+      // storage unavailable: nothing to clear
+    }
   }
 
   allRides() {

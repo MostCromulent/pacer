@@ -27,7 +27,7 @@ export function learnWhileRiding() {
 export function saveLearning() {
   const fresh = learner.added - learnedSaved;
   if (!fresh) return;
-  const model = fitBins(learner.bins, activeModel());
+  const model = fitBins(learner.bins, activeModel(), { cautious: true });
   if (!model) return;
   learnedSaved = learner.added;
   const now = new Date().toISOString();

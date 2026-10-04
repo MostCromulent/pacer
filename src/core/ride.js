@@ -196,6 +196,21 @@ export class RideSession {
     return events;
   }
 
+  /** Everything needed to pick this ride up again later, as plain data. */
+  save() {
+    const { t, dist, speed, effort, _effortS, samples, onTargetS, segOnTarget, gateResults, _activeGate, _lastSeg, _lastAhead, _accum } = this;
+    return { t, dist, speed, effort, _effortS, samples, onTargetS, segOnTarget, gateResults, _activeGate, _lastSeg, _lastAhead, _accum, warned: [...this._warned] };
+  }
+
+  /** Put back what save() returned. The bike's readings start afresh. */
+  restore(saved) {
+    const { warned, ...rest } = saved;
+    Object.assign(this, rest);
+    this._warned = new Set(warned);
+    this.input.at = -Infinity;
+    return this;
+  }
+
   currentResistance() {
     if (this.input.resistance !== null) return this.input.resistance;
     if (this.input.powerW > 5 && this.input.cadence > 20) {

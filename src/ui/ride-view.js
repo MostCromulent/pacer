@@ -20,7 +20,44 @@ const DOM_EVERY_MS = 200; // the numbers are redrawn five times a second, the sc
 const GATE_NOTICE_S = 600; // announce a sprint gate this long before it
 const FINISH_NOTICE_S = 60;
 const BACK_IN_SADDLE_MS = 4000;
+const AUTO_PAUSE_MS = 5000; // the ride pauses after this long without pedalling
+const RESUME_SAVE_MS = 5000; // how often the ride in progress is saved
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
+
+let lastPedalAt = 0;
+let lastResumeSave = 0;
+
+/** Called with each reading from the bike: pedalling starts the clock again after an auto-pause. */
+export function notePedalling(cadence) {
+  if (!(cadence > 0)) return;
+  lastPedalAt = performance.now();
+  if (state.autoPaused) {
+    state.autoPaused = false;
+    state.paused = false;
+    state.lastAdvance = clock();
+    updatePauseButton();
+    state.lastDom = 0;
+  }
+}
+
+/** Stop the clock if the pedals have stopped: stepping off for a drink shouldn't cost you the ride. */
+function autoPause() {
+  if (!state.started || state.paused || performance.now() - lastPedalAt < AUTO_PAUSE_MS) return;
+  state.paused = true;
+  state.autoPaused = true;
+  updatePauseButton();
+  state.lastDom = 0;
+}
+
+/** Save the ride in progress now and then, so a reload or a crash can pick it up. */
+function saveProgress() {
+  const now = performance.now();
+  const s = state.session;
+  if (!s || !state.started || s.done || now - lastResumeSave < RESUME_SAVE_MS) return;
+  lastResumeSave = now;
+  const { type, minutes, variant, options } = s.workout;
+  storage.saveResume({ type, minutes, variant, options, ghostKind: state.ghostKind, baselineW: s.baselineW, session: s.save() });
+}
 
 export function advance() {
   if (state.advancing) return;
@@ -31,7 +68,9 @@ export function advance() {
     state.lastAdvance = now;
     if (state.bikeKind === 'sim') state.bike.tick(now / 1000);
     const s = state.session;
+    if (s && !s.done) autoPause();
     if (!s || state.paused || !state.started || s.done) return;
+    saveProgress();
     let left = Math.min((now - prev) / 1000, 10 * TIME_SCALE);
     while (left > 1e-6) {
       const step = Math.min(0.5, left);
@@ -81,7 +120,8 @@ function onRideEvent(ev) {
   }
 }
 
-export function startRide(workout) {
+/** Start a ride. `resume` is a saved ride in progress (storage.loadResume()) to carry on with. */
+export function startRide(workout, resume = null) {
   if (state.bikeState !== 'connected') {
     toast('Connect your bike first.');
     return;
@@ -89,10 +129,13 @@ export function startRide(workout) {
   chimes.unlock();
   state.workout = workout;
   const ghost = pickGhost(workout);
-  state.session = new RideSession({ workout, baselineW: settings.baselineW, model: activeModel(), ghost });
+  state.session = new RideSession({ workout, baselineW: resume?.baselineW ?? settings.baselineW, model: activeModel(), ghost });
   state.session.setEffort(settings.effort);
+  if (resume) state.session.restore(resume.session);
   state.started = false;
   state.paused = false;
+  state.autoPaused = false;
+  lastPedalAt = performance.now();
   state.lastAdvance = clock();
   state.ride = { workout, ghost, prevBest: storage.bestRide(workout.code), prevLast: storage.lastRide(workout.code) };
   // Hills follow resistance: steeper means turn it up. Measured against an easy
@@ -297,7 +340,8 @@ function renderEffort(snap) {
 /** The message laid over the scene when the ride isn't moving. */
 function renderOverlay(snap) {
   let msg = '';
-  if (state.paused) msg = 'Paused';
+  if (state.autoPaused) msg = 'Paused · pedal to carry on';
+  else if (state.paused) msg = 'Paused';
   else if (!state.started) msg = 'Start pedalling to begin';
   else if (snap.noSignal) msg = state.bikeState === 'reconnecting' ? 'Bike dropped out · reconnecting…' : 'Waiting for the bike… keep pedalling';
   $('overlay').hidden = !msg;
@@ -336,6 +380,8 @@ function updatePauseButton() {
 function togglePause() {
   if (!state.session) return;
   state.paused = !state.paused;
+  state.autoPaused = false;
+  lastPedalAt = performance.now();
   state.lastAdvance = clock();
   updatePauseButton();
   state.lastDom = 0;

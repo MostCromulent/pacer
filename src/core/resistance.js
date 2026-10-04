@@ -84,6 +84,7 @@ export function resistanceFor(model, watts, cadence) {
 /**
  * Fit a calibrated model to samples [{ resistance, cadence, power }]. A sample
  * may carry a `weight`: the number of readings it stands for (default 1).
+ * Pass `{ b }` to fix the cadence exponent instead of working it out.
  *
  * 1. The cadence exponent b comes from changes in cadence *within* a level
  *    (the calibration ride's paired steps), where resistance is fixed, so the
@@ -92,12 +93,12 @@ export function resistanceFor(model, watts, cadence) {
  * 2. With b known, each level's g is the average of ln(P) - b*ln(cadence),
  *    forced to rise with resistance.
  */
-export function fitModel(samples, prior = DEFAULT_MODEL) {
+export function fitModel(samples, prior = DEFAULT_MODEL, { b: fixedB } = {}) {
   const pts = samples.filter((s) => s.power > 5 && s.cadence > 20 && s.resistance >= R_MIN && s.resistance <= R_MAX);
   const byLevel = groupByLevel(pts);
   if (pts.length < 6 || byLevel.size < 3) return null;
 
-  let b = withinLevelExponent(byLevel);
+  let b = fixedB ?? withinLevelExponent(byLevel);
   if (b === null) b = acrossLevelExponent(pts);
   if (b === null) b = prior.b;
 
