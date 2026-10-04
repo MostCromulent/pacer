@@ -108,8 +108,8 @@ level over Bluetooth, the app reads it directly.
     fartlek (easy riding with surprise surges), which vary like a real ride;
   - *Intervals*: intervals, HIIT (Tabata 20/10, 30/30 or 40/20 blocks), pyramid,
     sprints, cadence drills;
-  - *Mixed*: spin class (seated and standing climbs, jumps, sprints, song by
-    song) and *Mix it up* (a natural first half, then intervals: hills + HIIT,
+  - *Mixed*: spin class (seated and standing climbs, jumps and sprints in
+    short blocks) and *Mix it up* (a natural first half, then intervals: hills + HIIT,
     mountain + sprints, or fartlek + intervals).
 
   HIIT rests and spin-class jumps keep the resistance and change only cadence,

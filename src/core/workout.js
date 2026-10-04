@@ -15,7 +15,7 @@ export const TYPES = [
   { id: 'pyramid', group: 'Intervals', name: 'Pyramid', hint: 'Up the ladder, back down', code: 'PYR' },
   { id: 'sprints', group: 'Intervals', name: 'Sprints', hint: 'Short all-out bursts', code: 'SPR' },
   { id: 'cadence', group: 'Intervals', name: 'Cadence drills', hint: 'Spin fast, low effort', code: 'CAD' },
-  { id: 'spinclass', group: 'Mixed', name: 'Spin class', hint: 'Climbs, jumps and sprints, song by song', code: 'SPN' },
+  { id: 'spinclass', group: 'Mixed', name: 'Spin class', hint: 'Climbs, jumps and sprints in short blocks', code: 'SPN' },
   { id: 'surprise', group: 'Mixed', name: 'Mix it up', hint: 'A natural ride, then intervals', code: 'MIX' },
 ];
 
