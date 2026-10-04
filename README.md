@@ -2,7 +2,9 @@
 
 **Keep your workout on track while you watch TV.**
 
-<img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="300" align="right">
+<p align="center">
+  <img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="280">
+</p>
 
 Riding a spin bike in front of Netflix or YouTube is a great way to get the
 minutes in, but it's easy to drift into a lazy spin. Pacer is a small window
@@ -20,8 +22,6 @@ to set, how fast to pedal, and how long until it changes.
 
 Works with bikes that use standard Bluetooth (FTMS), such as the Schwinn
 800IC / IC4 / IC8 and Bowflex C6. Built and tested on a Schwinn 800IC.
-
-<br clear="right">
 
 ## 🚀 Get started
 
@@ -46,7 +46,9 @@ Then put your show on, build a ride and press **Start ride**.
 
 ## 🛠️ Build a ride
 
-![Build a ride](docs/build-a-ride.png)
+<p align="center">
+  <img src="docs/build-a-ride.png" alt="Build a ride" width="760">
+</p>
 
 Four quick steps, and your choices are remembered for next time:
 
@@ -83,7 +85,9 @@ room.
 The summary shows how the race went and how each hard effort compared with
 last time. **Statistics** keeps your totals, minutes per week and every ride.
 
-![Statistics](docs/statistics.png)
+<p align="center">
+  <img src="docs/statistics.png" alt="Statistics" width="760">
+</p>
 
 ## 🔧 Calibration
 
@@ -94,7 +98,9 @@ teaches Pacer your bike's formula. If the bike reports its resistance (the
 
 **Calibration** in the top bar shows what it has learned.
 
-![Calibration](docs/calibration.png)
+<p align="center">
+  <img src="docs/calibration.png" alt="Calibration" width="460">
+</p>
 
 ## 💾 Your data
 
