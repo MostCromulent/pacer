@@ -69,7 +69,10 @@ function showPicked(w) {
   const half = tip.offsetWidth / 2;
   const wrap = tip.parentElement.getBoundingClientRect();
   const mid = box.left - wrap.left + (((span.from + span.to) / 2) / w.totalS) * box.width;
-  tip.style.left = `${Math.min(wrap.width - half - 6, Math.max(half + 6, mid))}px`;
+  const left = Math.min(wrap.width - half - 6, Math.max(half + 6, mid));
+  tip.style.left = `${left}px`;
+  // The caret stays on the part picked even when the tooltip is pushed in from an edge.
+  tip.style.setProperty('--caret', `${Math.min(2 * half - 16, Math.max(16, mid - left + half))}px`);
 }
 
 function pickAt(e) {

@@ -242,6 +242,10 @@ main { padding: 0 32px 40px; }
   background: var(--ink); color: var(--cream); padding: 7px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; line-height: 1.45;
   box-shadow: 0 6px 16px rgba(59, 51, 69, 0.25);
 }
+.preview-pick::after {
+  content: ''; position: absolute; top: 100%; left: var(--caret, 50%); transform: translateX(-50%);
+  border: 7px solid transparent; border-top-color: var(--ink); border-bottom: 0;
+}
 .preview-pick b { display: block; font-size: 13px; font-weight: 800; }
 .axis { display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: var(--muted); }
 .zones { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; font-weight: 800; color: var(--ink-soft); }
