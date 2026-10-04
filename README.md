@@ -164,7 +164,12 @@ scripts/serve.js  the local server, which also saves calibration.json
 
 ## 📄 Licence
 
-[MIT](LICENSE). Use it, change it, share it.
+Copyright © 2026 MostCromulent.
+
+Pacer is free software under the [GNU General Public License](LICENSE),
+version 3 or later. You can use it, change it and share it; if you share a
+changed version, it has to stay open under the same licence. It comes with no
+warranty.
 
 ## 🤖 How this was made
 
