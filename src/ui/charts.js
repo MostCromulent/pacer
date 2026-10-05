@@ -120,17 +120,26 @@ export function rideChartSvg(review) {
   };
   let s = '';
 
-  // Block names along the top, and a faint divider down the plot. A ride of
-  // many short steps has too many to name.
+  // Along the top, each block's name and the share of it spent on target,
+  // green or amber by how well it was held. A recovery is named but not
+  // marked. A faint divider runs down the plot at each change. A ride of many
+  // short steps has too many blocks to name.
   if (review.spans.length <= 16) {
     review.spans.forEach((sp, i) => {
       if (sp.from >= n) return;
       const x0 = x(sp.from), x1 = x(Math.min(sp.to, n));
-      s += `<rect x="${(x0 + 1.5).toFixed(1)}" y="6" width="${Math.max(0, x1 - x0 - 3).toFixed(1)}" height="22" rx="11" fill="${i % 2 ? '#F1E4D6' : '#F8EEE3'}"/>`;
-      if (sp.name.length * 6.4 + 12 <= x1 - x0) s += `<text x="${((x0 + x1) / 2).toFixed(1)}" y="21" text-anchor="middle" font-size="11" fill="${P.inkSoft}">${esc(sp.name)}</text>`;
+      const room = x1 - x0 - 10;
+      const score = sp.rest ? '' : `${sp.onTargetPct}%`;
+      const fits = (text) => text.length * 6.4 <= room;
+      const text = [`${sp.name} ${score}`.trim(), score, sp.name].find((t) => t && fits(t)) ?? '';
+      const fill = sp.rest ? '#F1E4D6' : sp.onTargetPct >= 75 ? '#CFE6D2' : '#FBE0A0';
+      s += `<g data-block="${esc(sp.name)}"><title>${esc(sp.name)}${sp.rest ? '' : `: on target ${sp.onTargetPct}% of the time`}</title>`
+        + `<rect x="${(x0 + 1.5).toFixed(1)}" y="6" width="${Math.max(0, x1 - x0 - 3).toFixed(1)}" height="24" rx="12" fill="${fill}"/>`
+        + `<text x="${((x0 + x1) / 2).toFixed(1)}" y="22" text-anchor="middle" font-size="11" fill="${P.ink}">${esc(text)}</text></g>`;
       if (i) s += `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${top}" y2="${base}" stroke="#EDE2D6" stroke-dasharray="2 4"/>`;
     });
   }
+  s += `<text x="2" y="${top - 4}" font-size="10" fill="${P.muted}">rpm · level</text>`;
 
   // Power: a filled area behind everything, smoothed over ten seconds, read off the right-hand side.
   const watts = smoothed(review.watts, 5);

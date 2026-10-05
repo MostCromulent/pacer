@@ -46,7 +46,7 @@ function outside(have, [lo, hi]) {
  *   watts: number[], cadence: number[], resistance: number[],
  *   targets: object[],            the step targets in force each second
  *   spanAt: number[],             index into `spans` for each second
- *   spans: {name: string, from: number, to: number, onTargetPct: number}[],
+ *   spans: {name: string, from: number, to: number, onTargetPct: number, rest: boolean}[],
  *   misses: [number, number][],   stretches off target, as [from, to) seconds
  *   rows: object[],               one line per block (or per kind of step) for the table
  * }}
@@ -118,6 +118,7 @@ export function rideReview(session) {
     const n = row.seconds;
     rows.push({
       name: row.name,
+      rest: [...g.spans].every((sp) => spans[sp].segs.every((i) => segments[i].kind === 'recovery')),
       onTargetPct: row.total ? Math.round((row.on / row.total) * 100) : 0,
       avgW: Math.round(row.w / n),
       avgCadence: Math.round(row.c / n),
@@ -138,9 +139,29 @@ export function rideReview(session) {
     spans: spans.map(({ name, from, to, segs }) => {
       const on = segs.reduce((a, i) => a + session.segOnTarget[i].on, 0);
       const total = segs.reduce((a, i) => a + session.segOnTarget[i].total, 0);
-      return { name, from, to, onTargetPct: total ? Math.round((on / total) * 100) : 0 };
+      // A recovery isn't marked: nobody needs a score for resting.
+      return { name, from, to, onTargetPct: total ? Math.round((on / total) * 100) : 0, rest: segs.every((i) => segments[i].kind === 'recovery') };
     }),
     misses,
     rows,
   };
+}
+
+/**
+ * One plain sentence or two on how the ride went, from the lines of its
+ * review: where the targets were held best, and where they were hardest to
+ * hold and why. Empty if there is too little to say.
+ */
+export function rideVerdict(review) {
+  const scored = review.rows.filter((r) => !r.rest);
+  if (scored.length < 2) return '';
+  const best = scored.reduce((a, b) => (b.onTargetPct > a.onTargetPct ? b : a));
+  const worst = scored.reduce((a, b) => (b.onTargetPct < a.onTargetPct ? b : a));
+  if (worst.onTargetPct >= 90) return 'On target all the way through.';
+  const why = worst.resistanceOff <= -1 ? 'the resistance ran a little low'
+    : worst.resistanceOff >= 1 ? 'the resistance ran a little high'
+      : worst.cadenceOff <= -1 ? 'the cadence dropped a little'
+        : worst.cadenceOff >= 1 ? 'the cadence ran a little fast'
+          : 'the targets were hard to hold';
+  return `Best held: ${best.name} (${best.onTargetPct}%). Hardest to hold: ${worst.name} (${worst.onTargetPct}%), where ${why}.`;
 }

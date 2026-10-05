@@ -311,36 +311,23 @@
     <div class="sum-head">
       <div>
         <p id="sum-eyebrow" class="eyebrow">Ride complete</p>
-        <h1 class="title">
-          <span id="sum-title">You beat your ghost by</span>
-          <em id="sum-gap" class="sum-gap">0 m</em>
-          <span id="pb-badge" class="pb-badge" hidden>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg>
-            New PB
-          </span>
-        </h1>
+        <h1 class="title"><span id="sum-title">You beat your ghost by</span> <em id="sum-gap" class="sum-gap">0 m</em></h1>
         <p id="sum-sub" class="muted"></p>
+        <p id="sum-history" class="muted"></p>
       </div>
-      <div id="sum-chips" class="sum-chips"></div>
+      <div class="sum-actions">
+        <button id="btn-again" class="btn btn-start" type="button">Ride it again</button>
+        <button id="btn-new" class="btn btn-paper" type="button">Build a new ride</button>
+      </div>
     </div>
+    <div id="sum-chips" class="sum-chips"></div>
     <div class="card chart-card">
+      <p id="ride-verdict" class="ride-verdict"></p>
       <div class="ride-chart">
         <div class="ride-chart-plot">
           <div id="ride-chart"></div>
-          <div id="ride-blockrow" class="ride-blockrow" aria-label="Time on target in each block"></div>
           <div id="ride-readout" class="ride-readout" hidden></div>
         </div>
-      </div>
-    </div>
-    <div class="sum-foot">
-      <div class="history">
-        <h2 class="card-title">Every time you've ridden this</h2>
-        <div id="history" class="hist"></div>
-        <p id="history-note" class="small strong"></p>
-      </div>
-      <div class="sum-actions">
-        <button id="btn-again" class="btn btn-start" type="button">Race this ghost again</button>
-        <button id="btn-new" class="btn btn-paper" type="button">Build a new ride</button>
       </div>
     </div>
     <div class="card sum-blocks">

@@ -4,7 +4,7 @@ import { generateWorkout } from '../src/core/workout.js';
 import { DEFAULT_MODEL } from '../src/core/resistance.js';
 import { pacerGhost } from '../src/core/ghost.js';
 import { RideSession } from '../src/core/ride.js';
-import { rideReview, rideSpans } from '../src/core/review.js';
+import { rideReview, rideSpans, rideVerdict } from '../src/core/review.js';
 
 // Ride a workout following the targets, except where `adjust` changes the reading.
 function ride(workout, adjust = (reading) => reading, { until = Infinity, effortAt } = {}) {
@@ -74,4 +74,18 @@ test('a ride ended early is reviewed as far as it went', () => {
   const r = rideReview(ride(w, undefined, { until: 400 }));
   assert.equal(r.seconds, 400);
   assert.ok(r.rows.length >= 1 && r.rows.length < rideSpans(w).length);
+});
+
+test('recoveries are not scored, and the verdict says where it went best and worst', () => {
+  const w = generateWorkout('intervals', 30, 0);
+  const second = w.segments.filter((s) => s.kind === 'work')[1];
+  const r = rideReview(ride(w, (reading, seg) => (seg === second ? { ...reading, resistance: reading.resistance - 14 } : reading)));
+  assert.equal(r.rows.find((x) => x.name.startsWith('Recover')).rest, true);
+  assert.equal(r.rows.find((x) => x.name.startsWith('Climb')).rest, false);
+  assert.ok(r.spans.some((sp) => sp.rest) && r.spans.some((sp) => !sp.rest));
+  for (const sp of r.spans) assert.ok(sp.onTargetPct >= 0 && sp.onTargetPct <= 100);
+  assert.match(rideVerdict(r), /^Best held: .+ \(\d+%\)\. Hardest to hold: Climb ×4 \(\d+%\), where the resistance ran a little low\.$/);
+  // Held throughout, there is only one thing to say; with nothing to compare, nothing.
+  assert.equal(rideVerdict(rideReview(ride(w))), 'On target all the way through.');
+  assert.equal(rideVerdict({ rows: [{ name: 'Cruise', onTargetPct: 80 }] }), '');
 });
