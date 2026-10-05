@@ -1,7 +1,7 @@
 {
   "name": "Pacer",
   "short_name": "Pacer",
-  "description": "Keep your spin-bike workout on track while you watch TV.",
+  "description": "A lightweight spin-bike coach for a second screen or a small window.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

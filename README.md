@@ -1,10 +1,11 @@
 # 🚲 Pacer
 
-**Keep your spin-bike workout on track while you watch TV.**
+**A lightweight spin-bike coach for a second screen or a small window.**
 
-Pacer is a small window that sits on top of Netflix or YouTube while you ride.
-It tells you what resistance to set, how fast to pedal, and how long until it
-changes.
+Pacer runs in a browser tab and floats a small window over whatever else is on
+your screen, or sits on a phone on the handlebars. It tells you what resistance
+to set, how fast to pedal, and how long until it changes, and otherwise stays
+out of the way.
 
 **[Open Pacer](https://mostcromulent.github.io/pacer/)** in Chrome or Edge.
 It's free, there is nothing to install, and nothing leaves your computer.
@@ -18,7 +19,9 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
 
 ## ✨ What it does
 
-- **Stays on top of your show**, readable at a glance from the saddle.
+- **Stays small**: a mini window that floats over your other windows, readable
+  at a glance from the saddle.
+- **Stays light**: one web page with no account, no install and no subscription.
 - **Gives spin-class targets**: a resistance and a cadence for every step, in
   the numbers your bike's screen shows.
 - **Builds the ride for you**: seventeen kinds, from recovery spins to hills,
@@ -35,7 +38,8 @@ the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
    and makes Pacer's resistance numbers match your bike's screen.
 4. Set your **easy pace**: the resistance and cadence you could chat at on a flat road. Every
    ride is sized from that.
-5. Put your show on, build a ride and press **Start ride**.
+5. Build a ride and press **Start ride**. The mini window opens on top, so the
+   rest of the screen is yours for a show, music or work.
 
 ## 🛠️ Building a ride
 
@@ -58,7 +62,7 @@ the saddle, and you can leave out any blocks you don't like.
 - Two tiles, **cadence** and **resistance**, show what you're doing now. Green
   is in range; yellow or blue with an arrow means go up or down.
 - The road is the workout: a steeper hill means more resistance.
-- A chime warns you before each change, so your eyes can stay on the show.
+- A chime warns you before each change, so your eyes can stay elsewhere.
   Turn on voice and each step is read out: "Hill. Resistance 45, cadence 70."
 - **Effort − / +** makes the rest of the ride easier or harder.
 - Stop pedalling and the ride pauses; start again and it carries on. If the
@@ -66,8 +70,8 @@ the saddle, and you can leave out any blocks you don't like.
 
 ## 📈 Afterwards
 
-A summary of the race, and **Statistics** with your totals, minutes per week
-and every ride.
+A chart of the ride against its targets and how each block went, and
+**Statistics** with your totals, minutes per week and every ride.
 
 <p align="center">
   <img src="docs/statistics.png" alt="Statistics" width="760">
@@ -85,8 +89,8 @@ its resistance (the 800IC does) Pacer keeps learning from every ride.
 
 | Device | Works? |
 |---|---|
-| Computer, in Chrome or Edge | Yes. The ride floats over your show |
-| Android phone, in Chrome | Yes. Prop it on the handlebars |
+| Computer, in Chrome or Edge | Yes. The ride floats over your other windows |
+| Android phone, in Chrome | Yes. Prop it on the handlebars as a second screen |
 | Firefox or Safari | No. They can't use Bluetooth |
 | iPhone or iPad, any browser | No. Apple doesn't let web pages use Bluetooth |
 

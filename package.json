@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "description": "Lightweight browser app that keeps your spin-bike workout on track while you watch TV.",
+  "description": "Lightweight spin-bike coach that runs in a browser, on a second screen or in a small floating window.",
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.js",
