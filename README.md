@@ -74,7 +74,7 @@ A chart of the ride against its targets and how each block went, and
 **Statistics** with your totals, minutes per week and every ride.
 
 <p align="center">
-  <img src="docs/statistics.png" alt="Statistics" width="760">
+  <img src="docs/summary.png" alt="The end of a ride: the result, a chart of the ride against its targets, and how each block went" width="760">
 </p>
 
 ## 🔧 Calibration
