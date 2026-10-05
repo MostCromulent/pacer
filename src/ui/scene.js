@@ -7,6 +7,7 @@
 
 import { P, ZONE_COLORS } from './palette.js';
 import { pctAt, zoneOf } from '../core/workout.js';
+import { paperPiece, drawPaper, dropPaper } from './paper.js';
 
 const W = 360;
 const PX_PER_S = 4;
@@ -14,6 +15,10 @@ const YOU_X = 150;
 const SLOPE_K = 1.5;
 const GHOST_MIN_X = 24;
 const GHOST_MAX_X = 336;
+// The finish: how long the arms take to go up, stay up and come down, in seconds.
+const CHEER = { up: 0.35, held: 2.25, down: 0.6 };
+const BURST_PIECES = 46; // from each post of the finish banner
+const BURST_STREAMERS = 12; // how many of those are streamers
 
 export class Scene {
   /**
@@ -39,6 +44,14 @@ export class Scene {
     this.ghostWheel = 0;
     this.ghostScreenX = null;
     this.stand = 0; // 0 seated .. 1 out of the saddle, eased between the two
+    this.cheerS = null; // seconds since the finish was celebrated, or null
+    this.paper = []; // streamers and confetti in the air
+  }
+
+  /** Cross the line in style: your rider sits up with both arms in the air, and paper bursts from the finish banner. */
+  celebrate() {
+    this.cheerS = 0;
+    this.burstDue = true;
   }
 
   /**
@@ -61,6 +74,8 @@ export class Scene {
     if (first) {
       this.camElev = null;
       this.ghostScreenX = null;
+      this.cheerS = null;
+      this.paper = [];
     }
   }
 
@@ -102,8 +117,13 @@ export class Scene {
     const target = this.elevAt(t);
     this.camElev = this.camElev === null ? target : this.camElev + (target - this.camElev) * Math.min(1, dt * 3);
 
-    // Animation: cranks turn with cadence, wheels with speed.
-    this.crank += ((snap.cadence || 0) / 60) * Math.PI * 2 * dt;
+    // How far into the air the arms are, 0 to 1: up quickly, held, then back to the bars.
+    if (this.cheerS !== null) this.cheerS += dt;
+    const sinceUp = (this.cheerS ?? Infinity) - CHEER.up - CHEER.held;
+    const cheer = this.cheerS === null ? 0 : Math.max(0, Math.min(1, this.cheerS / CHEER.up, 1 - sinceUp / CHEER.down));
+
+    // Animation: cranks turn with cadence, wheels with speed. Arms up, the rider freewheels.
+    this.crank += cheer > 0.5 ? 0 : ((snap.cadence || 0) / 60) * Math.PI * 2 * dt;
     this.wheel += (snap.speed || 0) / 0.34 * dt;
     const ghostCad = snap.ghostCadence ?? 86;
     this.ghostCrank += (ghostCad / 60) * Math.PI * 2 * dt;
@@ -131,7 +151,9 @@ export class Scene {
 
     // The ghost always rides "behind the glass", so it never hides your rider.
     this._rider(ctx, ghostX, t, { ghost: true, crank: this.ghostCrank, wheel: this.ghostWheel });
-    this._rider(ctx, YOU_X, t, { ghost: false, crank: this.crank, wheel: this.wheel, speedLines: (snap.speed || 0) > 6 });
+    this._rider(ctx, YOU_X, t, { ghost: false, crank: this.crank, wheel: this.wheel, speedLines: (snap.speed || 0) > 6, cheer });
+    this._paper(ctx, t, dt);
+    if (cheer > 0.15) return; // the name tags step aside while the paper flies
 
     const ghostTag = offscreen ? `${snap.ghostLabel} ${tagGap(-snap.gap)}` : snap.ghostLabel;
     // Lift the ghost's tag when the riders are side by side so the tags don't collide.
@@ -383,10 +405,32 @@ export class Scene {
     this._shadow(ctx, false);
   }
 
-  _rider(ctx, x, t, { ghost, crank, wheel, speedLines }) {
+  /** Paper in the air: thrown from the top of each post of the finish banner, then left to fall. */
+  _paper(ctx, t, dt) {
+    if (this.burstDue) {
+      this.burstDue = false;
+      const y = this.roadY(YOU_X, t) - 66;
+      for (const [x, side] of [[YOU_X - 22, -1], [YOU_X + 22, 1]]) {
+        for (let i = 0; i < BURST_PIECES; i++) {
+          const angle = -Math.PI / 2 + side * (Math.random() * 1.1 - 0.15);
+          const speed = 90 + Math.random() * 170;
+          this.paper.push(paperPiece(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed, { ribbon: i < BURST_STREAMERS }));
+        }
+      }
+    }
+    if (!this.paper.length) return;
+    const now = performance.now() / 1000;
+    this.paper = dropPaper(this.paper, dt, now, { gravity: 150, drag: 1.6, floor: this.H + 20 });
+    for (const p of this.paper) {
+      p.x -= PX_PER_S * dt; // the world slides past underneath as the rider rolls on
+      drawPaper(ctx, p, now);
+    }
+  }
+
+  _rider(ctx, x, t, { ghost, crank, wheel, speedLines, cheer = 0 }) {
     const y = this.roadY(x, t) + 2;
     const slope = (this.roadY(x + 8, t) - this.roadY(x - 8, t)) / 16;
-    const pose = riderPose(crank, this.stand);
+    const pose = riderPose(crank, this.stand, cheer);
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.atan(slope));
@@ -427,6 +471,10 @@ export class Scene {
 
 // Each body point seated, and out of the saddle: up and forward over the bars.
 const SEATED = { hip: [-8, -34], shoulder: [6, -46], elbow: [12, -39], head: [11, -54] };
+// Sitting up, arms in the air: where the shoulder and head go, and each arm (`side` is -1 or 1).
+const UPRIGHT = { shoulder: [-1, -49], head: [1, -58] };
+const raisedArm = ([sx, sy], side) => ({ elbow: [sx + side * 8 - 1, sy - 9], hand: [sx + side * 12 - 2, sy - 22] });
+const BAR = [16, -34]; // where the hand holds the bars
 const STANDING = { hip: [-3, -40], shoulder: [10, -52], elbow: [14, -42], head: [16, -60] };
 const BB = [-4, -11];
 const CRANK = 5.5;
@@ -448,8 +496,12 @@ function legFor(angle, hip) {
   return { knee, foot };
 }
 
-function riderPose(crank, stand = 0) {
-  const mix = (key) => SEATED[key].map((v, i) => v + (STANDING[key][i] - v) * stand);
+function riderPose(crank, stand = 0, cheer = 0) {
+  // Seated or standing, then sat up by however much the rider is cheering.
+  const mix = (key) => SEATED[key].map((v, i) => {
+    const ridden = v + (STANDING[key][i] - v) * stand;
+    return UPRIGHT[key] ? ridden + (UPRIGHT[key][i] - ridden) * cheer : ridden;
+  });
   // Out of the saddle the body rocks with each pedal stroke.
   const bob = stand * Math.sin(crank * 2) * 1.2;
   const hip = mix('hip');
@@ -458,7 +510,7 @@ function riderPose(crank, stand = 0) {
   shoulder[1] += bob;
   const head = mix('head');
   head[1] += bob;
-  return { near: legFor(crank, hip), far: legFor(crank + Math.PI, hip), crank, hip, shoulder, elbow: mix('elbow'), head };
+  return { near: legFor(crank, hip), far: legFor(crank + Math.PI, hip), crank, hip, shoulder, elbow: mix('elbow'), head, cheer };
 }
 
 function drawRider(ctx, pose, wheel, c, outline) {
@@ -516,10 +568,17 @@ function drawRider(ctx, pose, wheel, c, outline) {
   const [hx, hy] = pose.head;
   stroke(c.jersey, 10);
   line(ctx, pose.hip[0], pose.hip[1], sx, sy);
-  stroke(c.jersey, 4.5);
-  line(ctx, sx, sy, ex, ey);
-  stroke(c.skin, 4);
-  line(ctx, ex, ey, 16, -34);
+  // One arm on the bars; cheering, both arms, lifting from the bars into the air.
+  const k = pose.cheer ?? 0;
+  const between = (a, b) => a + (b - a) * k;
+  for (const side of k > 0.02 ? [-1, 1] : [1]) {
+    const up = raisedArm(pose.shoulder, side);
+    const elbow = [between(ex, up.elbow[0]), between(ey, up.elbow[1])];
+    stroke(c.jersey, 4.5);
+    line(ctx, sx, sy, elbow[0], elbow[1]);
+    stroke(c.skin, 4);
+    line(ctx, elbow[0], elbow[1], between(BAR[0], up.hand[0]), between(BAR[1], up.hand[1]));
+  }
   if (o) {
     circle(ctx, hx, hy, 6.5 + o / 2 + 0.5, '#FFFFFF');
   } else {

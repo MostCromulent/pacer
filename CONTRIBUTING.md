@@ -57,6 +57,7 @@ src/ui/        the browser interface
   calibration.js the calibration dialog
   model-view.js  the calibration chart and table
   scene.js       the papercraft race scene (canvas)
+  paper.js       streamers and confetti for the finish
   charts.js      SVG charts and previews
   pip.js         the floating mini window
   audio.js       chimes and the voice

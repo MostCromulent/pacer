@@ -6,6 +6,7 @@ import { formatRange, spokenCue, repeatsInBlock, stepAction } from '../core/cues
 import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, applySound, state, chimes, voice } from './store.js';
 import { $, setPipDoc, toast, showScreen } from './dom.js';
 import { Voice } from './audio.js';
+import { rainPaper, prefersStill } from './paper.js';
 import { fmtClock, fmtKm, fmtGap } from './format.js';
 import { Scene } from './scene.js';
 import { routeSvg, updateRoute } from './charts.js';
@@ -121,6 +122,11 @@ function onRideEvent(ev) {
     chimes.play('done');
     voice.say('Ride complete. Carry on if you like.');
     recordRide(state.session);
+    // A flourish at the line, whoever won: arms up, a burst from the banner, and paper down the window.
+    if (!prefersStill(loopWindow())) {
+      scene.celebrate();
+      rainPaper(loopWindow());
+    }
     state.session.keepGoing({ kind: 'steady', pct: EASY_PACE_PCT, cadence: settings.easyCadence, label: 'Easy cruise', name: 'Easy cruise' });
     lastPedalAt = performance.now();
     state.lastDom = 0;
