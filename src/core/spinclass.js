@@ -24,8 +24,9 @@
 // - Each block is read for what it trains (sprinting, standing, leg speed,
 //   climbing or tempo). A class is filled with the kinds it has least of, and
 //   drafts that put two of a kind together count as further from the target.
-// - A short class opens briefly and builds once. A long one has a second peak
-//   in the middle before it builds again to the finale.
+// - A short class opens briefly: the opening flat road is a share of the class.
+// - A step may say the most it should ever last (`most`). Nothing makes it
+//   longer than that: not a long class, and not left-over time.
 // - A longer class has more blocks, and more rounds in them.
 // - Time left over lengthens the steady parts of the class a little, instead
 //   of becoming a spell of riding with nothing to do. A draft is judged as it
@@ -90,7 +91,7 @@ const MOST_UNSPENT_S = 60; // a draft with more time than this left over is turn
 
 // How a block is measured.
 const HARD_PCT = 95;
-const ALL_OUT_PCT = 130;
+const ALL_OUT_PCT = 120; // from here up counts as flat out: sprints, and a Tabata's 20 seconds
 const EASY_PCT = 72; // effort above this tires the rider; below it, they recover
 const PEAK_WEIGHT = 0.3; // how far a block's hardest step lifts it above its average
 // What a block trains.
@@ -278,8 +279,8 @@ export function makeBlock(id, seed, { budget, low = false, load = null }) {
   const reps = (lo, hi) => Math.round(int(lo, hi) * clamp(stretch, 1, MOST_EXTRA_ROUNDS));
   const made = blockMakers({ between, int, near, reps, low })[id]();
   // Long steps grow with the class, up to the most a step of that kind should last.
-  const steps = made.parts.map(([dur, pct, kind, { most = Infinity, ...opts }]) => asRidden({
-    dur: dur >= 120 ? Math.min(most, roundTo(dur * stretch, 30)) : dur, pct, kind, ...opts,
+  const steps = made.parts.map(([dur, pct, kind, opts]) => asRidden({
+    dur: dur >= 120 ? Math.min(opts.most ?? Infinity, roundTo(dur * stretch, 30)) : dur, pct, kind, ...opts,
   }, low));
   // A held step is ridden on the resistance of the step it holds, so its
   // effort follows from the change of cadence, whatever was written for it.
@@ -364,8 +365,8 @@ export function restFor(block, fatigue, low = false) {
 /** An easy spell: a recovery if it's long enough to be one, otherwise flat road. */
 function easySpell(dur, low) {
   return dur >= RECOVERY_FROM_S
-    ? { title: 'Recovery', steps: [asRidden({ dur, pct: RECOVERY_PCT, kind: 'recovery', cadence: 75 }, low)] }
-    : { title: 'Flat road', steps: [asRidden({ dur, pct: 68, kind: 'steady', cadence: 88, name: 'Flat road' }, low)] };
+    ? { title: 'Recovery', steps: [asRidden({ dur, pct: RECOVERY_PCT, kind: 'recovery', cadence: 75, most: LONGEST_REST_S }, low)] }
+    : { title: 'Flat road', steps: [asRidden({ dur, pct: 68, kind: 'steady', cadence: 88, name: 'Flat road', most: LONGEST_REST_S }, low)] };
 }
 
 /** A block as the last of the class: the cool-down is its recovery. */
@@ -381,23 +382,17 @@ function asFinale(block) {
 /**
  * Lay blocks out on a curve that builds over the class in waves of about
  * three: the easiest goes where the curve is lowest, the hardest where it is
- * highest. A class long enough for three waves has a second peak: the middle
- * wave ends on the hardest block of all, and the last wave builds again
- * towards the finale. `hardness(block)` gives the number to order by.
+ * highest. `hardness(block)` gives the number to order by.
  */
 export function inWaves(blocks, hardness) {
   const n = blocks.length;
   const easiestFirst = [...blocks].sort((p, q) => hardness(p) - hardness(q));
   if (n < 3) return easiestFirst;
-  const waves = Math.max(1, Math.round(n / 3));
-  const size = Math.ceil(n / waves);
-  const lengthOf = (wave) => Math.min(size, n - wave * size);
-  const midPeak = waves >= 3 ? Math.floor((waves - 1) / 2) * size + lengthOf(Math.floor((waves - 1) / 2)) - 1 : -1;
+  const size = Math.ceil(n / Math.max(1, Math.round(n / 3)));
   // How high the curve is at each place: the rise over the whole class, plus
   // the rise within its wave (the last wave may be a short one).
   const height = (i) => {
-    if (i === midPeak) return Infinity;
-    const length = lengthOf(Math.floor(i / size));
+    const length = Math.min(size, n - Math.floor(i / size) * size);
     return i / (n - 1) + (length > 1 ? (i % size) / (length - 1) : 1);
   };
   const slots = blocks.map((_, i) => i).sort((p, q) => height(p) - height(q) || p - q);
@@ -408,14 +403,15 @@ export function inWaves(blocks, hardness) {
 
 /**
  * Spend left-over seconds by lengthening the steady steps of a class a little:
- * a quarter of a minute at a time, longest first, and none by more than a
- * quarter. Blocks marked `fixed` (rounds, the finale) are left as they are.
- * Changes the steps in place and returns the seconds it could not place.
+ * a quarter of a minute at a time, longest first, none by more than a quarter
+ * and none past the most it should last. Blocks marked `fixed` (rounds, the
+ * finale) are left as they are. Changes the steps in place and returns the
+ * seconds it could not place.
  */
 export function spreadLeftover(items, left, low = false) {
   const steady = items.filter((it) => !it.fixed).flatMap((it) => it.steps)
     .filter((s) => s.dur >= 60 && !s.stand && s.pct < eased(HARD_PCT, low))
-    .map((step) => ({ step, room: Math.floor((step.dur * MOST_STRETCH) / 15) * 15 }))
+    .map((step) => ({ step, room: Math.floor(Math.min(step.dur * MOST_STRETCH, (step.most ?? Infinity) - step.dur) / 15) * 15 }))
     .sort((p, q) => q.step.dur - p.step.dur);
   while (left >= 15 && steady.some((x) => x.room >= 15)) {
     for (const x of steady) {
@@ -460,7 +456,8 @@ function draftClass({ budget, rand, low, allowed }) {
 
   // The opener is a share of the class: a short class gets going quickly.
   const opener = draft(SPIN_BLOCKS.find((b) => b.always));
-  opener.steps[0].dur = Math.min(opener.steps[0].dur, clamp(roundTo(budget * OPENER_SHARE), ...OPENER_S));
+  const openerMost = clamp(roundTo(budget * OPENER_SHARE), ...OPENER_S);
+  Object.assign(opener.steps[0], { dur: Math.min(opener.steps[0].dur, openerMost), most: openerMost });
   opener.m = measureSteps(opener.steps, low);
   let candidates = pool();
 
@@ -516,7 +513,7 @@ function draftClass({ budget, rand, low, allowed }) {
     rests = [];
     blocks = order.map((b, i) => {
       const joined = makeBlock(b.id, b.seed, { budget, low, load });
-      if (b === opener) joined.steps[0].dur = opener.steps[0].dur;
+      if (b === opener) Object.assign(joined.steps[0], { dur: opener.steps[0].dur, most: openerMost });
       for (const step of joined.steps.filter(setsLoad)) load = loadOf(step);
       const block = sized(b.finale ? asFinale(joined) : joined);
       fatigue = fatigueAfter(fatigue, block.steps, low);
@@ -538,17 +535,27 @@ function draftClass({ budget, rand, low, allowed }) {
   }
 
   // The class as it will be ridden: rests in place and left-over time spent.
-  // What can't be spent lengthens the lead-in to the finale (in the shortest
-  // class the opener alone may be too long, and is cut to fit).
   const items = [];
   blocks.forEach((b, i) => {
     items.push(b);
-    if (!rests[i]) return;
-    const spell = easySpell(rests[i], low);
-    items.push({ ...spell, leadIn: !!finale && i === blocks.length - 2 });
+    if (rests[i]) items.push(easySpell(rests[i], low));
   });
   const unspent = spreadLeftover(items, budget - filled, low);
-  if (unspent !== 0) (items.find((it) => it.leadIn) ?? items[0]).steps[0].dur += unspent;
+  // The little that can't be spent that way goes wherever a steady step has
+  // room before its limit, most room first. Only when none has does the
+  // opener take it (in the shortest class the opener may by itself be too
+  // long, and is cut to fit).
+  let over = unspent;
+  const roomIn = (st) => (st.most ?? Infinity) - st.dur;
+  const steady = items.filter((it) => !it.fixed).flatMap((it) => it.steps)
+    .filter((st) => st.dur >= 60 && !st.stand)
+    .sort((p, q) => roomIn(q) - roomIn(p));
+  for (const st of over > 0 ? steady : []) {
+    const more = Math.min(over, roomIn(st));
+    st.dur += more;
+    over -= more;
+  }
+  items[0].steps[0].dur += over;
 
   const whole = measureSteps(items.flatMap((it) => it.steps), low);
   // How far from the target, in rough units of "a noticeable difference".
@@ -577,7 +584,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
   const { items } = closest(sound.length ? sound : drafts);
 
   for (const { title, rounds, steps } of items) {
-    steps.forEach(({ dur, pct, kind, ...opts }, i) => {
+    steps.forEach(({ dur, pct, kind, most, ...opts }, i) => {
       add(dur, pct, kind, { ...opts, block: title, ...(i === 0 ? { blockStart: true, ...(rounds ? { rounds } : {}) } : {}) });
     });
   }

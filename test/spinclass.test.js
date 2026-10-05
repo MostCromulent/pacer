@@ -309,10 +309,11 @@ test('no single step outstays its welcome, however long the class', () => {
       const w = generateWorkout(type, 90, variant);
       for (const seg of main(w)) {
         if (seg.position === 'standing') assert.ok(seg.dur <= 180, `${w.code}: ${seg.dur}s standing in ${seg.block}`);
-        if (seg.kind === 'recovery') assert.ok(seg.dur <= 300, `${w.code}: ${seg.dur}s recovery`);
+        if (seg.kind === 'recovery') assert.ok(seg.dur <= 150, `${w.code}: ${seg.dur}s recovery`);
+        if (seg.block === 'Time trial') assert.ok(seg.dur <= 420, `${w.code}: ${seg.dur}s time trial`);
       }
       const opener = blocksOf(w)[0];
-      assert.ok(opener.steps[0].dur <= 240, `${w.code}: opens with ${opener.steps[0].dur}s of flat road`);
+      assert.ok(opener.steps[0].dur <= 180, `${w.code}: opens with ${opener.steps[0].dur}s of flat road`);
     }
   }
 });
@@ -387,7 +388,8 @@ test('a block is read for what it trains', () => {
   assert.equal(kind('sprints'), 'sprint');
   assert.equal(kind('lastPush'), 'sprint');
   for (const id of ['standing', 'jumps', 'ladder', 'switchbacks']) assert.equal(kind(id), 'standing', id);
-  for (const id of ['cadencePush', 'spinups', 'tabata']) assert.equal(kind(id), 'speed', id);
+  assert.equal(kind('tabata'), 'sprint'); // 20 seconds very hard, over and over
+  for (const id of ['cadencePush', 'spinups']) assert.equal(kind(id), 'speed', id);
   for (const id of ['seated', 'attacks']) assert.equal(kind(id), 'climb', id);
   for (const id of ['resistancePush', 'creep', 'timeTrial']) assert.equal(kind(id), 'tempo', id);
   // Seated and eased, a ladder is no longer standing work and a sprint no longer a sprint.
@@ -418,17 +420,18 @@ test('a rest is sized by how tired the rider is, and never skipped after rounds 
   assert.ok(restFor(climb, fatigueAfter(4000, climb.steps)) > fresh(climb));
 });
 
-test('blocks are laid out in waves that build, with a second peak in a long class', () => {
+test('blocks are laid out in waves that build', () => {
   const order = (hs) => inWaves(hs.map((h) => ({ h })), (b) => b.h).map((b) => b.h);
   // Six blocks: two waves, each climbing, the second from higher up, ending on the hardest.
   assert.deepEqual(order([5, 1, 3, 6, 2, 4]), [1, 3, 5, 2, 4, 6]);
-  // Eight: three waves. The middle one ends on the hardest block of all, and the last builds again.
+  // Eight: three waves, each starting higher than the one before, and the last (a short one) ending on the hardest.
   const long = order([5, 1, 8, 3, 7, 2, 6, 4]);
   assert.deepEqual([...long].sort(), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.equal(long[0], 1);
-  assert.equal(long[5], 8);
-  assert.equal(long.at(-1), 7);
-  assert.ok(long[6] < long[5] && long[6] < long[7]);
+  assert.equal(long.at(-1), 8);
+  const starts = long.filter((h, i) => !i || h < long[i - 1]);
+  assert.equal(starts.length, 3);
+  assert.ok(starts[0] < starts[1] && starts[1] < starts[2], String(long));
   assert.deepEqual(order([2, 1]), [1, 2]);
 });
 
@@ -453,6 +456,12 @@ test('left-over time lengthens steady steps a little and leaves the rest alone',
   const lots = fresh();
   assert.equal(spreadLeftover(lots, 600), 540);
   assert.deepEqual(lengths(lots), [[225], [45, 30], [150, 75]]);
+  // Nor past the most it should last.
+  const capped = fresh();
+  capped[0].steps[0].most = 195;
+  capped[2].steps[1].most = 60;
+  assert.equal(spreadLeftover(capped, 600), 585);
+  assert.deepEqual(lengths(capped), [[195], [45, 30], [150, 60]]);
 });
 
 test('classes mix their kinds of work', () => {
@@ -464,6 +473,17 @@ test('classes mix their kinds of work', () => {
     assert.ok(new Set(kinds).size >= 3, `${variant}: only ${[...new Set(kinds)]}`);
   }
   assert.ok(back / pairs < 0.15, `${back} of ${pairs} blocks train the same thing as the one before`);
+});
+
+test('a Tabata counts as flat out, so it is kept apart from sprints', () => {
+  for (const minutes of [45, 60]) {
+    for (let variant = 0; variant < 60; variant++) {
+      const w = generateWorkout('spinclass', minutes, variant);
+      const names = blocksOf(w).map((b) => b.name).filter((n) => !['Recovery', 'Flat road'].includes(n));
+      const flatOut = (n) => ['Sprints', 'Tabata', 'Last push'].includes(n);
+      for (let i = 1; i < names.length - 1; i++) assert.ok(!(flatOut(names[i]) && flatOut(names[i - 1])), `${w.code}: ${names[i - 1]} then ${names[i]}`);
+    }
+  }
 });
 
 test('a short class opens briefly, and a long one takes longer over it', () => {
