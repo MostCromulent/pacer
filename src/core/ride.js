@@ -11,10 +11,12 @@ const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
 export const SHORT_STEP_S = 25;
 export const EASY_PACE_PCT = 70; // comfortable flat-road riding, as a % of baseline: what the rider's "easy pace" stands for
-// Targets are given in round numbers, the way an instructor calls them: a
-// cadence range like 80-90 and a resistance block like 40-45.
+// Targets are given as bands of ten in round numbers, the way an instructor
+// calls them: a cadence of 80-90 and a resistance of 35-45. Each is the exact
+// target rounded to the nearest five, and five either side.
 const ROUND_TO = 5;
 const CADENCE_TOLERANCE = 5;
+const RESISTANCE_TOLERANCE = 5;
 // Nothing is ridden lighter than a recovery at an easy cadence. A step easier
 // than that slows the legs instead of taking more off the dial, down to SLOWEST_EASY.
 const LIGHTEST = { pct: 55, cadence: 80 };
@@ -31,12 +33,13 @@ export const EFFORT_STEP = 0.1; // about one resistance block
  * from the lower cadence.
  */
 /**
- * The block of five resistance levels that holds `resistance`: [40, 45] for 43.
- * `cap` is the highest level allowed (100, or lower for a gentle ride).
+ * The band of ten resistance levels around `resistance`: [40, 50] for 43.
+ * `cap` is the highest level allowed (100, or lower for a gentle ride); the
+ * band stops there, and never starts below 1.
  */
 export function resistanceBlock(resistance, cap = 100) {
-  const lo = Math.min(Math.floor(resistance / ROUND_TO) * ROUND_TO, cap - ROUND_TO);
-  return [Math.max(1, lo), lo + ROUND_TO];
+  const hi = Math.min(cap, roundTo(resistance, ROUND_TO) + RESISTANCE_TOLERANCE);
+  return [Math.max(1, hi - 2 * RESISTANCE_TOLERANCE), Math.max(hi, 2 * RESISTANCE_TOLERANCE)];
 }
 
 export function stepTargets(seg, segments, baselineW, model) {
@@ -291,7 +294,7 @@ export class RideSession {
   /**
    * Whether two steps look the same to this rider: the same position, and the
    * same targets on screen. Steps a few points of effort apart often are,
-   * since resistance is shown in blocks of five; which ones depends on the
+   * since targets are rounded to the nearest five; which ones depends on the
    * bike, the rider's easy pace and the effort setting.
    */
   looksSame(a, b) {

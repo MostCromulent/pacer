@@ -97,9 +97,9 @@ test('resistance and cadence are each judged against their own range', () => {
   assert.equal(snap.resistance, 38);
   assert.equal(snap.resistanceStatus, 'low');
   assert.equal(snap.cadenceStatus, 'on');
-  // The target is shown as the block of five levels it falls in.
+  // The target is shown as a band of ten levels around it.
   const [lo, hi] = snap.resistanceRange;
-  assert.ok(lo % 5 === 0 && hi - lo === 5 && lo <= snap.targetResistance && snap.targetResistance <= hi);
+  assert.ok(lo % 5 === 0 && hi - lo === 10 && lo <= snap.targetResistance && snap.targetResistance <= hi);
   assert.deepEqual(snap.cadenceRange, [75, 85]);
 
   const tk = snap.targetResistance;
@@ -389,12 +389,13 @@ test('the backup carries the calibration with the rides and settings', async () 
   assert.deepEqual(b.loadCalibration().bins, a.loadCalibration().bins);
 });
 
-test('targets come in round numbers: cadence to the nearest 5, resistance in blocks of 5', () => {
-  assert.deepEqual(resistanceBlock(43.2), [40, 45]);
-  assert.deepEqual(resistanceBlock(45), [45, 50]);
-  assert.deepEqual(resistanceBlock(3), [1, 5]);
-  assert.deepEqual(resistanceBlock(100), [95, 100]);
-  assert.deepEqual(resistanceBlock(50, 50), [45, 50]); // never above a cap
+test('targets come as bands of ten in round numbers, for cadence and resistance alike', () => {
+  assert.deepEqual(resistanceBlock(43.2), [40, 50]);
+  assert.deepEqual(resistanceBlock(41), [35, 45]);
+  assert.deepEqual(resistanceBlock(45), [40, 50]);
+  assert.deepEqual(resistanceBlock(3), [1, 10]);
+  assert.deepEqual(resistanceBlock(100), [90, 100]);
+  assert.deepEqual(resistanceBlock(50, 50), [40, 50]); // never above a cap
 
   for (const type of ['hills', 'mountain', 'spinclass', 'fartlek']) {
     const w = generateWorkout(type, 45, 0);
