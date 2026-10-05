@@ -388,7 +388,11 @@ main { padding: 0 32px 40px; }
 @keyframes effort-flash { from { transform: scale(1.25); } to { transform: scale(1); } }
 /* After the finish, the route strip gives way to the way out. */
 .done-box { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 800; color: var(--muted); }
-.done-box .btn-start { flex: 1; min-height: 52px; font-size: 20px; }
+.done-box .btn-start { flex: 1; min-height: 52px; font-size: 20px; position: relative; overflow: hidden; }
+/* Once the pedals stop, the button darkens from the left as the ride runs out of time. */
+.done-box .btn-start i { position: absolute; inset: 0 auto 0 0; width: 0; background: rgba(59, 51, 69, 0.28); transition: width 0.25s linear; }
+.done-box .btn-start span { position: relative; }
+.done-box > span { min-width: 9.5em; }
 .route { padding: 8px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
 .route-head { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 800; color: var(--muted); }
 #route-dist { color: var(--ink); font-size: 14px; }

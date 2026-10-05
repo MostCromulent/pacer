@@ -25,6 +25,7 @@ const BACK_IN_SADDLE_MS = 4000;
 const AUTO_PAUSE_MS = 5000; // the ride pauses after this long without pedalling
 const RESUME_SAVE_MS = 5000; // how often the ride in progress is saved
 const IDLE_END_MS = 30000; // after the finish, this long without pedalling ends the ride
+const IDLE_SHOWN_MS = 1500; // a pause in the readings this short isn't the rider stopping
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 let lastPedalAt = 0;
@@ -73,8 +74,10 @@ export function advance() {
     const s = state.session;
     if (s?.done && s.extra) {
       // Carrying on after the finish: it ends when the pedals stop, or on End ride.
-      if (performance.now() - lastPedalAt > IDLE_END_MS) finishRide(true);
-      else if (!state.paused) s.updateExtra(Math.min((now - prev) / 1000, 10 * TIME_SCALE));
+      // Time only counts while the pedals are turning.
+      const idle = performance.now() - lastPedalAt;
+      if (idle > IDLE_END_MS) finishRide(true);
+      else if (!state.paused && idle < IDLE_SHOWN_MS) s.updateExtra(Math.min((now - prev) / 1000, 10 * TIME_SCALE));
       return;
     }
     if (s && !s.done) autoPause();
@@ -210,6 +213,13 @@ function renderRide() {
   // The route is over once the ride is: End ride takes its place.
   $('route-card').hidden = !!snap.extra;
   $('done-box').hidden = !snap.extra;
+  if (snap.extra) {
+    // With the pedals stopped, End ride fills up as the time before it ends by itself runs out.
+    const idle = performance.now() - lastPedalAt;
+    const stopped = idle > IDLE_SHOWN_MS;
+    $('done-fill').style.width = stopped ? `${Math.min(100, ((idle - IDLE_SHOWN_MS) / (IDLE_END_MS - IDLE_SHOWN_MS)) * 100).toFixed(1)}%` : '0';
+    $('done-hint').textContent = stopped ? `ending in ${Math.max(1, Math.ceil((IDLE_END_MS - idle) / 1000))}` : 'or just stop pedalling';
+  }
   updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
   $('route-dist').textContent = fmtKm(snap.dist);
   if (state.bikeKind === 'sim') {
