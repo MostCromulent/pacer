@@ -168,11 +168,12 @@ function buildWorkout(type, minutes, variant, exclude) {
   };
   const rand = seeded(`${type}-${minutes}-${variant}${exclude.length ? `-${excludeMask(exclude)}` : ''}`);
 
-  // The warm-up is about a tenth of the ride, two to five minutes. A gentle
-  // ride starts gently anyway, so it needs less: one to three.
+  // The warm-up and the cool-down are each about a tenth of the ride, two to
+  // five minutes. A gentle ride starts and ends gently anyway, so it needs
+  // less: one to three.
   const gentle = type === 'recovery' || type === 'lowimpact' || type === 'spinlow';
   const warm = gentle ? clamp(Math.round(minutes * 0.06), 1, 3) : clamp(Math.round(minutes * 0.1), 2, 5);
-  const cool = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
+  const cool = warm;
   const main = (minutes - warm - cool) * 60;
 
   const warmTop = gentle ? 58 : 72;

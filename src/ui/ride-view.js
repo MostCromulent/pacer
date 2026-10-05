@@ -102,15 +102,16 @@ export function startLoop() {
 // Backup tick for when no window is visible to drive animation frames.
 setInterval(advance, 1000);
 
+// Sounds follow the countdown and nothing else: a heads-up before a step
+// ends, a chime as the next begins, and one for the finish. Gates and
+// overtakes are shown on screen but make no sound, so every chime matches
+// something the rider can see happening to the timer.
 function onRideEvent(ev) {
-  if (ev === 'gateEnd') {
-    const r = state.session.gateResults.at(-1);
-    chimes.play(r?.won ? 'gateWon' : 'gateLost');
-  } else if (ev === 'done') {
+  if (ev === 'done') {
     chimes.play('done');
     voice.say('Ride complete.');
     setTimeout(() => finishRide(true), 400);
-  } else {
+  } else if (ev === 'stepSoon' || ev === 'stepChange') {
     chimes.play(ev);
     if (ev === 'stepChange') {
       const snap = state.session.snapshot();

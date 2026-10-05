@@ -168,7 +168,7 @@ test('warm-up and cool-down are capped at five minutes', () => {
     const w = generateWorkout('endurance', minutes, 0);
     const count = (kind) => w.segments.filter((s) => s.kind === kind).reduce((a, s) => a + s.dur, 0) / 60;
     assert.ok(count('warmup') >= 2 && count('warmup') <= 5, `warm-up at ${minutes}`);
-    assert.ok(count('cooldown') >= 3 && count('cooldown') <= 5, `cool-down at ${minutes}`);
+    assert.ok(count('cooldown') >= 2 && count('cooldown') <= 5, `cool-down at ${minutes}`);
   }
 });
 
@@ -244,6 +244,11 @@ test('a short ride has a short warm-up, and a gentle ride a shorter one still', 
   assert.equal(warmUp('spinclass', 18), 2);
   assert.equal(warmUp('intervals', 30), 3);
   assert.equal(warmUp('hills', 60), 5);
+  // The cool-down is the same length.
+  const coolDown = (type, minutes) => generateWorkout(type, minutes, 0).segments.filter((s) => s.kind === 'cooldown').reduce((a, s) => a + s.dur, 0) / 60;
+  assert.equal(coolDown('spinlow', 15), 1);
+  assert.equal(coolDown('spinlow', 45), 3);
+  assert.equal(coolDown('spinclass', 30), 3);
 });
 
 test('random spin classes differ, but always warm up, cool down and add up', () => {
