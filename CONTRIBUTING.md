@@ -28,7 +28,7 @@ Two address-bar switches help when working without a bike:
 src/core/      logic with no page code, covered by unit tests
   workout.js     the kinds of ride, workout codes, and the shell every ride shares
   rides.js       the main set of each ride (hills, intervals, ...)
-  spinclass.js   the spin class generator: blocks, arc, finale
+  spinclass.js   the spin class generator: block formats, measuring them, planning a class
   ride.js        the ride engine: targets, distance, gates, events, summary
   cues.js        wording for a step: the voice cue and the badge
   review.js      a finished ride looked back on: misses, and how each block went

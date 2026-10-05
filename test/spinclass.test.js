@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateWorkout, parseWorkoutCode, SPIN_BLOCKS } from '../src/core/workout.js';
-import { excludeMask, excludeFromMask } from '../src/core/spinclass.js';
+import { excludeMask, excludeFromMask, makeBlock, measureSteps, restAfter, inWaves, spreadLeftover } from '../src/core/spinclass.js';
 import { stepTargets } from '../src/core/ride.js';
 import { spokenCue, repeatsInBlock } from '../src/core/cues.js';
 import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
@@ -347,4 +347,75 @@ test('gentle climbs keep turning, so a push is still a push under the resistance
     const [climb, push] = heavy.steps.map((s) => stepTargets(s, w.segments, easyPace, DEFAULT_MODEL));
     assert.ok(push.resistance >= climb.resistance + 3, `${w.code}: climb ${climb.resistance}, push ${push.resistance}`);
   }
+});
+
+// The parts of the planner, each on its own. A step is [seconds, pct, kind, opts].
+
+test('a block is the same for the same seed, and joins on to the resistance before it', () => {
+  const at = { budget: 2400 };
+  assert.deepEqual(makeBlock('heavyPush', 7, at), makeBlock('heavyPush', 7, at));
+  assert.notDeepEqual(makeBlock('heavyPush', 7, at).steps, makeBlock('heavyPush', 8, at).steps);
+  // Joined to a lighter or a heavier block, only the efforts move: the shape stays.
+  const light = makeBlock('resistancePush', 7, { ...at, load: 60 }), heavy = makeBlock('resistancePush', 7, { ...at, load: 90 });
+  assert.deepEqual(light.steps.map((s) => s[0]), heavy.steps.map((s) => s[0]));
+  assert.ok(light.steps[0][1] < heavy.steps[0][1]);
+  // A longer class has longer steps and more rounds; a gentle block is seated.
+  assert.ok(makeBlock('timeTrial', 3, { budget: 3600 }).steps[0][0] > makeBlock('timeTrial', 3, { budget: 900 }).steps[0][0]);
+  assert.ok(makeBlock('jumps', 3, { budget: 3600 }).rounds >= makeBlock('jumps', 3, { budget: 900 }).rounds);
+  const gentle = makeBlock('ladder', 3, { budget: 2400, low: true });
+  assert.equal(gentle.title, 'Seated ladder');
+  assert.ok(gentle.steps.every((s) => !s[3].stand && s[3].cadence >= 75 && s[3].resistanceCap === 50));
+});
+
+test('steps are measured for length, hard and standing time, and how hard they are', () => {
+  const steps = [[60, 100, 'work', { stand: true }], [20, 150, 'sprint', {}], [120, 55, 'recovery', {}]];
+  const m = measureSteps(steps);
+  assert.equal(m.len, 200);
+  assert.equal(m.stand, 60);
+  assert.equal(m.allOut, 20);
+  assert.equal(m.hard, 80);
+  assert.equal(m.mean, (60 * 100 + 20 * 150 + 120 * 55) / 200);
+  assert.ok(m.hardness > m.mean && m.hardness < 150);
+  // The same work with less rest is harder.
+  assert.ok(measureSteps(steps.slice(0, 2)).hardness > m.hardness);
+});
+
+test('a rest is earned by the work in a block, and never skipped after rounds or a hard finish', () => {
+  const block = (steps, rounds) => ({ steps, rounds });
+  assert.equal(restAfter(block([[180, 70, 'steady', {}]])), 0);
+  assert.ok(restAfter(block([[300, 95, 'work', {}]])) > restAfter(block([[120, 85, 'work', {}]])));
+  assert.equal(restAfter(block([[20, 80, 'work', {}], [20, 96, 'work', {}]])), 75); // short, but ends hard
+  assert.equal(restAfter(block([[30, 74, 'steady', {}], [30, 80, 'work', {}]], 3)), 75); // rounds
+  assert.equal(restAfter(block([[30, 150, 'sprint', {}], [75, 55, 'recovery', {}]], 3)), 0); // already rests itself
+  assert.ok(restAfter(block([[600, 120, 'work', {}]])) <= 150);
+});
+
+test('blocks are laid out in waves that build', () => {
+  const blocks = [5, 1, 8, 3, 7, 2, 6, 4].map((h) => ({ h }));
+  const order = inWaves(blocks, (b) => b.h).map((b) => b.h);
+  assert.deepEqual([...order].sort(), [1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(order[0], 1);
+  assert.equal(order.at(-1), 8);
+  const drops = order.filter((h, i) => i && h < order[i - 1]).length;
+  assert.ok(drops >= 1 && drops <= 3, `${order}`);
+  // Each wave starts higher than the one before.
+  const starts = order.filter((h, i) => !i || h < order[i - 1]);
+  for (let i = 1; i < starts.length; i++) assert.ok(starts[i] > starts[i - 1], `${order}`);
+  assert.deepEqual(inWaves([{ h: 2 }, { h: 1 }], (b) => b.h).map((b) => b.h), [1, 2]);
+});
+
+test('left-over time lengthens steady steps a little and leaves the rest alone', () => {
+  const fresh = () => [
+    { steps: [[180, 75, 'steady', {}]] },
+    { steps: [[45, 72, 'steady', {}], [30, 95, 'work', {}]], fixed: true }, // rounds stay even
+    { steps: [[150, 95, 'work', { stand: true }], [60, 55, 'recovery', {}]] }, // no longer out of the saddle
+  ];
+  const lengths = (items) => items.map((it) => it.steps.map((s) => s[0]));
+  const some = fresh();
+  assert.equal(spreadLeftover(some, 50), 5); // whole quarter-minutes only
+  assert.deepEqual(lengths(some), [[210], [45, 30], [150, 75]]);
+  // No step grows by more than a quarter, so a lot of time can't all be placed.
+  const lots = fresh();
+  assert.equal(spreadLeftover(lots, 600), 540);
+  assert.deepEqual(lengths(lots), [[225], [45, 30], [150, 75]]);
 });
