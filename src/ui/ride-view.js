@@ -5,6 +5,7 @@ import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S } from '../core/ride.
 import { formatRange, spokenCue, repeatsInBlock, stepAction } from '../core/cues.js';
 import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, applySound, state, chimes, voice } from './store.js';
 import { $, setPipDoc, toast, showScreen } from './dom.js';
+import { Voice } from './audio.js';
 import { fmtClock, fmtKm, fmtGap } from './format.js';
 import { Scene } from './scene.js';
 import { routeSvg, updateRoute } from './charts.js';
@@ -389,13 +390,37 @@ function togglePause() {
 
 $('btn-pause').addEventListener('click', togglePause);
 
-function setSound({ muted = settings.muted, voice: spoken = settings.voice }) {
-  saveSettings({ muted, voice: spoken });
+function setSound({ muted = settings.muted, voice: spoken = settings.voice, volume = settings.volume }) {
+  saveSettings({ muted, voice: spoken, volume });
   applySound();
   updateMute();
 }
 
-$('btn-mute').addEventListener('click', () => setSound({ muted: !settings.muted }));
+// The speaker button opens a small pop-up: a volume slider and whether steps are read out.
+function showSoundPop(open) {
+  $('sound-pop').hidden = !open;
+  $('btn-mute').setAttribute('aria-expanded', String(open));
+  if (open) updateMute();
+}
+$('btn-mute').addEventListener('click', () => showSoundPop($('sound-pop').hidden));
+// A click anywhere else in the ride window puts it away. (The panel keeps its
+// listeners when it moves into the mini window; the page itself would not.)
+$('ride-panel').addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#sound-pop, #btn-mute')) showSoundPop(false);
+});
+$('volume').addEventListener('input', (e) => {
+  const volume = Number(e.target.value) / 100;
+  setSound({ volume: volume || settings.volume, muted: volume === 0 });
+});
+// Let go of the slider to hear the new level.
+$('volume').addEventListener('change', () => {
+  chimes.unlock();
+  chimes.play('stepChange');
+});
+$('voice-on').addEventListener('change', (e) => {
+  setSound({ voice: e.target.checked, muted: e.target.checked ? false : settings.muted });
+  if (e.target.checked) voice.say('Voice callouts on.');
+});
 
 $('sounds').addEventListener('click', (e) => {
   const b = e.target.closest('[data-sound]');
@@ -409,9 +434,11 @@ $('sounds').addEventListener('click', (e) => {
 });
 
 export function updateMute() {
-  $('btn-mute').setAttribute('aria-pressed', String(chimes.muted));
-  $('btn-mute').setAttribute('aria-label', chimes.muted ? 'Unmute sound' : 'Mute sound');
+  $('btn-mute').setAttribute('aria-label', chimes.muted ? 'Sound, off' : 'Sound');
   $('mute-wave').style.display = chimes.muted ? 'none' : '';
+  $('volume').value = String(chimes.muted ? 0 : Math.round(settings.volume * 100));
+  $('voice-on').checked = settings.voice && !settings.muted;
+  $('voice-row').hidden = !Voice.supported();
 }
 
 $('btn-end').addEventListener('click', () => {

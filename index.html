@@ -198,7 +198,11 @@
             <span class="total" aria-label="Ride time left"><span id="time-left" class="total-num">30:00</span><span class="total-lbl">left</span></span>
             <span class="total-bar" aria-hidden="true"><i id="total-bar"></i></span>
             <span class="panel-buttons">
-              <button id="btn-mute" class="icon-btn" type="button" aria-label="Mute chimes" aria-pressed="false">
+              <div id="sound-pop" class="sound-pop" hidden>
+                <label class="sound-row"><span>Volume</span><input id="volume" type="range" min="0" max="100" step="5" value="100"></label>
+                <label id="voice-row" class="sound-row check"><input id="voice-on" type="checkbox"><span>Voice callouts</span></label>
+              </div>
+              <button id="btn-mute" class="icon-btn" type="button" aria-label="Sound" aria-haspopup="true" aria-expanded="false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path id="mute-wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
               </button>
               <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause">

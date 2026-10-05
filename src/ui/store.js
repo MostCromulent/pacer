@@ -40,6 +40,7 @@ export const voice = new Voice();
 /** Chimes and voice follow the settings; mute silences both. */
 export function applySound() {
   chimes.muted = settings.muted;
+  chimes.volume = voice.volume = settings.volume;
   voice.enabled = settings.voice && !settings.muted;
   if (!voice.enabled) voice.stop();
 }

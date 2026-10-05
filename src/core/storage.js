@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   effort: 1,
   easyCadence: 80,
   muted: false,
+  volume: 1, // 0 to 1, for chimes and the voice
   voice: false,
   spinExclude: [],
   lastDuration: 30,

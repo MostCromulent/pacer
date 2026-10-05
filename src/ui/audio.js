@@ -10,6 +10,7 @@ export class Chimes {
   constructor() {
     this.ctx = null;
     this.muted = false;
+    this.volume = 1; // 0 to 1
   }
 
   /** Must be called from a click or key press, before the first sound. */
@@ -23,7 +24,7 @@ export class Chimes {
   }
 
   play(name) {
-    if (this.muted || !this.ctx || !PATTERNS[name]) return;
+    if (this.muted || !this.volume || !this.ctx || !PATTERNS[name]) return;
     const now = this.ctx.currentTime;
     for (const [freq, at] of PATTERNS[name]) {
       const osc = this.ctx.createOscillator();
@@ -31,7 +32,7 @@ export class Chimes {
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, now + at);
-      gain.gain.linearRampToValueAtTime(0.14, now + at + 0.02);
+      gain.gain.linearRampToValueAtTime(0.14 * this.volume, now + at + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.35);
       osc.connect(gain).connect(this.ctx.destination);
       osc.start(now + at);
@@ -48,6 +49,7 @@ export class Voice {
 
   constructor() {
     this.enabled = false;
+    this.volume = 1; // 0 to 1
   }
 
   say(text) {
@@ -55,6 +57,7 @@ export class Voice {
     speechSynthesis.cancel(); // a new step replaces anything still being said
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
+    u.volume = this.volume;
     speechSynthesis.speak(u);
   }
 
