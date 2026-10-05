@@ -219,17 +219,11 @@
             <div id="overlay" class="scene-overlay" hidden><span id="overlay-text">Paused</span></div>
           </div>
 
-          <div class="card route">
-            <div class="route-head"><span id="route-label">Route</span><span id="route-dist">0.0 km</span></div>
-            <div id="route-svg"></div>
-          </div>
-
           <div id="countdown" class="card stage">
             <div id="block-label" class="block-label" hidden></div>
             <div class="cd-head">
               <span id="zone-chip" class="zone-chip">Z1</span>
               <span id="step-label" class="step-label">Warm-up</span>
-              <span id="next-label" class="next-label"></span>
             </div>
             <div class="cd-row">
               <span id="step-time" class="cd-num">0:00</span>
@@ -261,6 +255,11 @@
                 <button id="ride-effort-up" class="icon-btn" type="button" aria-label="Harder" title="Harder (+)">+</button>
               </span>
             </div>
+          </div>
+
+          <div class="card route">
+            <div class="route-head"><span id="next-label" class="next-label"></span><span id="route-dist">0.0 km</span></div>
+            <div id="route-svg"></div>
           </div>
         </section>
       </div>

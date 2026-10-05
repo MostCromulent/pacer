@@ -142,7 +142,6 @@ export function startRide(workout, resume = null) {
   // cruise at the starting effort, so raising the effort makes the hills grow.
   state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).resistance;
   applyTerrain();
-  $('route-label').textContent = `Route · ${workout.name} ${workout.minutes} min`;
   $('pip-card').hidden = !pipSupported();
   $('btn-pip').hidden = !pipSupported();
   fitPage();

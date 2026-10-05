@@ -62,8 +62,11 @@ export function makeBuilders(add, v, rand, exclude = []) {
       const ps = [[52, 55], [50, 54], [53, 55]][v];
       let left = budget;
       let i = 0;
-      while (left >= blk) { add(blk, ps[i % 2], 'steady', { cadence: 75, name: 'Easy spin' }); left -= blk; i++; }
-      add(left, ps[0], 'steady', { cadence: 75, name: 'Easy spin' });
+      // The spells differ in cadence, a little faster then a little slower: the
+      // effort barely moves, so a change of effort alone would not show.
+      const spin = () => ({ cadence: [80, 70][i % 2], name: 'Easy spin' });
+      while (left >= blk) { add(blk, ps[i % 2], 'steady', spin()); left -= blk; i++; }
+      add(left, ps[i % 2], 'steady', spin());
     },
 
     // Seated throughout at a moderate effort: flat road broken by gentle rises,

@@ -260,3 +260,28 @@ test('random spin classes differ, but always warm up, cool down and add up', () 
   }
   assert.ok(shapes.size >= 38, `only ${shapes.size} distinct classes`);
 });
+
+test('two steps in a row that look the same are one step', () => {
+  for (const t of TYPES) {
+    for (const minutes of [18, 30, 45, 60]) {
+      for (const variant of [0, 1, 2, 77]) {
+        const w = generateWorkout(t.id, minutes, variant);
+        assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), minutes * 60, w.code);
+        for (let i = 1; i < w.segments.length; i++) {
+          const [a, b] = [w.segments[i - 1], w.segments[i]];
+          if (a.hold || b.hold || a.creep || b.creep || b.rounds || a.kind === 'warmup' || a.kind === 'cooldown') continue;
+          const same = a.kind === b.kind && a.block === b.block && a.label === b.label && a.position === b.position
+            && Math.round(a.cadence / 5) === Math.round(b.cadence / 5) && Math.abs(a.pct - b.pct) <= 5;
+          assert.ok(!same, `${w.code}: ${a.label} (${a.dur}s, ${a.pct}%) then the same again (${b.dur}s, ${b.pct}%)`);
+        }
+      }
+    }
+  }
+});
+
+test('a recovery spin changes cadence between its spells', () => {
+  const spells = generateWorkout('recovery', 45, 0).segments.filter((s) => s.kind === 'steady');
+  assert.ok(spells.length >= 3);
+  for (let i = 1; i < spells.length; i++) assert.notEqual(spells[i].cadence, spells[i - 1].cadence);
+  assert.ok(spells.every((s) => s.cadence >= 70 && s.cadence <= 80 && s.pct <= 55));
+});

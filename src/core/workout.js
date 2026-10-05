@@ -13,7 +13,7 @@
 
 import { excludeMask, excludeFromMask } from './spinclass.js';
 import { makeBuilders } from './rides.js';
-import { clamp, heldEffort } from './util.js';
+import { clamp, heldEffort, roundTo } from './util.js';
 
 export { SPIN_BLOCKS } from './spinclass.js';
 
@@ -190,13 +190,24 @@ function buildWorkout(type, minutes, variant, exclude) {
 
   for (let i = 0; i < cool; i++) add(60, (gentle ? 58 : 65) - (i / cool) * 20, 'cooldown');
 
+  for (const s of segs) {
+    if (!s.cadence) s.cadence = targetCadenceFor(s);
+    s.position = s.stand ? 'standing' : 'seated';
+    delete s.stand;
+  }
+  // Two steps in a row that would look the same to the rider become one, so
+  // the countdown doesn't run out only to start again on the same targets.
+  for (let i = segs.length - 1; i > 0; i--) {
+    const [a, b] = [segs[i - 1], segs[i]];
+    if (!looksTheSame(a, b)) continue;
+    a.pct = Math.round((a.pct * a.dur + b.pct * b.dur) / (a.dur + b.dur));
+    a.dur += b.dur;
+    segs.splice(i, 1);
+  }
   let t = 0;
   for (const s of segs) {
     s.start = t;
     t += s.dur;
-    if (!s.cadence) s.cadence = targetCadenceFor(s);
-    s.position = s.stand ? 'standing' : 'seated';
-    delete s.stand;
   }
   // A step that holds the resistance of the one before it is ridden at the
   // effort the change of cadence makes it, whatever was written for it.
@@ -220,6 +231,19 @@ function buildWorkout(type, minutes, variant, exclude) {
   workout.gates = computeGates(workout);
   labelSteps(workout);
   return workout;
+}
+
+const SAME_PCT = 5; // efforts this close land in the same block of resistance, or the next one along
+
+/** Whether two steps would show the rider the same thing: the same name and position, cadence and (near enough) effort. */
+function looksTheSame(a, b) {
+  const shared = ['kind', 'name', 'label', 'block', 'position', 'resistanceCap'];
+  // Held steps, creeping climbs and rounds are meant to repeat; a warm-up or cool-down is a ramp.
+  const special = (s) => s.hold || s.creep || s.rounds || s.kind === 'warmup' || s.kind === 'cooldown';
+  return !special(a) && !special(b)
+    && shared.every((key) => a[key] === b[key])
+    && roundTo(a.cadence, 5) === roundTo(b.cadence, 5)
+    && Math.abs(a.pct - b.pct) <= SAME_PCT;
 }
 
 // Target cadence for each step, spin-class style: heavy climbs are ridden slower
