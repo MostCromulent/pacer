@@ -16,7 +16,10 @@ import { calib } from './calibration.js';
 
 export function finishRide(completed) {
   const s = state.session;
-  if (!s || state.screen !== 'ride') return;
+  if (!s) return;
+  // The ride is over from here, whatever screen is showing and whatever
+  // happens below: nothing more is timed, chimed or spoken.
+  state.session = null;
   if (state.pipWin && !state.pipWin.closed) state.pipWin.close();
   storage.clearResume();
   const sum = s.summary();
@@ -40,8 +43,12 @@ export function finishRide(completed) {
     saved = storage.saveRide(ride);
     if (!saved) toast('Storage is full, so this ride could not be saved. Export your rides to free space.', 7000);
   }
-  renderSummary({ sum, workout, prevBest, completed, saved, session: s });
-  state.session = null;
+  try {
+    renderSummary({ sum, workout, prevBest, completed, saved, session: s });
+  } catch (err) {
+    console.error(err);
+    toast('The ride is finished, but its summary could not be drawn.', 6000);
+  }
   showScreen('summary');
   letScreenSleep();
   if (!completed) voice.stop();

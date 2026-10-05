@@ -180,9 +180,12 @@ try {
   await check('ending a ride early', async () => {
     await press('#btn-start');
     await until('the ride to start', `window.pacer.state.screen === 'ride' && window.pacer.state.started`);
+    // Ending works from any screen: the ride can be left running in the mini window.
+    await click('#btn-stats');
     await click('#btn-end');
     await until('the summary', `window.pacer.state.screen === 'summary'`);
     expect((await text('#sum-eyebrow')) === 'Ride ended early', 'expected an early finish');
+    expect(await run(`window.pacer.state.session === null`), 'the ride was still running after it was ended');
     await click('#btn-new');
   });
 
