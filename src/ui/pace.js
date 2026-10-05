@@ -4,6 +4,7 @@ import { parseWorkoutCode, hasBlocks } from '../core/workout.js';
 import { resistanceFor, powerFor } from '../core/resistance.js';
 import { resistanceBlock } from '../core/ride.js';
 import { formatRange } from '../core/cues.js';
+import { DEFAULT_SETTINGS } from '../core/storage.js';
 import { storage, settings, saveSettings, reloadFromStorage, activeModel, state } from './store.js';
 import { $, toast } from './dom.js';
 import { renderSetup } from './setup.js';
@@ -35,7 +36,27 @@ export function easyResistance(baselineW = settings.baselineW) {
   return Math.round(resistanceFor(activeModel(), baselineW * EASY_PCT, settings.easyCadence));
 }
 
-const pace = { resistance: 25, cadence: 80 };
+/**
+ * Whether the rider has told Pacer their easy pace. Until they do, rides are
+ * sized from a guess, which on a calibrated bike can be a long way out.
+ */
+export function paceIsSet() {
+  return settings.paceSet || settings.baselineW !== DEFAULT_SETTINGS.baselineW;
+}
+
+/** Open the easy pace dialog if the bike is calibrated and the pace has never been set. */
+export function askForPace() {
+  if (activeModel().calibrated && !paceIsSet() && !$('pace-dialog').open) openPace();
+}
+
+const FIRST_PACE = { resistance: 25, cadence: 80 }; // where the dialog starts for someone who has never set one
+const pace = { ...FIRST_PACE };
+
+function openPace() {
+  Object.assign(pace, paceIsSet() ? { resistance: easyResistance(), cadence: settings.easyCadence } : FIRST_PACE);
+  renderPace();
+  $('pace-dialog').showModal();
+}
 
 function renderPace() {
   $('pace-r').textContent = String(pace.resistance);
@@ -50,12 +71,8 @@ function renderPace() {
     : "The bike isn't calibrated yet, so these resistances are rough.";
 }
 
-$('btn-pace').addEventListener('click', () => {
-  pace.resistance = easyResistance();
-  pace.cadence = settings.easyCadence;
-  renderPace();
-  $('pace-dialog').showModal();
-});
+$('btn-pace').addEventListener('click', openPace);
+$('btn-pace-banner').addEventListener('click', openPace);
 for (const [id, key, step, lo, hi] of [
   ['pace-r-down', 'resistance', -1, 1, 100], ['pace-r-up', 'resistance', 1, 1, 100],
   ['pace-c-down', 'cadence', -5, 50, 110], ['pace-c-up', 'cadence', 5, 50, 110],
@@ -67,7 +84,7 @@ for (const [id, key, step, lo, hi] of [
 }
 $('pace-cancel').addEventListener('click', () => $('pace-dialog').close());
 $('pace-save').addEventListener('click', () => {
-  saveSettings({ baselineW: baselineFor(pace.resistance, pace.cadence), easyCadence: pace.cadence });
+  saveSettings({ baselineW: baselineFor(pace.resistance, pace.cadence), easyCadence: pace.cadence, paceSet: true });
   $('pace-dialog').close();
   renderSetup();
 });
@@ -110,6 +127,7 @@ $('import-file').addEventListener('change', async (e) => {
     toast(`Imported ${n} ride${n === 1 ? '' : 's'}.`);
     renderSetup();
     renderStats();
+    askForPace(); // a backup can bring a calibration without an easy pace
   } catch (err) {
     toast(`Couldn't import that file: ${err.message}`);
   }

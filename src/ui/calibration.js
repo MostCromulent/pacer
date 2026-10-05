@@ -7,6 +7,7 @@ import { $, toast } from './dom.js';
 import { round1 } from './format.js';
 import { renderSetup } from './setup.js';
 import { isCalibratedBike } from './learning.js';
+import { askForPace } from './pace.js';
 import { setSimMode } from './ride-view.js';
 
 const STEPS = CALIBRATION_STEPS;
@@ -284,6 +285,7 @@ $('calib-next').addEventListener('click', async () => {
       }
       calib.close();
       renderSetup();
+      askForPace();
     } else {
       calib.samples = [];
       calib.beginLevel(0);

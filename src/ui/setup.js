@@ -13,7 +13,7 @@ import { Voice } from './audio.js';
 import { fmtKm, fmtDate, fmtClock } from './format.js';
 import { profileSvg, esc } from './charts.js';
 import { ZONE_COLORS } from './palette.js';
-import { easyResistance } from './pace.js';
+import { easyResistance, paceIsSet } from './pace.js';
 import { isCalibratedBike } from './learning.js';
 
 export function currentWorkout() {
@@ -197,7 +197,9 @@ export function renderSetup() {
       ? `The saved calibration is for ${calibration.bike}. Until ${name} is calibrated, its resistance targets will be off. It takes about two and a half minutes of pedalling.`
       : `${name} hasn't been calibrated, so the resistance targets are a rough guess and probably won't match its screen. It takes about two and a half minutes of pedalling.`;
   }
-  $('pace-chip').textContent = `${easyResistance()} resistance at ${settings.easyCadence} rpm`;
+  // Calibrated, but the easy pace has never been set: every target would be sized from a guess.
+  $('pace-banner').hidden = banner || !activeModel().calibrated || paceIsSet();
+  $('pace-chip').textContent = paceIsSet() ? `${easyResistance()} resistance at ${settings.easyCadence} rpm` : 'not set yet';
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
     b.classList.toggle('on', on);

@@ -14,6 +14,10 @@ export const SHORT_STEP_S = 25;
 // cadence range like 80-90 and a resistance block like 40-45.
 const ROUND_TO = 5;
 const CADENCE_TOLERANCE = 5;
+// Nothing is ridden lighter than a recovery at an easy cadence. A step easier
+// than that slows the legs instead of taking more off the dial, down to SLOWEST_EASY.
+const LIGHTEST = { pct: 55, cadence: 80 };
+const SLOWEST_EASY = 65;
 const CREEP_TOLERANCE = 1; // a creeping climb moves a level or two at a time, so it is exact
 export const EFFORT_MIN = 0.5;
 export const EFFORT_MAX = 1.5;
@@ -35,10 +39,16 @@ export function resistanceBlock(resistance, cap = 100) {
 }
 
 export function stepTargets(seg, segments, baselineW, model) {
-  const cadence = roundTo(seg.cadence ?? 85, ROUND_TO);
+  let cadence = roundTo(seg.cadence ?? 85, ROUND_TO);
   let watts = targetWatts(seg, baselineW);
   // The exact resistance the model works out; the rider is shown the block it falls in.
   let exact = resistanceFor(model, watts, cadence);
+  // Too light to be worth dialling: the same effort at a slower cadence.
+  const lightest = resistanceFor(model, (LIGHTEST.pct / 100) * baselineW, LIGHTEST.cadence);
+  while (!seg.hold && seg.kind !== 'sprint' && exact < lightest && cadence > SLOWEST_EASY) {
+    cadence -= ROUND_TO;
+    exact = resistanceFor(model, watts, cadence);
+  }
   if (seg.hold) {
     // Back to the step that set the resistance, through any others that held it.
     let i = segments.indexOf(seg) - 1;

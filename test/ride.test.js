@@ -412,3 +412,23 @@ test('the voice calls the resistance block', () => {
   const tg = { resistance: 43, resistanceRange: [40, 45], cadence: 70, watts: 260 };
   assert.equal(spokenCue(seg, tg), 'Hill. Resistance 40 to 45, cadence 70.');
 });
+
+test('nothing is ridden lighter than a recovery: an easier step slows the legs instead', () => {
+  const baselineW = powerFor(DEFAULT_MODEL, 35, 80) / 0.7; // an easy pace of resistance 35 at 80 rpm
+  const lightest = stepTargets({ kind: 'recovery', dur: 60, pct: 55, cadence: 80 }, [], baselineW, DEFAULT_MODEL).resistance;
+  for (const type of ['spinlow', 'recovery', 'hills', 'spinclass', 'hiit']) {
+    const w = generateWorkout(type, 30, 0);
+    for (const seg of w.segments) {
+      const t = stepTargets(seg, w.segments, baselineW, DEFAULT_MODEL);
+      if (seg.hold || t.cadence <= 65) continue; // a held step keeps its resistance; 65 rpm is as slow as easy riding goes
+      assert.ok(t.resistance >= lightest - 1, `${w.code} ${seg.label}: resistance ${t.resistance} at ${t.cadence} rpm`);
+    }
+  }
+  // A fast, easy descent becomes the same effort at a slower cadence, not a heavier one.
+  const descent = { kind: 'recovery', dur: 90, pct: 52, cadence: 95 };
+  const t = stepTargets(descent, [descent], baselineW, DEFAULT_MODEL);
+  assert.ok(t.cadence < 95 && t.cadence >= 65);
+  assert.ok(Math.abs(t.watts - 0.52 * baselineW) <= 2);
+  // Steps that are already heavy enough are left alone.
+  assert.equal(stepTargets({ kind: 'work', dur: 60, pct: 90, cadence: 70 }, [], baselineW, DEFAULT_MODEL).cadence, 70);
+});

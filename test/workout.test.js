@@ -92,7 +92,7 @@ test('segmentIndexAt finds the active step', () => {
 test('zones and stats', () => {
   assert.deepEqual([50, 70, 85, 100, 120].map(zoneOf), [1, 2, 3, 4, 5]);
   const s = workoutStats(generateWorkout('intervals', 30, 0), 200);
-  assert.equal(s.hardMinutes, 12);
+  assert.equal(s.hardMinutes, 14);
   assert.ok(s.avgTargetW > 100 && s.avgTargetW < 200);
   assert.ok(s.score >= 1 && s.score <= 10);
 });
@@ -167,7 +167,7 @@ test('warm-up and cool-down are capped at five minutes', () => {
   for (const minutes of [22, 45, 90, 120]) {
     const w = generateWorkout('endurance', minutes, 0);
     const count = (kind) => w.segments.filter((s) => s.kind === kind).reduce((a, s) => a + s.dur, 0) / 60;
-    assert.ok(count('warmup') >= 3 && count('warmup') <= 5, `warm-up at ${minutes}`);
+    assert.ok(count('warmup') >= 2 && count('warmup') <= 5, `warm-up at ${minutes}`);
     assert.ok(count('cooldown') >= 3 && count('cooldown') <= 5, `cool-down at ${minutes}`);
   }
 });
@@ -233,6 +233,17 @@ test('random versions have their own codes, and the same code is the same ride',
   assert.deepEqual(parseWorkoutCode(w.code), { type: 'spinclass', minutes: 45, variant });
   assert.deepEqual(generateWorkout('spinclass', 45, variant).segments, w.segments);
   assert.ok(!VARIANT_CODES.includes(w.code.split('-')[2]));
+});
+
+test('a short ride has a short warm-up, and a gentle ride a shorter one still', () => {
+  const warmUp = (type, minutes) => generateWorkout(type, minutes, 0).segments.filter((s) => s.kind === 'warmup').reduce((a, s) => a + s.dur, 0) / 60;
+  assert.equal(warmUp('spinlow', 18), 1);
+  assert.equal(warmUp('lowimpact', 18), 1);
+  assert.equal(warmUp('recovery', 30), 2);
+  assert.equal(warmUp('spinlow', 60), 3);
+  assert.equal(warmUp('spinclass', 18), 2);
+  assert.equal(warmUp('intervals', 30), 3);
+  assert.equal(warmUp('hills', 60), 5);
 });
 
 test('random spin classes differ, but always warm up, cool down and add up', () => {

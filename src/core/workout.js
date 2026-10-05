@@ -13,7 +13,7 @@
 
 import { excludeMask, excludeFromMask } from './spinclass.js';
 import { makeBuilders } from './rides.js';
-import { heldEffort } from './util.js';
+import { clamp, heldEffort } from './util.js';
 
 export { SPIN_BLOCKS } from './spinclass.js';
 
@@ -168,11 +168,13 @@ function buildWorkout(type, minutes, variant, exclude) {
   };
   const rand = seeded(`${type}-${minutes}-${variant}${exclude.length ? `-${excludeMask(exclude)}` : ''}`);
 
-  const warm = Math.min(5, Math.max(3, Math.round(minutes * 0.13)));
+  // The warm-up is about a tenth of the ride, two to five minutes. A gentle
+  // ride starts gently anyway, so it needs less: one to three.
+  const gentle = type === 'recovery' || type === 'lowimpact' || type === 'spinlow';
+  const warm = gentle ? clamp(Math.round(minutes * 0.06), 1, 3) : clamp(Math.round(minutes * 0.1), 2, 5);
   const cool = Math.min(5, Math.max(3, Math.round(minutes * 0.1)));
   const main = (minutes - warm - cool) * 60;
 
-  const gentle = type === 'recovery' || type === 'lowimpact' || type === 'spinlow';
   const warmTop = gentle ? 58 : 72;
   for (let i = 0; i < warm; i++) add(60, 45 + ((i + 1) / warm) * (warmTop - 45), 'warmup');
 

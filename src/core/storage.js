@@ -9,6 +9,7 @@ const RESUME_FOR_MS = 6 * 60 * 60 * 1000; // an unfinished ride can be picked up
 
 export const DEFAULT_SETTINGS = Object.freeze({
   baselineW: 200,
+  paceSet: false, // whether the rider has set their easy pace (baselineW is a guess until then)
   effort: 1,
   easyCadence: 80,
   muted: false,
