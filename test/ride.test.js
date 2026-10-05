@@ -323,6 +323,9 @@ test('each step has a one-word instruction', async () => {
   // Recover is for easing off after something harder.
   assert.deepEqual(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'work', dur: 30, pct: 95 }), { text: 'Recover', tone: 'recover' });
   assert.equal(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'warmup', dur: 60, pct: 58 }), null);
+  // The easy half of a round of pushes counts too.
+  assert.deepEqual(stepAction({ kind: 'steady', dur: 45, pct: 72 }, 0, { kind: 'work', dur: 30, pct: 95 }), { text: 'Recover', tone: 'recover' });
+  assert.equal(stepAction({ kind: 'steady', dur: 300, pct: 72 }, 0, { kind: 'steady', dur: 300, pct: 65 }), null);
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, 2), { text: 'Add 2', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, -20), { text: 'Build', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'sprint' }), { text: 'All out', tone: 'push' });
@@ -470,4 +473,37 @@ test('a saved ride can have the time ridden after the finish added to it', () =>
   assert.equal(storage.allRides().find((r) => r.id === 'b').extraS, 300);
   assert.equal(storage.allRides().find((r) => r.id === 'a').extraS, undefined);
   assert.equal(storage.bestRide('INT-30-K7Q').id, 'b'); // judged on the ride, not the extra
+});
+
+test('steps that show the rider the same targets are one step: one countdown, no chime between', () => {
+  // Three steps a few points of effort apart, at the same cadence, then a real change.
+  const steps = [[120, 72], [120, 74], [120, 76], [120, 100]];
+  let start = 0;
+  const segments = steps.map(([dur, pct], i) => { const seg = { start, dur, pct, kind: 'steady', cadence: 85, position: 'seated', label: `Part ${i + 1}` }; start += dur; return seg; });
+  const w = { code: 'TEST', totalS: start, segments, gates: [] };
+  const s = new RideSession({ workout: w, baselineW: 250, model: DEFAULT_MODEL, ghost: pacerGhost(w, 250) });
+  const targets = segments.map((seg) => String(s.targetsFor(seg).resistanceRange));
+  assert.equal(targets[0], targets[1]);
+  assert.equal(targets[1], targets[2]);
+  assert.notEqual(targets[2], targets[3]);
+
+  assert.deepEqual(s.runOf(1), [0, 2]);
+  const first = s.snapshot();
+  assert.equal(first.stepLeft, 360);
+  assert.equal(first.stepDur, 360);
+  assert.equal(first.nextIndex, 3);
+
+  s.setInput({ powerW: 180, cadence: 85 });
+  const events = [];
+  while (!s.done) for (const e of s.update(0.5)) events.push([e, Math.round(s.t)]);
+  // One heads-up and one change for the run of three, at its real end.
+  const when = (name) => events.filter(([e]) => e === name).map(([, t]) => t);
+  assert.equal(when('stepChange').length, 1);
+  assert.ok(Math.abs(when('stepChange')[0] - 360) <= 1);
+  assert.equal(when('stepSoon').length, 1);
+  assert.ok(Math.abs(when('stepSoon')[0] - 350) <= 1);
+
+  // Following watts, the three have different targets, so they stay separate.
+  const byWatts = new RideSession({ workout: w, baselineW: 250, model: DEFAULT_MODEL, ghost: pacerGhost(w, 250), targetMode: 'watts' });
+  assert.deepEqual(byWatts.runOf(1), [1, 1]);
 });

@@ -14,14 +14,16 @@ const RECOVER_LESS_PCT = 10; // a recovery is worth announcing when it follows s
  * - "Push" for a short burst that is harder than what came before it. A long
  *   climb is not a push.
  * - "Add 2" on a creeping climb, by how many levels the resistance goes up.
- * - "Recover" when easing off after something harder.
+ * - "Recover" when easing off after something harder, whether that is a
+ *   recovery proper or the easy half of a round of pushes.
  */
 export function stepAction(seg, resistanceChange = 0, prev = null) {
   if (seg.creep) return { text: resistanceChange > 0 ? `Add ${resistanceChange}` : 'Build', tone: 'add' };
   if (seg.kind === 'sprint') return { text: 'All out', tone: 'push' };
   if (!prev) return null;
   if (seg.kind === 'work' && seg.dur <= PUSH_MAX_S && seg.pct >= prev.pct + PUSH_MORE_PCT) return { text: 'Push', tone: 'push' };
-  if (seg.kind === 'recovery' && prev.pct >= seg.pct + RECOVER_LESS_PCT) return { text: 'Recover', tone: 'recover' };
+  const easy = seg.kind === 'recovery' || seg.kind === 'steady';
+  if (easy && prev.pct >= seg.pct + RECOVER_LESS_PCT) return { text: 'Recover', tone: 'recover' };
   return null;
 }
 
@@ -31,9 +33,9 @@ export function stepAction(seg, resistanceChange = 0, prev = null) {
  *
  * - An ordinary step: its name and the two numbers. "Hill. Resistance 56, cadence 68."
  * - The first step of a spin class block: the block and its rounds first, then
- *   the numbers, so they are heard once. "Cadence pushes, 3 rounds. Settle.
+ *   the numbers, so they are heard once. "Cadence pushes, 3 rounds. Recover.
  *   Resistance 28, cadence 83."
- * - A step the block has already called (`repeat`): just its name. "Settle."
+ * - A step the block has already called (`repeat`): just its name. "Recover."
  * - Short steps: a single word, since there is no time for more. "Go.", "Up.",
  *   "Attack.", "Rest.", or the cadence in a spin-up.
  * - Getting out of the saddle, and back into it, is always called.

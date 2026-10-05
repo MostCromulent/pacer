@@ -156,7 +156,7 @@ export function startRide(workout, resume = null) {
   chimes.unlock();
   state.workout = workout;
   const ghost = pickGhost(workout);
-  state.session = new RideSession({ workout, baselineW: resume?.baselineW ?? settings.baselineW, model: activeModel(), ghost });
+  state.session = new RideSession({ workout, baselineW: resume?.baselineW ?? settings.baselineW, model: activeModel(), ghost, targetMode: settings.targetMode });
   state.session.setEffort(settings.effort);
   if (resume) state.session.restore(resume.session);
   state.started = false;
@@ -265,7 +265,7 @@ function renderRace(snap) {
 /** The current step: its zone, name, countdown, and the spin class block it belongs to. */
 function renderStep(s, snap) {
   const seg = snap.seg;
-  const next = s.workout.segments[snap.segIndex + 1];
+  const next = s.workout.segments[snap.nextIndex];
 
   const zone = $('zone-chip');
   if (seg.kind === 'sprint') {
@@ -280,9 +280,9 @@ function renderStep(s, snap) {
   // The cruise after the finish has no end to count down to, so it counts up.
   $('step-time').textContent = fmtClock(snap.extra ? snap.extra.s : snap.stepLeft);
   $('step-lbl').textContent = snap.extra ? 'extra' : 'left';
-  $('step-bar').style.width = snap.extra ? '100%' : `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
+  $('step-bar').style.width = snap.extra ? '100%' : `${Math.min(100, (1 - snap.stepLeft / snap.stepDur) * 100).toFixed(1)}%`;
   // The last few seconds of a step turn red and pulse, except in reps too short to need it.
-  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= LAST_SECONDS);
+  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && snap.stepDur >= SHORT_STEP_S && snap.stepLeft <= LAST_SECONDS);
 
   const block = $('block-label');
   const title = seg.block && seg.block !== 'Recovery' ? seg.block : '';
@@ -321,14 +321,14 @@ function renderBadges(s, snap) {
   }
 
   const action = $('action');
-  if (action.dataset.step === String(snap.segIndex)) { // worked out once per step
+  if (action.dataset.step === String(snap.stepIndex)) { // worked out once per step, as the rider sees steps
     // On a creeping climb, "Add 2" beats until the resistance has been added, then goes.
     const added = snap.resistanceStatus === 'on' || snap.resistanceStatus === 'high';
     if (seg.creep && added) action.hidden = true;
     return;
   }
-  action.dataset.step = String(snap.segIndex);
-  const before = s.workout.segments[snap.segIndex - 1];
+  action.dataset.step = String(snap.stepIndex);
+  const before = s.workout.segments[snap.stepIndex - 1];
   const act = stepAction(seg, before ? snap.targetResistance - s.targetsFor(before).resistance : 0, before);
   action.hidden = !act;
   if (!act) {

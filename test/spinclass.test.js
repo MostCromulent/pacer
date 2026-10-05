@@ -241,9 +241,9 @@ test('a block gives its numbers once, then just names the steps it repeats', () 
   const { w, steps } = findBlock('Cadence pushes');
   const at = (seg) => w.segments.indexOf(seg);
   const say = (seg) => spokenCue(seg, stepTargets(seg, w.segments, 300, DEFAULT_MODEL), 'resistance', w.segments[at(seg) - 1], repeatsInBlock(w.segments, at(seg)));
-  assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Settle\. Resistance \d+ to \d+, cadence \d+\.$/);
+  assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Recover\. Resistance \d+ to \d+, cadence \d+\.$/);
   assert.match(say(steps[1]), /^Cadence push\. Same resistance, cadence \d+\.$/);
-  assert.equal(say(steps[2]), 'Settle.');
+  assert.equal(say(steps[2]), 'Recover.');
   assert.equal(say(steps[3]), 'Cadence push.');
 });
 
@@ -446,7 +446,7 @@ test('left-over time lengthens steady steps a little and leaves the rest alone',
   const fresh = () => [
     { steps: [step(180, 75, 'steady')] },
     { steps: [step(45, 72, 'steady'), step(30, 95)], fixed: true }, // rounds stay even
-    { steps: [step(150, 95, 'work', { stand: true }), step(60, 55, 'recovery')] }, // no longer out of the saddle
+    { steps: [step(150, 95, 'work', { stand: true }), step(60, 55, 'recovery', { most: 150 })] }, // no longer out of the saddle; the rest after it may grow
   ];
   const lengths = (items) => items.map((it) => it.steps.map((s) => s.dur));
   const some = fresh();
@@ -511,4 +511,13 @@ test('asking for the same ride again gives the very same workout', () => {
   assert.equal(generateWorkout('spinclass', 45, 3), generateWorkout('spinclass', 45, 3));
   assert.notEqual(generateWorkout('spinclass', 45, 3), generateWorkout('spinclass', 45, 4));
   assert.notEqual(generateWorkout('spinclass', 45, 3), generateWorkout('spinclass', 45, 3, { exclude: ['tabata'] }));
+});
+
+test('an attack is a visible lift in cadence, in the gentle class too', () => {
+  for (const type of ['spinclass', 'spinlow']) {
+    const { w, steps } = findBlock('Climb with attacks', type);
+    const [climb, attack] = steps.map((seg) => stepTargets(seg, w.segments, 300, DEFAULT_MODEL));
+    assert.ok(attack.cadence - climb.cadence >= 10, `${type}: climb at ${climb.cadence}, attack at ${attack.cadence}`);
+    assert.equal(attack.resistance, climb.resistance);
+  }
 });

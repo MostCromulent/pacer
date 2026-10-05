@@ -101,11 +101,13 @@ export class RideSession {
    * @param {object} o.model       resistance model
    * @param {import('./ghost.js').Ghost} o.ghost
    */
-  constructor({ workout, baselineW, model, ghost }) {
+  /** `targetMode` is what the rider is shown and follows: 'resistance' (with cadence) or 'watts'. */
+  constructor({ workout, baselineW, model, ghost, targetMode = 'resistance' }) {
     this.workout = workout;
     this.baselineW = baselineW;
     this.model = model;
     this.ghost = ghost;
+    this.targetMode = targetMode;
     // Effort multiplier the rider can change mid-ride; scales every power target.
     this.effort = 1;
     this._effortS = 0;
@@ -182,17 +184,19 @@ export class RideSession {
       this._accum = { p: 0, c: 0, r: 0, n: 0 };
     }
 
-    // Step changes and the heads-up before them.
+    // Step changes and the heads-up before them. Moving on to a step that
+    // looks the same to the rider is no change at all.
+    const segs = this.workout.segments;
     if (si !== this._lastSeg) {
-      events.push('stepChange');
+      if (!this.looksSame(segs[this._lastSeg], seg)) events.push('stepChange');
       this._lastSeg = si;
     }
-    const next = this.workout.segments[si + 1];
+    const [first, last] = this.runOf(si);
+    const runEnd = segs[last].start + segs[last].dur;
     // No heads-up inside short HIIT reps: the change chime itself is the cue.
-    if (next && seg.dur >= SHORT_STEP_S) {
-      const left = seg.start + seg.dur - this.t;
-      if (left <= STEP_WARNING_S && !this._warned.has(si)) {
-        this._warned.add(si);
+    if (segs[last + 1] && runEnd - segs[first].start >= SHORT_STEP_S) {
+      if (runEnd - this.t <= STEP_WARNING_S && !this._warned.has(last)) {
+        this._warned.add(last);
         events.push('stepSoon');
       }
     }
@@ -284,6 +288,36 @@ export class RideSession {
     return this.setEffort(this.effort + steps * EFFORT_STEP);
   }
 
+  /**
+   * Whether two steps look the same to this rider: the same position, and the
+   * same targets on screen. Steps a few points of effort apart often are,
+   * since resistance is shown in blocks of five; which ones depends on the
+   * bike, the rider's easy pace and the effort setting.
+   */
+  looksSame(a, b) {
+    if (a.position !== b.position || (a.kind === 'sprint') !== (b.kind === 'sprint')) return false;
+    const [ta, tb] = [this.targetsFor(a), this.targetsFor(b)];
+    if (this.targetMode === 'watts') return String(ta.wattsRange) === String(tb.wattsRange);
+    return ta.cadence === tb.cadence && String(ta.resistanceRange) === String(tb.resistanceRange);
+  }
+
+  /**
+   * The run of steps around step `si` that look the same to the rider, as
+   * [first, last]. To the rider a run is one step: one countdown, and no
+   * chime in the middle of it.
+   */
+  runOf(si) {
+    const segs = this.workout.segments;
+    if (this._runs?.effort !== this.effort) this._runs = { effort: this.effort, of: new Map() };
+    if (!this._runs.of.has(si)) {
+      let [first, last] = [si, si];
+      while (first > 0 && this.looksSame(segs[first - 1], segs[first])) first--;
+      while (last < segs.length - 1 && this.looksSame(segs[last], segs[last + 1])) last++;
+      for (let i = first; i <= last; i++) this._runs.of.set(i, [first, last]);
+    }
+    return this._runs.of.get(si);
+  }
+
   /** Baseline with the current effort applied: what targets are built from. */
   get effectiveBaselineW() {
     return this.baselineW * this.effort;
@@ -343,6 +377,10 @@ export class RideSession {
       };
     }
     const upcoming = w.gates.find((g) => g.start > this.t);
+    // The step as the rider sees it: the whole run of steps that look alike.
+    const [first, last] = cruising ? [si, si] : this.runOf(si);
+    const stepStart = cruising ? seg.start : w.segments[first].start;
+    const stepEnd = cruising ? Infinity : w.segments[last].start + w.segments[last].dur;
 
     return {
       t: this.t,
@@ -355,9 +393,12 @@ export class RideSession {
       ghostSpeed: this.ghost.speedAt(this.t),
       ghostCadence: this.ghost.cadenceAt(this.t) ?? 86,
       segIndex: si,
+      stepIndex: first, // the first step of the run the rider is in
+      nextIndex: last + 1, // the next step that will look different (past the end, if none)
       seg,
       zone: zoneOf((tg.watts / this.effectiveBaselineW) * 100),
-      stepLeft: seg.start + seg.dur - this.t,
+      stepLeft: stepEnd - this.t,
+      stepDur: stepEnd - stepStart,
       targetW: tg.watts,
       targetCadence: tg.cadence,
       targetResistance: tg.resistance,

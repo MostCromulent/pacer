@@ -150,7 +150,7 @@ function blockMakers({ between, int, near, reps, low }) {
       const rounds = reps(3, 5);
       const pct = between(86, 92);
       const up = [20, 30][int(0, 1)];
-      return { rounds, parts: times(rounds, () => [[up, pct, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, pct, 'steady', { cadence: 72, hold: true, name: 'Settle' }]]) };
+      return { rounds, parts: times(rounds, () => [[up, pct, 'work', { cadence: 80, name: 'Jump', stand: true }], [30, pct, 'steady', { cadence: 72, hold: true, name: 'Recover' }]]) };
     },
     // Flat out, with a recovery after each. Gentle: a fast seated surge instead.
     sprints: () => {
@@ -169,7 +169,7 @@ function blockMakers({ between, int, near, reps, low }) {
       const first = [20, 30][int(0, 1)];
       const pct = between(95, 101);
       const cadence = int(68, 74);
-      return { rounds, parts: times(rounds, (i) => [[first + i * 15, pct, 'work', { cadence, name: low ? 'Push' : 'Stand', stand: true }], [30, 68, 'recovery', { cadence: 75, name: low ? 'Settle' : 'Sit' }]]) };
+      return { rounds, parts: times(rounds, (i) => [[first + i * 15, pct, 'work', { cadence, name: low ? 'Push' : 'Stand', stand: true }], [30, 68, 'recovery', { cadence: 75, name: low ? 'Recover' : 'Sit' }]]) };
     },
     // Pushes go up and back several times, changing one thing and holding the other.
     // Cadence: 12-20 rpm faster on the same resistance (10-14 in the gentle form).
@@ -179,7 +179,7 @@ function blockMakers({ between, int, near, reps, low }) {
       const fast = base + (low ? int(10, 14) : int(12, 20));
       const [settle, push] = [step(between(40, 60)), step(between(25, 40), 5)];
       const pct = near(68, 74, base);
-      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence: base, name: 'Settle' }], [push, pct, 'work', { cadence: fast, hold: true, name: 'Cadence push' }]]) };
+      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence: base, name: 'Recover' }], [push, pct, 'work', { cadence: fast, hold: true, name: 'Cadence push' }]]) };
     },
     // Resistance: about eight to twelve levels heavier at the same cadence.
     resistancePush: () => {
@@ -188,7 +188,7 @@ function blockMakers({ between, int, near, reps, low }) {
       const pct = near(68, 75, cadence);
       const more = between(18, 27);
       const [settle, push] = [step(between(40, 60)), step(between(25, 40), 5)];
-      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence, name: 'Settle' }], [push, pct + more, 'work', { cadence, name: 'Resistance push' }]]) };
+      return { rounds, parts: times(rounds, () => [[settle, pct, 'steady', { cadence, name: 'Recover' }], [push, pct + more, 'work', { cadence, name: 'Resistance push' }]]) };
     },
     // The same push on a heavy climb, out of the saddle (seated in the gentle form).
     heavyPush: () => {
@@ -219,16 +219,18 @@ function blockMakers({ between, int, near, reps, low }) {
         rounds,
         parts: times(rounds, (round) => [
           ...stages.map(([cadence, more], i) => [stage, pct * more, 'drill', { cadence, hold: i > 0, label: `Spin-up ${round + 1}/${rounds}` }]),
-          [40, pct, 'steady', { cadence: 80, hold: true, name: 'Settle' }],
+          [40, pct, 'steady', { cadence: 80, hold: true, name: 'Recover' }],
         ]),
       };
     },
     // A long seated climb with a short surge every minute.
     attacks: () => {
       const rounds = reps(3, 5);
-      const cadence = int(68, 72);
+      // The gentle climb turns at 75 rpm, so its attack is ten faster than that: a lift you can see.
+      const climb = int(68, 72);
+      const [cadence, lift] = low ? [LOW_CADENCES[0], 10] : [climb, 12];
       const pct = near(84, 90, cadence);
-      return { rounds, parts: times(rounds, () => [[45, pct, 'work', { cadence, name: 'Climb' }], [15, pct * 1.25, 'work', { cadence: cadence + 12, hold: true, name: 'Attack' }]]) };
+      return { rounds, parts: times(rounds, () => [[45, pct, 'work', { cadence, name: 'Climb' }], [15, pct * 1.25, 'work', { cadence: cadence + lift, hold: true, name: 'Attack' }]]) };
     },
     // In and out of the saddle every 30 seconds on the same heavy resistance.
     switchbacks: () => {
@@ -346,6 +348,12 @@ export function fatigueAfter(fatigue, steps, low = false) {
   return fatigue;
 }
 
+/** The recovery a block ends on, in seconds (0 if it doesn't). */
+function ownRest(block) {
+  const last = block.steps.at(-1);
+  return last.kind === 'recovery' ? last.dur : 0;
+}
+
 /**
  * The rest to give after a block, when the rider is `fatigue` tired at the end
  * of it: long enough at a recovery effort to clear most of that, and always
@@ -356,16 +364,22 @@ export function restFor(block, fatigue, low = false) {
   const last = block.steps.at(-1);
   const clearing = (eased(EASY_PCT, low) - RECOVERY_PCT) * RECOVERY_RATE;
   let rest = roundTo((fatigue * REST_CLEARS) / clearing);
-  const rested = last.kind === 'recovery' && last.dur >= OWN_REST_S;
+  const own = ownRest(block);
+  const rested = own >= OWN_REST_S;
   const endsHard = Math.round(last.pct) >= eased(HARD_PCT, low);
   if ((block.rounds || endsHard) && !rested) rest = Math.max(rest, BETWEEN_ROUNDS_S);
-  return rest < SHORTEST_REST_S ? 0 : Math.min(rest, LONGEST_REST_S);
+  // It joins on to any recovery the block ends with: the two together keep to the limit.
+  rest = Math.min(rest, LONGEST_REST_S - own);
+  return rest < SHORTEST_REST_S ? 0 : rest;
 }
 
-/** An easy spell: a recovery if it's long enough to be one, otherwise flat road. */
-function easySpell(dur, low) {
+/**
+ * An easy spell: a recovery if it's long enough to be one, otherwise flat
+ * road. `most` is the longest it may be stretched to.
+ */
+function easySpell(dur, low, most = LONGEST_REST_S) {
   return dur >= RECOVERY_FROM_S
-    ? { title: 'Recovery', steps: [asRidden({ dur, pct: RECOVERY_PCT, kind: 'recovery', cadence: 75, most: LONGEST_REST_S }, low)] }
+    ? { title: 'Recovery', steps: [asRidden({ dur, pct: RECOVERY_PCT, kind: 'recovery', cadence: 75, most: Math.max(dur, most) }, low)] }
     : { title: 'Flat road', steps: [asRidden({ dur, pct: 68, kind: 'steady', cadence: 88, name: 'Flat road', most: LONGEST_REST_S }, low)] };
 }
 
@@ -410,7 +424,7 @@ export function inWaves(blocks, hardness) {
  */
 export function spreadLeftover(items, left, low = false) {
   const steady = items.filter((it) => !it.fixed).flatMap((it) => it.steps)
-    .filter((s) => s.dur >= 60 && !s.stand && s.pct < eased(HARD_PCT, low))
+    .filter((s) => s.dur >= 60 && !s.stand && s.pct < eased(HARD_PCT, low) && (s.kind !== 'recovery' || s.most !== undefined))
     .map((step) => ({ step, room: Math.floor(Math.min(step.dur * MOST_STRETCH, (step.most ?? Infinity) - step.dur) / 15) * 15 }))
     .sort((p, q) => q.step.dur - p.step.dur);
   while (left >= 15 && steady.some((x) => x.room >= 15)) {
@@ -538,7 +552,7 @@ function draftClass({ budget, rand, low, allowed }) {
   const items = [];
   blocks.forEach((b, i) => {
     items.push(b);
-    if (rests[i]) items.push(easySpell(rests[i], low));
+    if (rests[i]) items.push(easySpell(rests[i], low, LONGEST_REST_S - ownRest(b)));
   });
   const unspent = spreadLeftover(items, budget - filled, low);
   // The little that can't be spent that way goes wherever a steady step has
@@ -548,7 +562,7 @@ function draftClass({ budget, rand, low, allowed }) {
   let over = unspent;
   const roomIn = (st) => (st.most ?? Infinity) - st.dur;
   const steady = items.filter((it) => !it.fixed).flatMap((it) => it.steps)
-    .filter((st) => st.dur >= 60 && !st.stand)
+    .filter((st) => st.dur >= 60 && !st.stand && (st.kind !== 'recovery' || st.most !== undefined))
     .sort((p, q) => roomIn(q) - roomIn(p));
   for (const st of over > 0 ? steady : []) {
     const more = Math.min(over, roomIn(st));

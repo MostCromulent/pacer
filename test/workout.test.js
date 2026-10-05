@@ -274,8 +274,8 @@ test('two steps in a row that look the same are one step', () => {
         assert.equal(w.segments.reduce((a, s) => a + s.dur, 0), minutes * 60, w.code);
         for (let i = 1; i < w.segments.length; i++) {
           const [a, b] = [w.segments[i - 1], w.segments[i]];
-          if (a.hold || b.hold || a.creep || b.creep || b.rounds || a.kind === 'warmup' || a.kind === 'cooldown') continue;
-          const same = a.kind === b.kind && a.block === b.block && a.label === b.label && a.position === b.position
+          if (a.hold || b.hold || a.creep || b.creep || b.rounds) continue;
+          const same = a.kind === b.kind && a.label === b.label && a.position === b.position
             && Math.round(a.cadence / 5) === Math.round(b.cadence / 5) && Math.abs(a.pct - b.pct) <= 5;
           assert.ok(!same, `${w.code}: ${a.label} (${a.dur}s, ${a.pct}%) then the same again (${b.dur}s, ${b.pct}%)`);
         }

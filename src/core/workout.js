@@ -176,8 +176,12 @@ function buildWorkout(type, minutes, variant, exclude) {
   const cool = warm;
   const main = (minutes - warm - cool) * 60;
 
+  // The warm-up climbs to its top in steps big enough to see on the dial, so
+  // no two in a row look the same; a gentle one is a single easy spell.
   const warmTop = gentle ? 58 : 72;
-  for (let i = 0; i < warm; i++) add(60, 45 + ((i + 1) / warm) * (warmTop - 45), 'warmup');
+  const rungs = (range, minutes) => Math.max(1, Math.min(minutes, Math.round(range / RAMP_STEP_PCT)));
+  const up = rungs(warmTop - WARM_FROM_PCT, warm);
+  for (let i = 0; i < up; i++) add((warm * 60) / up, WARM_FROM_PCT + ((i + 1) / up) * (warmTop - WARM_FROM_PCT), 'warmup');
 
   const builders = makeBuilders(add, v, rand, exclude);
   if (type === 'mix') {
@@ -189,7 +193,8 @@ function buildWorkout(type, minutes, variant, exclude) {
     builders[type](main);
   }
 
-  for (let i = 0; i < cool; i++) add(60, (gentle ? 58 : 65) - (i / cool) * 20, 'cooldown');
+  const down = rungs(COOL_DROP_PCT, cool);
+  for (let i = 0; i < down; i++) add((cool * 60) / down, (gentle ? 58 : 65) - (i / down) * COOL_DROP_PCT, 'cooldown');
 
   for (const s of segs) {
     if (!s.cadence) s.cadence = targetCadenceFor(s);
@@ -234,13 +239,21 @@ function buildWorkout(type, minutes, variant, exclude) {
   return workout;
 }
 
+const WARM_FROM_PCT = 45; // where a warm-up starts
+const COOL_DROP_PCT = 20; // how far a cool-down comes down
+const RAMP_STEP_PCT = 10; // a step of a warm-up or cool-down is about this much: enough to move the resistance
 const SAME_PCT = 5; // efforts this close land in the same block of resistance, or the next one along
 
-/** Whether two steps would show the rider the same thing: the same name and position, cadence and (near enough) effort. */
+/**
+ * Whether two steps would show the rider the same thing: the same name and
+ * position, cadence and (near enough) effort. Which block each belongs to
+ * doesn't come into it: the recovery a block ends on and a recovery after it
+ * are one recovery to the rider.
+ */
 function looksTheSame(a, b) {
-  const shared = ['kind', 'name', 'label', 'block', 'position', 'resistanceCap'];
-  // Held steps, creeping climbs and rounds are meant to repeat; a warm-up or cool-down is a ramp.
-  const special = (s) => s.hold || s.creep || s.rounds || s.kind === 'warmup' || s.kind === 'cooldown';
+  const shared = ['kind', 'name', 'label', 'position', 'resistanceCap'];
+  // Held steps, creeping climbs and rounds are meant to repeat.
+  const special = (s) => s.hold || s.creep || s.rounds;
   return !special(a) && !special(b)
     && shared.every((key) => a[key] === b[key])
     && roundTo(a.cadence, 5) === roundTo(b.cadence, 5)
