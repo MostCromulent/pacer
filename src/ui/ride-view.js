@@ -320,7 +320,12 @@ function renderBadges(s, snap) {
   }
 
   const action = $('action');
-  if (action.dataset.step === String(snap.segIndex)) return; // worked out once per step
+  if (action.dataset.step === String(snap.segIndex)) { // worked out once per step
+    // On a creeping climb, "Add 2" beats until the resistance has been added, then goes.
+    const added = snap.resistanceStatus === 'on' || snap.resistanceStatus === 'high';
+    if (seg.creep && added) action.hidden = true;
+    return;
+  }
   action.dataset.step = String(snap.segIndex);
   const before = s.workout.segments[snap.segIndex - 1];
   const act = stepAction(seg, before ? snap.targetResistance - s.targetsFor(before).resistance : 0);
