@@ -314,8 +314,15 @@ test('a creeping climb just calls the new resistance', async () => {
 });
 
 test('each step has a one-word instruction', async () => {
-  assert.deepEqual(stepAction({ kind: 'work' }), { text: 'Push', tone: 'push' });
-  assert.deepEqual(stepAction({ kind: 'recovery' }), { text: 'Recover', tone: 'recover' });
+  // A push is a short burst that is harder than the step before: not a long climb, and not more of the same.
+  const settle = { kind: 'steady', dur: 45, pct: 72 };
+  assert.deepEqual(stepAction({ kind: 'work', dur: 30, pct: 95 }, 0, settle), { text: 'Push', tone: 'push' });
+  assert.equal(stepAction({ kind: 'work', dur: 240, pct: 95 }, 0, settle), null);
+  assert.equal(stepAction({ kind: 'work', dur: 30, pct: 75 }, 0, settle), null);
+  assert.equal(stepAction({ kind: 'work', dur: 30, pct: 95 }), null);
+  // Recover is for easing off after something harder.
+  assert.deepEqual(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'work', dur: 30, pct: 95 }), { text: 'Recover', tone: 'recover' });
+  assert.equal(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'warmup', dur: 60, pct: 58 }), null);
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, 2), { text: 'Add 2', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'work', creep: true }, -20), { text: 'Build', tone: 'add' });
   assert.deepEqual(stepAction({ kind: 'sprint' }), { text: 'All out', tone: 'push' });

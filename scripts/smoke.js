@@ -196,6 +196,45 @@ try {
     await click('#btn-new');
   });
 
+  await check('with the sound off, or turned right down, nothing chimes', async () => {
+    // Count every tone the page starts.
+    await run(`(() => { window.tones = 0; const make = AudioContext.prototype.createOscillator; AudioContext.prototype.createOscillator = function () { window.tones++; return make.call(this); }; })()`);
+    const tones = () => run(`window.tones`);
+    const panel = `(window.pacer.state.pipWin?.document ?? document)`;
+    const slide = (to) => run(`(() => { const v = ${panel}.getElementById('volume'); v.value = '${to}'; v.dispatchEvent(new Event('input', { bubbles: true })); v.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await run(`(() => { const s = window.pacer.state; s.type = 'hiit'; s.duration = 22; s.variant = 0; })()`);
+    await click('.step[data-go="3"]');
+    await click('[data-sound="chimes"]');
+    expect((await tones()) > 0, 'choosing chimes should play one');
+    await click('[data-sound="off"]');
+    let before = await tones();
+    await press('#btn-start');
+    await until('the ride to start', `window.pacer.state.screen === 'ride' && window.pacer.state.started`);
+    await until('several steps to pass', `window.pacer.state.session.t > 400`, 30000);
+    expect((await tones()) === before, 'chimes played with the sound set to Off');
+    // In the ride window: chimes back on, which plays one, then the volume right down.
+    const tick = (id, on) => run(`(() => { const box = ${panel}.getElementById('${id}'); if (box.checked !== ${on}) box.click(); })()`);
+    await tick('chimes-on', true);
+    expect((await tones()) > before, 'turning chimes on should play one');
+    await until('more steps to pass', `window.pacer.state.session.t > 600`, 30000);
+    await slide(0);
+    before = await tones();
+    await until('more steps to pass', `window.pacer.state.session.t > 900`, 30000);
+    expect((await tones()) === before, 'chimes played with the volume at zero');
+    await slide(100);
+    // Voice callouts on their own: the chimes stay off.
+    await tick('chimes-on', false);
+    before = await tones();
+    await tick('voice-on', true);
+    await until('more steps to pass', `window.pacer.state.session.t > 1150`, 30000);
+    expect((await tones()) === before, 'turning the voice on brought the chimes back');
+    await tick('voice-on', false);
+    await tick('chimes-on', true);
+    await click('#btn-end');
+    await until('the summary', `window.pacer.state.screen === 'summary'`);
+    await click('#btn-new');
+  });
+
   await check('the ride pauses when the pedals stop, and carries on when they start', async () => {
     await run(`(() => { const s = window.pacer.state; s.type = 'endurance'; s.duration = 45; s.variant = 0; })()`);
     await click('.step[data-go="0"]');

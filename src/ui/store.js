@@ -37,13 +37,15 @@ export function saveSettings(patch) {
 export const chimes = new Chimes();
 export const voice = new Voice();
 
-/** Chimes and voice follow the settings; mute silences both. */
+/** Chimes and voice follow the settings: each has its own switch, and they share a volume. */
 export function applySound() {
-  chimes.muted = settings.muted;
+  chimes.muted = !settings.chimes;
   chimes.volume = voice.volume = settings.volume;
-  voice.enabled = settings.voice && !settings.muted;
+  voice.enabled = settings.voice;
   if (!voice.enabled) voice.stop();
 }
+// Sound used to be one "muted" switch over both.
+if (settings.muted) saveSettings({ chimes: false, voice: false, muted: false });
 applySound();
 
 // ---------------------------------------------------------------- calibration

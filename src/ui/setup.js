@@ -255,7 +255,8 @@ export function renderSetup() {
     b.setAttribute('aria-pressed', String(on));
   }
   $('calib-nudge').hidden = settings.targetMode !== 'resistance' || !resistanceIsEstimate();
-  const sound = settings.muted ? 'off' : settings.voice ? 'voice' : 'chimes';
+  // (Voice without chimes, which the ride window allows, is none of the three.)
+  const sound = !settings.chimes ? (settings.voice ? '' : 'off') : settings.voice ? 'voice' : 'chimes';
   for (const b of document.querySelectorAll('#sounds .seg')) {
     b.classList.toggle('on', b.dataset.sound === sound);
     b.setAttribute('aria-pressed', String(b.dataset.sound === sound));

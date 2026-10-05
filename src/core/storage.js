@@ -12,9 +12,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   paceSet: false, // whether the rider has set their easy pace (baselineW is a guess until then)
   effort: 1,
   easyCadence: 80,
-  muted: false,
-  volume: 1, // 0 to 1, for chimes and the voice
+  chimes: true,
   voice: false,
+  volume: 1, // 0 to 1, for chimes and the voice
   spinExclude: [],
   lastDuration: 30,
   lastType: 'intervals',

@@ -3,21 +3,26 @@
 
 import { SHORT_STEP_S } from './ride.js';
 
+const PUSH_MAX_S = 60; // a push is a short burst; anything longer is just the ride
+const PUSH_MORE_PCT = 8; // ...that is clearly harder than the step before
+const RECOVER_LESS_PCT = 10; // a recovery is worth announcing when it follows something clearly harder
+
 /**
- * The one-word instruction for a step, shown as a badge: what to do, as an
- * instructor would call it. `resistanceChange` is how far the resistance target moved
- * from the step before (for a creeping climb's "Add 2").
- * Returns { text, tone } where tone is 'push' | 'recover' | 'add', or null for
- * ordinary riding, which needs no badge.
+ * The badge for a step, or null. A badge marks a moment, not a state: it says
+ * what to do differently from the step before (`prev`).
+ * - "All out" for a sprint.
+ * - "Push" for a short burst that is harder than what came before it. A long
+ *   climb is not a push.
+ * - "Add 2" on a creeping climb, by how many levels the resistance goes up.
+ * - "Recover" when easing off after something harder.
  */
-export function stepAction(seg, resistanceChange = 0) {
+export function stepAction(seg, resistanceChange = 0, prev = null) {
   if (seg.creep) return { text: resistanceChange > 0 ? `Add ${resistanceChange}` : 'Build', tone: 'add' };
-  switch (seg.kind) {
-    case 'sprint': return { text: 'All out', tone: 'push' };
-    case 'work': return { text: 'Push', tone: 'push' };
-    case 'recovery': return { text: 'Recover', tone: 'recover' };
-    default: return null;
-  }
+  if (seg.kind === 'sprint') return { text: 'All out', tone: 'push' };
+  if (!prev) return null;
+  if (seg.kind === 'work' && seg.dur <= PUSH_MAX_S && seg.pct >= prev.pct + PUSH_MORE_PCT) return { text: 'Push', tone: 'push' };
+  if (seg.kind === 'recovery' && prev.pct >= seg.pct + RECOVER_LESS_PCT) return { text: 'Recover', tone: 'recover' };
+  return null;
 }
 
 /**

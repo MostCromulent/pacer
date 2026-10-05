@@ -23,6 +23,7 @@ const GATE_NOTICE_S = 600; // announce a sprint gate this long before it
 const FINISH_NOTICE_S = 60;
 const BACK_IN_SADDLE_MS = 4000;
 const AUTO_PAUSE_MS = 5000; // the ride pauses after this long without pedalling
+const LAST_SECONDS = 5; // the countdown turns red and pulses for this long before a step ends
 const RESUME_SAVE_MS = 5000; // how often the ride in progress is saved
 const IDLE_END_MS = 30000; // after the finish, this long without pedalling ends the ride
 const IDLE_SHOWN_MS = 1500; // a pause in the readings this short isn't the rider stopping
@@ -280,8 +281,8 @@ function renderStep(s, snap) {
   $('step-time').textContent = fmtClock(snap.extra ? snap.extra.s : snap.stepLeft);
   $('step-lbl').textContent = snap.extra ? 'extra' : 'left';
   $('step-bar').style.width = snap.extra ? '100%' : `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
-  // The last ten seconds of a step pulse, except in reps too short to need it.
-  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);
+  // The last few seconds of a step turn red and pulse, except in reps too short to need it.
+  $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= LAST_SECONDS);
 
   const block = $('block-label');
   const title = seg.block && seg.block !== 'Recovery' ? seg.block : '';
@@ -328,7 +329,7 @@ function renderBadges(s, snap) {
   }
   action.dataset.step = String(snap.segIndex);
   const before = s.workout.segments[snap.segIndex - 1];
-  const act = stepAction(seg, before ? snap.targetResistance - s.targetsFor(before).resistance : 0);
+  const act = stepAction(seg, before ? snap.targetResistance - s.targetsFor(before).resistance : 0, before);
   action.hidden = !act;
   if (!act) {
     action.textContent = '';
@@ -436,13 +437,13 @@ function togglePause() {
 
 $('btn-pause').addEventListener('click', togglePause);
 
-function setSound({ muted = settings.muted, voice: spoken = settings.voice, volume = settings.volume }) {
-  saveSettings({ muted, voice: spoken, volume });
+function setSound({ chimes: chimed = settings.chimes, voice: spoken = settings.voice, volume = settings.volume }) {
+  saveSettings({ chimes: chimed, voice: spoken, volume });
   applySound();
   updateMute();
 }
 
-// The speaker button opens a small pop-up: a volume slider and whether steps are read out.
+// The speaker button opens a small pop-up: a volume slider, and a switch each for chimes and the voice.
 function showSoundPop(open) {
   $('sound-pop').hidden = !open;
   $('btn-mute').setAttribute('aria-expanded', String(open));
@@ -454,17 +455,19 @@ $('btn-mute').addEventListener('click', () => showSoundPop($('sound-pop').hidden
 $('ride-panel').addEventListener('pointerdown', (e) => {
   if (!e.target.closest('#sound-pop, #btn-mute')) showSoundPop(false);
 });
-$('volume').addEventListener('input', (e) => {
-  const volume = Number(e.target.value) / 100;
-  setSound({ volume: volume || settings.volume, muted: volume === 0 });
-});
+$('volume').addEventListener('input', (e) => setSound({ volume: Number(e.target.value) / 100 }));
 // Let go of the slider to hear the new level.
 $('volume').addEventListener('change', () => {
   chimes.unlock();
   chimes.play('stepChange');
 });
+$('chimes-on').addEventListener('change', (e) => {
+  setSound({ chimes: e.target.checked });
+  chimes.unlock();
+  chimes.play('stepChange');
+});
 $('voice-on').addEventListener('change', (e) => {
-  setSound({ voice: e.target.checked, muted: e.target.checked ? false : settings.muted });
+  setSound({ voice: e.target.checked });
   if (e.target.checked) voice.say('Voice callouts on.');
 });
 
@@ -473,17 +476,19 @@ $('sounds').addEventListener('click', (e) => {
   if (!b) return;
   const kind = b.dataset.sound;
   chimes.unlock();
-  setSound({ muted: kind === 'off', voice: kind === 'voice' });
+  setSound({ chimes: kind !== 'off', voice: kind === 'voice' });
   if (kind === 'voice') voice.say('Voice cues on.');
   if (kind === 'chimes') chimes.play('stepChange');
   renderSetup();
 });
 
 export function updateMute() {
-  $('btn-mute').setAttribute('aria-label', chimes.muted ? 'Sound, off' : 'Sound');
-  $('mute-wave').style.display = chimes.muted ? 'none' : '';
-  $('volume').value = String(chimes.muted ? 0 : Math.round(settings.volume * 100));
-  $('voice-on').checked = settings.voice && !settings.muted;
+  const silent = !settings.volume || (!settings.chimes && !settings.voice);
+  $('btn-mute').setAttribute('aria-label', silent ? 'Sound, off' : 'Sound');
+  $('mute-wave').style.display = silent ? 'none' : '';
+  $('volume').value = String(Math.round(settings.volume * 100));
+  $('chimes-on').checked = settings.chimes;
+  $('voice-on').checked = settings.voice;
   $('voice-row').hidden = !Voice.supported();
 }
 
