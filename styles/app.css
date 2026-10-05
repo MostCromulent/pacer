@@ -317,6 +317,8 @@ main { padding: 0 32px 40px; }
 .pill.gap.ahead { background: var(--mint); }
 .pill.gap.behind { background: var(--coral); }
 .pill.gap.gate { background: var(--mustard); }
+.pill.gap.changed { animation: gap-bounce 0.5s ease-out; }
+@keyframes gap-bounce { 40% { transform: rotate(-2deg) scale(1.28); } }
 .scene-overlay {
   position: absolute; inset: 0; display: grid; place-items: center; background: rgba(251, 243, 234, 0.72);
   font-family: var(--display); font-weight: 700; font-size: 22px; text-align: center; padding: 24px;
@@ -414,6 +416,12 @@ main { padding: 0 32px 40px; }
 .sum-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .sum-head .title { margin: 0 0 4px; font-size: 42px; }
 .sum-head p { margin: 0; }
+.pb-badge.stamped { animation: pb-stamp 0.55s ease-out both; }
+@keyframes pb-stamp {
+  0% { opacity: 0; transform: rotate(3deg) scale(2.4); }
+  60% { opacity: 1; transform: rotate(3deg) scale(0.94); }
+  80% { transform: rotate(3deg) scale(1.04); }
+}
 .pb-badge {
   display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 14px; background: var(--mustard);
   font-family: var(--display); font-weight: 700; font-size: 20px; box-shadow: 0 3px 0 var(--mustard-deep), 0 8px 16px rgba(122, 78, 58, 0.18); transform: rotate(3deg);

@@ -17,6 +17,7 @@ const GHOST_MIN_X = 24;
 const GHOST_MAX_X = 336;
 // The finish: how long the arms take to go up, stay up and come down, in seconds.
 const CHEER = { up: 0.35, held: 2.25, down: 0.6 };
+const SUNSET_FROM = 0.6; // the sky starts to warm this far through the ride
 const BURST_PIECES = 46; // from each post of the finish banner
 const BURST_STREAMERS = 12; // how many of those are streamers
 
@@ -133,7 +134,7 @@ export class Scene {
     this.stand += (standing - this.stand) * Math.min(1, dt * 4);
 
     ctx.clearRect(0, 0, W, this.H);
-    this._sky(ctx, worldX);
+    this._sky(ctx, worldX, Math.min(1, Math.max(0, t / this.workout.totalS)));
     this._mountains(ctx, worldX * 0.12, this.H - 144, 64 * this.ampScale, 70, P.mountain, 11, true);
     this._mountains(ctx, worldX * 0.22, this.H - 126, 44 * this.ampScale, 56, P.mountain2, 29, false);
     this._hills(ctx, worldX * 0.45);
@@ -174,18 +175,24 @@ export class Scene {
     }
   }
 
-  _sky(ctx, worldX) {
+  /** `day` is how far through the ride it is, 0 to 1: the sun crosses the sky and the light warms towards the finish. */
+  _sky(ctx, worldX, day) {
     ctx.fillStyle = P.sky;
     ctx.fillRect(0, 0, W, this.H);
     const k = this.H / 380;
     ctx.fillStyle = P.skyTop;
     ctx.fillRect(0, 0, W, 80 * k);
-    const sunY = 96 * k;
+    if (day > SUNSET_FROM) {
+      ctx.fillStyle = `rgba(242, 118, 92, ${((day - SUNSET_FROM) * 0.9).toFixed(3)})`;
+      ctx.fillRect(0, 0, W, this.H);
+    }
+    const sunX = 30 + day * (W - 60);
+    const sunY = (124 - Math.sin(day * Math.PI) * 70) * k;
     const sunR = 32 * Math.max(0.8, k);
     this._shadow(ctx, true);
-    circle(ctx, 284, sunY, sunR, P.sun);
+    circle(ctx, sunX, sunY, sunR, P.sun);
     this._shadow(ctx, false);
-    circle(ctx, 284, sunY, sunR * 0.72, P.sunInner);
+    circle(ctx, sunX, sunY, sunR * 0.72, P.sunInner);
     this._shadow(ctx, true);
     const span = W + 160;
     for (const [bx, by, s] of [[70, 70, 1], [230, 122, 0.7], [400, 92, 0.85]]) {

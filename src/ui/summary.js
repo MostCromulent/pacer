@@ -13,6 +13,29 @@ import { easyResistance } from './pace.js';
 import { saveLearning } from './learning.js';
 import { startRide, letScreenSleep } from './ride-view.js';
 import { calib } from './calibration.js';
+import { prefersStill } from './paper.js';
+
+const COUNT_UP_MS = 900;
+
+/** A new best: the distance counts up from nothing, and then the badge stamps down. */
+function celebrateBest(distanceM) {
+  const badge = $('pb-badge');
+  badge.classList.remove('stamped');
+  if (prefersStill()) return;
+  badge.hidden = true; // until the count is done
+  const began = performance.now();
+  const tick = (now) => {
+    const u = Math.min(1, Math.max(0, (now - began) / COUNT_UP_MS));
+    $('t-dist').textContent = fmtKm(distanceM * (1 - (1 - u) ** 3));
+    if (u < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      badge.hidden = false;
+      badge.classList.add('stamped');
+    }
+  };
+  requestAnimationFrame(tick);
+}
 
 /**
  * The planned ride is over. It is saved straight away, so nothing is lost if
@@ -86,6 +109,7 @@ function renderSummary({ sum, workout, prevBest, completed, saved, session, extr
   $('hero-sub').textContent = isPb ? 'This ride is your new PB ghost' : ahead ? 'Nicely done' : 'Race it again to get it back';
 
   $('t-dist').textContent = fmtKm(sum.distanceM);
+  if (isPb) celebrateBest(sum.distanceM);
   const dSub = $('t-dist-sub');
   if (prevBest) {
     const diff = sum.distanceM - prevBest.distanceM;

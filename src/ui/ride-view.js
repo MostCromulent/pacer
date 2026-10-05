@@ -133,6 +133,9 @@ function onRideEvent(ev) {
     state.session.keepGoing({ kind: 'steady', pct: EASY_PACE_PCT, cadence: settings.easyCadence, label: 'Easy cruise', name: 'Easy cruise' });
     lastPedalAt = performance.now();
     state.lastDom = 0;
+  } else if (ev === 'passedGhost' || ev === 'ghostPassed') {
+    // The lead has changed hands: the gap pill, which flips colour, gives a bounce.
+    pulse($('gap-pill'));
   } else if (ev === 'stepSoon' || ev === 'stepChange') {
     chimes.play(ev);
     if (ev === 'stepChange') {
