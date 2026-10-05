@@ -432,3 +432,35 @@ test('nothing is ridden lighter than a recovery: an easier step slows the legs i
   // Steps that are already heavy enough are left alone.
   assert.equal(stepTargets({ kind: 'work', dur: 60, pct: 90, cadence: 70 }, [], baselineW, DEFAULT_MODEL).cadence, 70);
 });
+
+test('after the finish a rider can carry on: the result stands and the extra is kept apart', () => {
+  const w = generateWorkout('intervals', 10, 0);
+  const s = new RideSession({ workout: w, baselineW: 200, model: DEFAULT_MODEL, ghost: pacerGhost(w, 200) });
+  s.setInput({ powerW: 150, cadence: 85 });
+  while (!s.done) s.update(0.5);
+  const finished = s.summary();
+  assert.equal(s.snapshot().extra, null);
+
+  s.keepGoing({ kind: 'steady', pct: 70, cadence: 80, label: 'Easy cruise' });
+  for (let i = 0; i < 240; i++) s.updateExtra(0.5);
+  const snap = s.snapshot();
+  assert.equal(snap.seg.label, 'Easy cruise');
+  assert.equal(snap.targetCadence, 80);
+  assert.equal(Math.round(snap.extra.s), 120);
+  assert.ok(snap.extra.dist > 500, `${snap.extra.dist} m in two minutes`);
+  // The race is as it was at the line.
+  assert.equal(snap.t, w.totalS);
+  assert.equal(snap.dist, finished.distanceM);
+  assert.deepEqual(s.summary(), finished);
+});
+
+test('a saved ride can have the time ridden after the finish added to it', () => {
+  const items = new Map();
+  const storage = new Storage({ getItem: (k) => items.get(k) ?? null, setItem: (k, v) => items.set(k, v) });
+  storage.saveRide({ id: 'a', code: 'INT-30-K7Q', date: '2026-10-01T10:00:00Z', durationS: 1800, distanceM: 12000 });
+  storage.saveRide({ id: 'b', code: 'INT-30-K7Q', date: '2026-10-02T10:00:00Z', durationS: 1800, distanceM: 12500 });
+  storage.updateRide('b', { extraS: 300, extraM: 2100 });
+  assert.equal(storage.allRides().find((r) => r.id === 'b').extraS, 300);
+  assert.equal(storage.allRides().find((r) => r.id === 'a').extraS, undefined);
+  assert.equal(storage.bestRide('INT-30-K7Q').id, 'b'); // judged on the ride, not the extra
+});

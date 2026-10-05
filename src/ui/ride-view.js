@@ -1,7 +1,7 @@
 // The ride itself: the frame loop, the ride window and everything on it, the
 // mini window, sound, the keyboard, and the simulator's controls.
 
-import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S } from '../core/ride.js';
+import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S, EASY_PACE_PCT } from '../core/ride.js';
 import { formatRange, spokenCue, repeatsInBlock, stepAction } from '../core/cues.js';
 import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, applySound, state, chimes, voice } from './store.js';
 import { $, setPipDoc, toast, showScreen } from './dom.js';
@@ -12,7 +12,7 @@ import { routeSvg, updateRoute } from './charts.js';
 import { popOut, pipSupported } from './pip.js';
 import { ZONE_COLORS } from './palette.js';
 import { currentWorkout, pickGhost, renderSetup, resistanceIsEstimate } from './setup.js';
-import { finishRide } from './summary.js';
+import { finishRide, recordRide } from './summary.js';
 
 const SCENE_HEIGHT = 222;
 const ROUTE_W = 328;
@@ -23,6 +23,7 @@ const FINISH_NOTICE_S = 60;
 const BACK_IN_SADDLE_MS = 4000;
 const AUTO_PAUSE_MS = 5000; // the ride pauses after this long without pedalling
 const RESUME_SAVE_MS = 5000; // how often the ride in progress is saved
+const IDLE_END_MS = 30000; // after the finish, this long without pedalling ends the ride
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 let lastPedalAt = 0;
@@ -69,6 +70,12 @@ export function advance() {
     state.lastAdvance = now;
     if (state.bikeKind === 'sim') state.bike.tick(now / 1000);
     const s = state.session;
+    if (s?.done && s.extra) {
+      // Carrying on after the finish: it ends when the pedals stop, or on End ride.
+      if (performance.now() - lastPedalAt > IDLE_END_MS) finishRide(true);
+      else if (!state.paused) s.updateExtra(Math.min((now - prev) / 1000, 10 * TIME_SCALE));
+      return;
+    }
     if (s && !s.done) autoPause();
     if (!s || state.paused || !state.started || s.done) return;
     saveProgress();
@@ -109,9 +116,14 @@ setInterval(advance, 1000);
 // something the rider can see happening to the timer.
 function onRideEvent(ev) {
   if (ev === 'done') {
+    // The ride is finished and saved, but the window stays: the rider can
+    // cruise on at their easy pace for as long as they like.
     chimes.play('done');
-    voice.say('Ride complete.');
-    setTimeout(() => finishRide(true), 400);
+    voice.say('Ride complete. Carry on if you like.');
+    recordRide(state.session);
+    state.session.keepGoing({ kind: 'steady', pct: EASY_PACE_PCT, cadence: settings.easyCadence, label: 'Easy cruise', name: 'Easy cruise' });
+    lastPedalAt = performance.now();
+    state.lastDom = 0;
   } else if (ev === 'stepSoon' || ev === 'stepChange') {
     chimes.play(ev);
     if (ev === 'stepChange') {
@@ -140,6 +152,7 @@ export function startRide(workout, resume = null) {
   lastPedalAt = performance.now();
   state.lastAdvance = clock();
   state.ride = { workout, ghost, prevBest: storage.bestRide(workout.code), prevLast: storage.lastRide(workout.code) };
+  state.finished = null;
   // Hills follow resistance: steeper means turn it up. Measured against an easy
   // cruise at the starting effort, so raising the effort makes the hills grow.
   state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).resistance;
@@ -175,7 +188,9 @@ function renderRide() {
   state.lastFrame = now;
   const snap = s.snapshot();
   const moving = state.started && !state.paused;
-  scene.render(moving ? snap : { ...snap, cadence: 0, speed: 0, ghostSpeed: 0, ghostCadence: 0 }, moving ? dt : 0);
+  // After the finish the road keeps rolling, with the ghost held where it finished.
+  const view = snap.extra ? { ...snap, t: snap.totalS + snap.extra.s, ghostSpeed: snap.speed, ghostCadence: snap.cadence } : snap;
+  scene.render(moving ? view : { ...view, cadence: 0, speed: 0, ghostSpeed: 0, ghostCadence: 0 }, moving ? dt : 0);
 
   if (now - state.lastDom < DOM_EVERY_MS) return;
   state.lastDom = now;
@@ -186,6 +201,9 @@ function renderRide() {
   renderTiles(snap);
   renderEffort(snap);
   renderOverlay(snap);
+  // The route is over once the ride is: End ride takes its place.
+  $('route-card').hidden = !!snap.extra;
+  $('done-box').hidden = !snap.extra;
   updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
   $('route-dist').textContent = fmtKm(snap.dist);
   if (state.bikeKind === 'sim') {
@@ -196,7 +214,8 @@ function renderRide() {
 
 /** Time left, and the two pills over the scene: the gap to the ghost and what is coming. */
 function renderRace(snap) {
-  $('time-left').textContent = fmtClock(snap.totalS - snap.t);
+  $('time-left').textContent = snap.extra ? `+${fmtClock(snap.extra.s)}` : fmtClock(snap.totalS - snap.t);
+  $('time-lbl').textContent = snap.extra ? 'extra' : 'left';
   $('total-bar').style.width = `${Math.min(100, (snap.t / snap.totalS) * 100).toFixed(1)}%`;
 
   const gap = $('gap-pill');
@@ -218,6 +237,7 @@ function renderRace(snap) {
   const left = snap.totalS - snap.t;
   if (snap.gate) next.textContent = `Gate ${snap.gate.index + 1}/${snap.gate.count} · ${fmtClock(snap.gate.left)}`;
   else if (snap.nextGate && snap.nextGate.inS < GATE_NOTICE_S) next.textContent = `Gate ${snap.nextGate.index + 1} in ${fmtClock(snap.nextGate.inS)}`;
+  else if (snap.extra) next.textContent = 'Finished';
   else if (state.started && left <= FINISH_NOTICE_S) next.textContent = `Finish in ${fmtClock(left)}`;
   else next.textContent = '';
 }
@@ -237,8 +257,10 @@ function renderStep(s, snap) {
   }
   $('step-label').textContent = seg.label;
   $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
-  $('step-time').textContent = fmtClock(snap.stepLeft);
-  $('step-bar').style.width = `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
+  // The cruise after the finish has no end to count down to, so it counts up.
+  $('step-time').textContent = fmtClock(snap.extra ? snap.extra.s : snap.stepLeft);
+  $('step-lbl').textContent = snap.extra ? 'extra' : 'left';
+  $('step-bar').style.width = snap.extra ? '100%' : `${Math.min(100, (1 - snap.stepLeft / seg.dur) * 100).toFixed(1)}%`;
   // The last ten seconds of a step pulse, except in reps too short to need it.
   $('countdown').classList.toggle('soon', state.started && !state.paused && !!next && seg.dur >= SHORT_STEP_S && snap.stepLeft <= 10);
 
@@ -446,6 +468,7 @@ $('btn-end').addEventListener('click', () => {
   if (!state.session.done && !window.confirm('End the ride now? Rides that end early are not saved as ghosts.')) return;
   finishRide(state.session.done);
 });
+$('btn-done').addEventListener('click', () => finishRide(true));
 
 // Keep the screen awake for the length of a ride. The lock belongs to a
 // visible window, so it is taken from the mini window when that is open.

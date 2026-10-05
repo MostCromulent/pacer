@@ -33,6 +33,8 @@ export function renderStats() {
   }
   const sum = (f) => rides.reduce((a, r) => a + f(r), 0);
   const totalS = sum((r) => r.durationS);
+  // Time ridden on after a finish counts in the totals, though not in the race.
+  const ridden = (r) => r.durationS + (r.extraS ?? 0);
   $('stats-sub').textContent = `Since ${new Date(rides.at(-1).date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
   // Weeks start on Monday.
@@ -49,14 +51,14 @@ export function renderStats() {
     const inWeek = rides.filter((r) => monday(r.date).getTime() === start.getTime());
     return {
       label: start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
-      minutes: Math.round(inWeek.reduce((a, r) => a + r.durationS, 0) / 60),
+      minutes: Math.round(inWeek.reduce((a, r) => a + ridden(r), 0) / 60),
       rides: inWeek.length,
     };
   });
 
   const rows = rides.slice(0, STATS_ROWS).map((r) => `<tr>
     <td>${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-    <td>${esc(rideName(r.code))}</td><td>${Math.round(r.durationS / 60)} min</td><td>${fmtKm(r.distanceM)}</td>
+    <td>${esc(rideName(r.code))}</td><td>${Math.round(r.durationS / 60)} min${r.extraS >= 30 ? ` +${Math.round(r.extraS / 60)}` : ''}</td><td>${fmtKm(r.distanceM + (r.extraM ?? 0))}</td>
     <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td>
     <td><button type="button" class="link" data-delete="${esc(r.id)}">Delete</button></td></tr>`).join('');
 
@@ -64,7 +66,7 @@ export function renderStats() {
     <div class="stats-tiles">
       <div class="tile"><span class="tile-label">Rides</span><span class="tile-num">${rides.length}</span><span class="tile-sub">${weeks.at(-1).rides} this week</span></div>
       <div class="tile"><span class="tile-label">Time ridden</span><span class="tile-num">${fmtHours(totalS)}</span><span class="tile-sub">${fmtHours(weeks.at(-1).minutes * 60)} this week</span></div>
-      <div class="tile"><span class="tile-label">Distance</span><span class="tile-num">${fmtKm(sum((r) => r.distanceM))}</span><span class="tile-sub">virtual, from your power</span></div>
+      <div class="tile"><span class="tile-label">Distance</span><span class="tile-num">${fmtKm(sum((r) => r.distanceM + (r.extraM ?? 0)))}</span><span class="tile-sub">virtual, from your power</span></div>
       <div class="tile"><span class="tile-label">On target</span><span class="tile-num">${Math.round(sum((r) => r.onTargetPct * r.durationS) / totalS)}%</span><span class="tile-sub">of ride time, all rides</span></div>
     </div>
     <div class="card stats-card">

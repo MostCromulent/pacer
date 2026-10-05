@@ -386,6 +386,9 @@ main { padding: 0 32px 40px; }
 .effort-val.flash, .num-aim b.flash { animation: effort-flash 0.5s ease-out; }
 .num-aim b { display: inline-block; }
 @keyframes effort-flash { from { transform: scale(1.25); } to { transform: scale(1); } }
+/* After the finish, the route strip gives way to the way out. */
+.done-box { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 800; color: var(--muted); }
+.done-box .btn-start { flex: 1; min-height: 52px; font-size: 20px; }
 .route { padding: 8px 16px 10px; display: flex; flex-direction: column; gap: 4px; }
 .route-head { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 800; color: var(--muted); }
 #route-dist { color: var(--ink); font-size: 14px; }

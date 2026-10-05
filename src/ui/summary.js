@@ -14,6 +14,33 @@ import { saveLearning } from './learning.js';
 import { startRide, letScreenSleep } from './ride-view.js';
 import { calib } from './calibration.js';
 
+/**
+ * The planned ride is over. It is saved straight away, so nothing is lost if
+ * the rider carries on for a while and then simply closes the window.
+ */
+export function recordRide(session) {
+  if (state.finished) return;
+  storage.clearResume();
+  const sum = session.summary();
+  const ride = {
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    code: state.ride.workout.code,
+    date: new Date().toISOString(),
+    durationS: Math.round(sum.durationS),
+    distanceM: Math.round(sum.distanceM * 10) / 10,
+    avgPowerW: sum.avgPowerW,
+    onTargetPct: sum.onTargetPct,
+    baselineW: session.baselineW,
+    effort: sum.avgEffort,
+    climbs: sum.climbs,
+    samples: { d: session.samples.d, p: session.samples.p, c: session.samples.c },
+  };
+  const saved = storage.saveRide(ride);
+  if (!saved) toast('Storage is full, so this ride could not be saved. Export your rides to free space.', 7000);
+  state.finished = { id: ride.id, sum, saved };
+}
+
+/** Leave the ride for its summary. `completed` is false when it is ended before the finish. */
 export function finishRide(completed) {
   const s = state.session;
   if (!s) return;
@@ -22,46 +49,32 @@ export function finishRide(completed) {
   state.session = null;
   if (state.pipWin && !state.pipWin.closed) state.pipWin.close();
   storage.clearResume();
-  const sum = s.summary();
+  if (completed) recordRide(s);
+  const done = state.finished;
+  state.finished = null;
+  // Time ridden after the finish counts towards the totals, not the race.
+  const extra = done && s.extra?.s >= 1 ? { s: Math.round(s.extra.s), m: Math.round(s.extra.dist) } : null;
+  if (extra) storage.updateRide(done.id, { extraS: extra.s, extraM: extra.m });
   const { workout, prevBest } = state.ride;
-
-  let saved = false;
-  if (completed) {
-    const ride = {
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      code: workout.code,
-      date: new Date().toISOString(),
-      durationS: Math.round(sum.durationS),
-      distanceM: Math.round(sum.distanceM * 10) / 10,
-      avgPowerW: sum.avgPowerW,
-      onTargetPct: sum.onTargetPct,
-      baselineW: s.baselineW,
-      effort: sum.avgEffort,
-      climbs: sum.climbs,
-      samples: { d: s.samples.d, p: s.samples.p, c: s.samples.c },
-    };
-    saved = storage.saveRide(ride);
-    if (!saved) toast('Storage is full, so this ride could not be saved. Export your rides to free space.', 7000);
-  }
   try {
-    renderSummary({ sum, workout, prevBest, completed, saved, session: s });
+    renderSummary({ sum: done?.sum ?? s.summary(), workout, prevBest, completed: !!done, saved: !!done?.saved, session: s, extra });
   } catch (err) {
     console.error(err);
     toast('The ride is finished, but its summary could not be drawn.', 6000);
   }
   showScreen('summary');
   letScreenSleep();
-  if (!completed) voice.stop();
+  if (!done) voice.stop();
   saveLearning();
 }
 
-function renderSummary({ sum, workout, prevBest, completed, saved, session }) {
+function renderSummary({ sum, workout, prevBest, completed, saved, session, extra }) {
   const ahead = sum.gap >= 0;
   $('sum-eyebrow').textContent = completed ? 'Ride complete' : 'Ride ended early';
   const who = sum.ghostKind === 'pacer' ? 'the pacer' : 'your ghost';
   $('sum-title').textContent = ahead ? `You beat ${who}.` : `${who === 'the pacer' ? 'The pacer' : 'Your ghost'} got you this time.`;
   const count = storage.ridesFor(workout.code).length;
-  $('sum-sub').innerHTML = `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${count ? ` · ridden ${count} time${count === 1 ? '' : 's'}` : ''}${sum.avgEffort !== 1 ? ` · effort ${Math.round(sum.avgEffort * 100)}%` : ''}`;
+  $('sum-sub').innerHTML = `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${count ? ` · ridden ${count} time${count === 1 ? '' : 's'}` : ''}${sum.avgEffort !== 1 ? ` · effort ${Math.round(sum.avgEffort * 100)}%` : ''}${extra?.s >= 30 ? ` · then ${fmtClock(extra.s)} more` : ''}`;
 
   const isPb = completed && saved && (!prevBest || sum.distanceM > prevBest.distanceM);
   $('pb-badge').hidden = !isPb;

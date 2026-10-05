@@ -161,7 +161,14 @@ try {
     await run(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))`);
     expect(await run(`window.pacer.state.paused`), 'space did not pause');
     await run(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))`);
-    await until('the ride to finish', `window.pacer.state.screen === 'summary'`, 40000);
+    // At the finish the ride is saved and the window stays, cruising, until End ride.
+    await until('the ride to finish', `window.pacer.state.session?.done === true`, 40000);
+    expect(await run(`window.pacer.storage.allRides().length === 1 && window.pacer.state.screen === 'ride'`), 'the ride was not saved at the finish, or the window closed');
+    // (The ride panel is in the mini window by now.)
+    const panel = `(window.pacer.state.pipWin?.document ?? document)`;
+    await until('the cruise to show', `!${panel}.getElementById('done-box').hidden && ${panel}.getElementById('step-label').textContent === 'Easy cruise'`);
+    await run(`${panel}.getElementById('btn-done').click()`);
+    await until('the summary', `window.pacer.state.screen === 'summary'`);
     expect((await text('#sum-eyebrow')) === 'Ride complete', 'the ride did not complete');
     expect(await run(`!!document.querySelector('#ride-chart svg path')`), 'the ride chart was not drawn');
     expect((await run(`document.querySelectorAll('#ride-blocks tbody tr').length`)) >= 3, 'expected a line for each part of the ride');

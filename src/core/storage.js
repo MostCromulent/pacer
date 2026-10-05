@@ -122,6 +122,11 @@ export class Storage {
     return safeSet(this.store, KEY_RIDES, trimmed);
   }
 
+  /** Change some fields of a saved ride. */
+  updateRide(id, changes) {
+    return safeSet(this.store, KEY_RIDES, this.allRides().map((r) => (r.id === id ? { ...r, ...changes } : r)));
+  }
+
   deleteRide(id) {
     return safeSet(this.store, KEY_RIDES, this.allRides().filter((r) => r.id !== id));
   }

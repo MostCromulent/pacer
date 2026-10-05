@@ -195,7 +195,7 @@
       <div id="panel-home" class="panel-home">
         <section id="ride-panel" class="panel" aria-label="Ride">
           <div class="panel-top">
-            <span class="total" aria-label="Ride time left"><span id="time-left" class="total-num">30:00</span><span class="total-lbl">left</span></span>
+            <span class="total" aria-label="Ride time left"><span id="time-left" class="total-num">30:00</span><span id="time-lbl" class="total-lbl">left</span></span>
             <span class="total-bar" aria-hidden="true"><i id="total-bar"></i></span>
             <span class="panel-buttons">
               <div id="sound-pop" class="sound-pop" hidden>
@@ -231,7 +231,7 @@
             </div>
             <div class="cd-row">
               <span id="step-time" class="cd-num">0:00</span>
-              <span class="cd-left">left</span>
+              <span id="step-lbl" class="cd-left">left</span>
               <span class="badges">
                 <span id="action" class="action" hidden></span>
                 <span id="saddle" class="saddle" hidden></span>
@@ -261,9 +261,13 @@
             </div>
           </div>
 
-          <div class="card route">
+          <div id="route-card" class="card route">
             <div class="route-head"><span id="next-label" class="next-label"></span><span id="route-dist">0.0 km</span></div>
             <div id="route-svg"></div>
+          </div>
+          <div id="done-box" class="done-box" hidden>
+            <button id="btn-done" class="btn btn-start" type="button">End ride</button>
+            <span>or just stop pedalling</span>
           </div>
         </section>
       </div>

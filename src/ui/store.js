@@ -134,6 +134,7 @@ export const state = {
   // The ride in progress
   session: null, // RideSession
   ride: null, // { workout, ghost, prevBest, prevLast }
+  finished: null, // { id, sum, saved }: the ride just completed, saved while the rider carries on
   started: false, // becomes true with the first pedal stroke
   paused: false,
   autoPaused: false, // paused because the pedals stopped; pedalling resumes it

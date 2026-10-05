@@ -2,7 +2,7 @@
 
 import { parseWorkoutCode, hasBlocks } from '../core/workout.js';
 import { resistanceFor, powerFor } from '../core/resistance.js';
-import { resistanceBlock } from '../core/ride.js';
+import { resistanceBlock, EASY_PACE_PCT } from '../core/ride.js';
 import { formatRange } from '../core/cues.js';
 import { DEFAULT_SETTINGS } from '../core/storage.js';
 import { storage, settings, saveSettings, reloadFromStorage, activeModel, state } from './store.js';
@@ -17,7 +17,7 @@ import { updateMute } from './ride-view.js';
 
 // The easy pace is comfortable flat-road riding: 70% of the baseline, the same
 // as a "Flat road" step. Recovery steps sit a little below it.
-const EASY_PCT = 0.7;
+const EASY_PCT = EASY_PACE_PCT / 100;
 const PACE_EXAMPLES = [
   { name: 'Recovery spin', pct: 0.55, cadence: 75 },
   { name: 'Flat road', pct: 0.7, cadence: 90 },

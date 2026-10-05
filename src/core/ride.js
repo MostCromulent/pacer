@@ -10,6 +10,7 @@ import { roundTo } from './util.js';
 const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
 export const SHORT_STEP_S = 25;
+export const EASY_PACE_PCT = 70; // comfortable flat-road riding, as a % of baseline: what the rider's "easy pace" stands for
 // Targets are given in round numbers, the way an instructor calls them: a
 // cadence range like 80-90 and a resistance block like 40-45.
 const ROUND_TO = 5;
@@ -245,6 +246,24 @@ export class RideSession {
     return this;
   }
 
+  /**
+   * Carry on after the finish. The ride itself is over and its result stands;
+   * from here the rider cruises at `seg`, which is shown but not scored, and
+   * the time and distance are kept apart in `extra`.
+   */
+  keepGoing(seg) {
+    this.extraSeg = { position: 'seated', ...seg, start: this.workout.totalS, dur: Infinity };
+    this.extra = { s: 0, dist: 0 };
+  }
+
+  /** Advance the time after the finish by `dt` seconds. */
+  updateExtra(dt) {
+    if (!this.done || !this.extra) return;
+    this.speed = stepSpeed(this.speed, this.input.powerW, dt);
+    this.extra.s += dt;
+    this.extra.dist += this.speed * dt;
+  }
+
   currentResistance() {
     if (this.input.resistance !== null) return this.input.resistance;
     if (this.input.powerW > 5 && this.input.cadence > 20) {
@@ -300,8 +319,10 @@ export class RideSession {
   /** Everything the UI needs to draw a frame. */
   snapshot() {
     const w = this.workout;
-    const si = segmentIndexAt(w, Math.max(0, this.t - 1e-6));
-    const seg = w.segments[si];
+    // After the finish, a rider who carries on is shown the cruise instead of the last step.
+    const cruising = this.done && !!this.extraSeg;
+    const si = cruising ? w.segments.length : segmentIndexAt(w, Math.max(0, this.t - 1e-6));
+    const seg = cruising ? this.extraSeg : w.segments[si];
     const stale = this.t - this.input.at > STALE_INPUT_S;
     const powerW = stale ? 0 : this.input.powerW;
     const cadence = stale ? 0 : this.input.cadence;
@@ -355,6 +376,7 @@ export class RideSession {
       nextGate: upcoming ? { index: upcoming.index, count: w.gates.length, inS: upcoming.start - this.t } : null,
       noSignal: stale,
       done: this.done,
+      extra: cruising ? this.extra : null, // { s, dist } since the finish
     };
   }
 
