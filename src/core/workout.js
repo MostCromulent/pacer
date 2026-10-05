@@ -13,6 +13,7 @@
 
 import { excludeMask, excludeFromMask } from './spinclass.js';
 import { makeBuilders } from './rides.js';
+import { heldEffort } from './util.js';
 
 export { SPIN_BLOCKS } from './spinclass.js';
 
@@ -143,6 +144,20 @@ export function parseWorkoutCode(code) {
 export function generateWorkout(type, minutes, variant = 0, options = {}) {
   variant = Math.max(0, Math.floor(variant));
   const exclude = hasBlocks(type) ? excludeFromMask(excludeMask(options.exclude)) : [];
+  // The same ride is asked for again and again while it is set up and
+  // ridden, so the last few are kept. A workout is never changed once made.
+  const code = workoutCode(type, minutes, variant, exclude);
+  if (!recent.has(code)) {
+    recent.set(code, buildWorkout(type, minutes, variant, exclude));
+    if (recent.size > RECENT_KEPT) recent.delete(recent.keys().next().value);
+  }
+  return recent.get(code);
+}
+
+const RECENT_KEPT = 12;
+const recent = new Map();
+
+function buildWorkout(type, minutes, variant, exclude) {
   const v = variant % 3; // which of a ride's three styles to use
   const segs = [];
   // All durations in whole seconds, so the parts always add up exactly.
@@ -180,6 +195,13 @@ export function generateWorkout(type, minutes, variant = 0, options = {}) {
     if (!s.cadence) s.cadence = targetCadenceFor(s);
     s.position = s.stand ? 'standing' : 'seated';
     delete s.stand;
+  }
+  // A step that holds the resistance of the one before it is ridden at the
+  // effort the change of cadence makes it, whatever was written for it.
+  let base = null;
+  for (const s of segs) {
+    if (s.hold && base) s.pct = Math.round(heldEffort(base.pct, base.cadence, s.cadence));
+    else base = s;
   }
 
   const name = type === 'mix' ? MIXES[v].name : TYPES.find((x) => x.id === type)?.name ?? type;

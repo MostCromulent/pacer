@@ -112,9 +112,13 @@ The code uses the same words the rider sees.
    more, and use `near()` for a base effort so it joins on to the block before.
 3. Add a test in `test/spinclass.test.js`.
 
-There is nothing else to label. How hard the block is, where it goes in the
-class, how much rest follows it and whether it can be the finale are all
-measured from its steps.
+There is nothing else to label. How hard the block is, what it trains, where
+it goes in the class, how much rest follows it and whether it can be the finale
+are all read from its steps.
+
+A step that holds the resistance of the one before it (`hold: true`) is ridden
+at whatever effort the change of cadence makes it, so the `pct` written for it
+is replaced. This applies to every kind of ride, not only spin classes.
 
 ## Workout codes
 

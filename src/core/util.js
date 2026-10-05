@@ -33,3 +33,17 @@ export function seededRandom(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/**
+ * Watts rise with about this power of cadence at a fixed resistance. Bikes
+ * differ a little; this is for planning a ride, not for judging one.
+ */
+export const CADENCE_POWER = 1.6;
+
+/**
+ * The effort of a step ridden on another step's resistance at a different
+ * cadence, as a % of baseline. (Cadences are called to the nearest five.)
+ */
+export function heldEffort(basePct, baseCadence, cadence) {
+  return basePct * (roundTo(cadence, 5) / roundTo(baseCadence, 5)) ** CADENCE_POWER;
+}
