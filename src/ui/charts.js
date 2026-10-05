@@ -75,11 +75,12 @@ export function updateRoute(root, workout, t, width = 328, height = 56, heightOf
   dot.setAttribute('cy', (height - (6 + clamp01(heightOf(workout.segments[si])) * (height - 12))).toFixed(1));
 }
 
-// The ride chart on the summary: cadence and resistance as lines in the top
-// panel, power as a filled area in the bottom one. The geometry is shared with
-// the hover readout in summary.js.
-export const RIDE_PLOT = { width: 1040, height: 452, left: 44, right: 915, top: 46, split: 222, powerTop: 283, base: 384 };
-export const RIDE_COLORS = { cadence: '#12898B', resistance: '#6A55B8', watts: '#EFA58E', wattsText: '#B9705C', miss: '#F2B13C' };
+// The ride chart on the summary, all in one plot: power as a filled area on
+// its own scale (right), with cadence and resistance as lines over it (left).
+// The geometry is shared with the hover readout in summary.js.
+export const RIDE_PLOT = { width: 1040, height: 372, left: 44, right: 978, top: 46, base: 300 };
+export const RIDE_COLORS = { cadence: '#0B6E70', resistance: '#4B379E', watts: '#F3B6A3', wattsText: '#B9705C', miss: '#F2B13C' };
+const WATTS_REACH = 0.72; // the tallest the power area gets, as a share of the plot: the lines need some sky
 
 /** A running average over `half` seconds either side. */
 function smoothed(values, half) {
@@ -93,21 +94,21 @@ function smoothed(values, half) {
 
 /** The scales of a ride chart: x for a second, y for cadence and resistance, y for watts. */
 export function rideScales(review) {
-  const { left, right, top, split, powerTop, base } = RIDE_PLOT;
+  const { left, right, top, base } = RIDE_PLOT;
   const levelMax = Math.max(110, Math.ceil((Math.max(0, ...review.cadence) + 5) / 20) * 20);
   const wattsMax = Math.max(200, Math.ceil((Math.max(0, ...smoothed(review.watts, 5)) + 1) / 100) * 100);
   return {
     levelMax,
     wattsMax,
     x: (sec) => left + (sec / Math.max(1, review.seconds)) * (right - left),
-    yLevel: (v) => split - (Math.min(v, levelMax) / levelMax) * (split - top),
-    yWatts: (v) => base - (Math.min(v, wattsMax) / wattsMax) * (base - powerTop),
+    yLevel: (v) => base - (Math.min(v, levelMax) / levelMax) * (base - top),
+    yWatts: (v) => base - (Math.min(v, wattsMax) / wattsMax) * (base - top) * WATTS_REACH,
   };
 }
 
 /** @param review what rideReview() returns */
 export function rideChartSvg(review) {
-  const { width, height, left, right, top, split, powerTop, base } = RIDE_PLOT;
+  const { width, height, left, right, top, base } = RIDE_PLOT;
   const n = review.seconds;
   if (n < 30) return '<p class="muted">Ride for half a minute to see the chart.</p>';
   const { levelMax, wattsMax, x, yLevel, yWatts } = rideScales(review);
@@ -117,11 +118,9 @@ export function rideChartSvg(review) {
     for (let i = 0; i < n; i += every) pts.push(`${x(i + 0.5).toFixed(1)},${y(values[i]).toFixed(1)}`);
     return pts.join('L');
   };
-  const grid = (y) => `<line x1="${left}" x2="${right}" y1="${y}" y2="${y}" stroke="${P.ink}" opacity=".08"/>`;
-  const tick = (y, text) => `<text x="${left - 7}" y="${y + 4}" text-anchor="end" font-size="11" fill="${P.muted}">${text}</text>`;
   let s = '';
 
-  // Block names along the top, and a faint divider down each panel. A ride of
+  // Block names along the top, and a faint divider down the plot. A ride of
   // many short steps has too many to name.
   if (review.spans.length <= 16) {
     review.spans.forEach((sp, i) => {
@@ -129,22 +128,21 @@ export function rideChartSvg(review) {
       const x0 = x(sp.from), x1 = x(Math.min(sp.to, n));
       s += `<rect x="${(x0 + 1.5).toFixed(1)}" y="6" width="${Math.max(0, x1 - x0 - 3).toFixed(1)}" height="22" rx="11" fill="${i % 2 ? '#F1E4D6' : '#F8EEE3'}"/>`;
       if (sp.name.length * 6.4 + 12 <= x1 - x0) s += `<text x="${((x0 + x1) / 2).toFixed(1)}" y="21" text-anchor="middle" font-size="11" fill="${P.inkSoft}">${esc(sp.name)}</text>`;
-      if (i) for (const [y1, y2] of [[top, split], [powerTop - 8, base]]) s += `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${y1}" y2="${y2}" stroke="#EDE2D6" stroke-dasharray="2 4"/>`;
+      if (i) s += `<line x1="${x0.toFixed(1)}" x2="${x0.toFixed(1)}" y1="${top}" y2="${base}" stroke="#EDE2D6" stroke-dasharray="2 4"/>`;
     });
   }
 
-  // Power: a filled area on its own scale, smoothed over ten seconds.
+  // Power: a filled area behind everything, smoothed over ten seconds, read off the right-hand side.
   const watts = smoothed(review.watts, 5);
   s += `<path d="M${x(0.5).toFixed(1)},${base}L${points(watts, yWatts)}L${x(n - 0.5).toFixed(1)},${base}Z" fill="${RIDE_COLORS.watts}"/>`;
   const wattsStep = wattsMax <= 300 ? 100 : wattsMax <= 600 ? 200 : Math.ceil(wattsMax / 300) * 100;
-  for (let v = wattsStep; v <= wattsMax; v += wattsStep) s += grid(yWatts(v)) + tick(yWatts(v), `${v} W`);
-  s += `<text x="${left}" y="${powerTop - 18}" font-size="12" fill="${P.ink}">Power</text>`;
-  s += `<text x="${right + 10}" y="${(yWatts(watts[n - 1]) + 4).toFixed(1)}" font-size="12" fill="${RIDE_COLORS.wattsText}">Watts</text>`;
+  for (let v = wattsStep; v <= wattsMax; v += wattsStep) s += `<text x="${right + 7}" y="${(yWatts(v) + 4).toFixed(1)}" font-size="11" fill="${RIDE_COLORS.wattsText}">${v} W</text>`;
 
-  // Cadence and resistance: the target as a thin dashed line, what you did as a solid one.
-  for (let v = 20; v < levelMax; v += 20) s += grid(yLevel(v)) + tick(yLevel(v), v);
-  s += `<line x1="${left}" x2="${right}" y1="${split}" y2="${split}" stroke="#E3D3C3" stroke-width="2"/>${tick(split, 0)}`;
-  for (const [key, name] of [['cadence', 'Cadence'], ['resistance', 'Resistance']]) {
+  // Cadence and resistance, read off the left: the target as a thin dashed
+  // line, what you did as a solid one with a pale edge so it stays clear of the area.
+  for (let v = 20; v < levelMax; v += 20) s += `<line x1="${left}" x2="${right}" y1="${yLevel(v)}" y2="${yLevel(v)}" stroke="${P.ink}" opacity=".08"/><text x="${left - 7}" y="${yLevel(v) + 4}" text-anchor="end" font-size="11" fill="${P.muted}">${v}</text>`;
+  s += `<line x1="${left}" x2="${right}" y1="${base}" y2="${base}" stroke="#E3D3C3" stroke-width="2"/>`;
+  for (const key of ['cadence', 'resistance']) {
     const color = RIDE_COLORS[key];
     let aim = '';
     for (let i = 0; i < n; i++) {
@@ -152,23 +150,33 @@ export function rideChartSvg(review) {
       if (i && v === review.targets[i - 1][key]) continue;
       aim += i ? `H${x(i).toFixed(1)}V${yLevel(v).toFixed(1)}` : `M${x(0).toFixed(1)},${yLevel(v).toFixed(1)}`;
     }
-    const did = smoothed(review[key], 2);
-    s += `<path d="${aim}H${x(n).toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3" opacity=".55"/>`;
-    s += `<path d="M${points(did, yLevel)}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
-    s += `<text x="${right + 10}" y="${(yLevel(did[n - 1]) + 4).toFixed(1)}" font-size="12" fill="${color}">${name}</text>`;
+    const did = `M${points(smoothed(review[key], 2), yLevel)}`;
+    s += `<path d="${aim}H${x(n).toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.2" stroke-dasharray="4 3" opacity=".6"/>`;
+    s += `<path d="${did}" fill="none" stroke="#fff" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>`;
+    s += `<path d="${did}" fill="none" stroke="${color}" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
 
-  // Where you were off target: a strip under the chart.
+  // Where you were off target: a strip under the plot.
   s += `<rect x="${left}" y="${base + 5}" width="${right - left}" height="6" rx="3" fill="#F1E4D6"/>`;
   for (const [from, to] of review.misses) s += `<rect x="${x(from).toFixed(1)}" y="${base + 5}" width="${Math.max(3, x(to) - x(from)).toFixed(1)}" height="6" rx="3" fill="${RIDE_COLORS.miss}"/>`;
 
-  // Time along the bottom, and a key for the two marks that need one.
+  // Time along the bottom, and under it the key.
   const minutes = n / 60;
   const minuteStep = minutes <= 6 ? 1 : minutes <= 14 ? 2 : minutes <= 65 ? 5 : 10;
   for (let m = 0; m <= minutes; m += minuteStep) s += `<text x="${x(m * 60).toFixed(1)}" y="${base + 30}" text-anchor="middle" font-size="11" fill="${P.muted}">${m ? `${m} min` : '0'}</text>`;
   const keyY = base + 56;
-  s += `<line x1="${left}" x2="${left + 22}" y1="${keyY}" y2="${keyY}" stroke="${P.inkSoft}" stroke-width="1.2" stroke-dasharray="4 3"/><text x="${left + 28}" y="${keyY + 4}" font-size="11" fill="${P.muted}">target</text>`;
-  s += `<rect x="${left + 80}" y="${keyY - 3}" width="22" height="6" rx="3" fill="${RIDE_COLORS.miss}"/><text x="${left + 108}" y="${keyY + 4}" font-size="11" fill="${P.muted}">off target</text>`;
+  let keyX = left;
+  const key = (mark, text) => {
+    s += `${mark(keyX)}<text x="${keyX + 28}" y="${keyY + 4}" font-size="11.5" fill="${P.inkSoft}">${text}</text>`;
+    keyX += 44 + text.length * 6.6;
+  };
+  const stroke = (color, dash = '') => (at) => `<line x1="${at}" x2="${at + 22}" y1="${keyY}" y2="${keyY}" stroke="${color}" stroke-width="${dash ? 1.2 : 2.3}" stroke-linecap="round" ${dash ? `stroke-dasharray="${dash}"` : ''}/>`;
+  const swatch = (color, h) => (at) => `<rect x="${at}" y="${keyY - h / 2}" width="22" height="${h}" rx="3" fill="${color}"/>`;
+  key(stroke(RIDE_COLORS.cadence), 'Cadence');
+  key(stroke(RIDE_COLORS.resistance), 'Resistance');
+  key(swatch(RIDE_COLORS.watts, 12), 'Watts');
+  key(stroke(P.inkSoft, '4 3'), 'target');
+  key(swatch(RIDE_COLORS.miss, 6), 'off target');
 
   // The hover cursor, moved by summary.js.
   s += `<line id="ride-cursor" x1="0" x2="0" y1="${top}" y2="${base}" stroke="${P.ink}" stroke-width="1" visibility="hidden"/>`;

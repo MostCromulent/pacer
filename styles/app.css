@@ -451,9 +451,18 @@ main { padding: 0 32px 40px; }
 
 /* ---------- summary ---------- */
 .eyebrow { font-family: var(--display); font-weight: 600; color: var(--muted); margin: 0; font-size: 16px; }
-.sum-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.sum-head .title { margin: 0 0 4px; font-size: 42px; }
+.sum-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 16px; }
+.sum-head .title { margin: 0 0 4px; font-size: 38px; line-height: 1.15; }
 .sum-head p { margin: 0; }
+/* How far ahead or behind, picked out in the headline. */
+.sum-gap { font-style: normal; white-space: nowrap; padding: 0 10px; border-radius: 12px; background: var(--mint); }
+.sum-gap.behind { background: #F7B3A4; }
+/* The ride's figures, small beside the headline. */
+.sum-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sum-chip { background: var(--paper); border-radius: 12px; box-shadow: 0 2px 0 #EAD8C6; padding: 6px 12px; font-size: 13px; font-weight: 800; color: var(--ink-soft); white-space: nowrap; }
+.sum-chip b { font-family: var(--display); font-size: 17px; color: var(--ink); margin-left: 5px; font-variant-numeric: tabular-nums; }
+.sum-chip small { margin-left: 6px; color: var(--muted); font-weight: 800; }
+.sum-chip small.good { color: var(--teal-text); }
 .pb-badge.stamped { animation: pb-stamp 0.55s ease-out both; }
 @keyframes pb-stamp {
   0% { opacity: 0; transform: rotate(3deg) scale(2.4); }
@@ -461,22 +470,17 @@ main { padding: 0 32px 40px; }
   80% { transform: rotate(3deg) scale(1.04); }
 }
 .pb-badge {
-  display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 14px; background: var(--mustard);
-  font-family: var(--display); font-weight: 700; font-size: 20px; box-shadow: 0 3px 0 var(--mustard-deep), 0 8px 16px rgba(122, 78, 58, 0.18); transform: rotate(3deg);
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 12px; background: var(--mustard); vertical-align: middle;
+  font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.2; box-shadow: 0 3px 0 var(--mustard-deep); transform: rotate(3deg); white-space: nowrap;
 }
-.sum-top { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
-.hero { border-radius: 24px; padding: 22px 24px; display: flex; flex-direction: column; justify-content: center; gap: 4px; background: var(--mint); box-shadow: 0 3px 0 var(--mint-deep), 0 10px 22px rgba(122, 78, 58, 0.14); }
-.hero.behind { background: #F7B3A4; box-shadow: 0 3px 0 #D98E7D, 0 10px 22px rgba(122, 78, 58, 0.14); }
-.hero-label { font-size: 14px; font-weight: 800; }
-.hero-num { font-family: var(--display); font-weight: 700; font-size: 58px; line-height: 1; }
-.hero-sub { font-size: 15px; font-weight: 800; }
+.pb-badge svg { width: 18px; height: 18px; }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .tile { background: var(--paper); border-radius: 18px; padding: 14px 18px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 2px 0 #EAD8C6; }
 .tile-label { font-size: 12px; font-weight: 800; color: var(--muted); }
 .tile-num { font-family: var(--display); font-weight: 700; font-size: 28px; }
 .tile-sub { font-size: 13px; font-weight: 800; color: var(--muted); }
 .tile-sub.good { color: var(--teal-text); }
-.chart-card { padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.chart-card { padding: 16px 20px 18px; margin-bottom: 16px; }
 .card-title { font-family: var(--display); font-weight: 700; font-size: 20px; margin: 0 0 8px; }
 .legend { display: inline-flex; gap: 16px; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -492,6 +496,12 @@ main { padding: 0 32px 40px; }
 }
 .ride-readout i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 #ride-blocks { overflow-x: auto; }
+/* Under the chart, one cell for each block, lined up with it: the share of the block spent on target. */
+.ride-blockrow { display: flex; gap: 3px; padding: 0 5.96% 0 4.23%; margin-top: 6px; }
+.ride-blockrow span { flex-basis: 0; min-width: 0; padding: 5px 0; border-radius: 8px; background: #DCEBDD; text-align: center; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; overflow: hidden; white-space: nowrap; cursor: default; }
+.ride-blockrow span.low { background: #FBE5AE; }
+.ride-blockrow span.lit, .ride-blockrow span:hover { outline: 2.5px solid var(--ink); outline-offset: -2.5px; }
+.block-table tr.lit td { background: var(--sand); }
 .block-table { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 700; }
 .block-table th { text-align: right; font-size: 12px; font-weight: 800; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--line); }
 .block-table td { text-align: right; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -501,18 +511,20 @@ main { padding: 0 32px 40px; }
 .block-table .bar { display: inline-block; width: 90px; vertical-align: middle; margin-right: 8px; }
 .block-table .bar > i { background: #F2C14E; }
 .block-table .bar > i.good { background: #9CC5A1; }
-.sum-bottom { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
-.sum-bottom > .card { padding: 20px 24px; }
 .bar { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 6px; background: #F6A96B; }
-.card-lilac { background: var(--lavender); border-radius: 24px; padding: 20px 24px; box-shadow: 0 3px 0 var(--lavender-deep), 0 10px 22px rgba(122, 78, 58, 0.14); }
+/* History and what to do next, side by side under the chart. */
+.sum-foot { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; margin-bottom: 16px; }
+.sum-foot .history { flex: 1 1 300px; max-width: 460px; }
+.sum-foot .card-title { font-size: 16px; margin-bottom: 6px; }
+.sum-blocks { padding: 18px 22px; }
 .hist { display: flex; flex-direction: column; gap: 10px; }
 .hist-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 70px; align-items: center; gap: 10px; font-size: 13px; font-weight: 800; }
-.hist-row .bar { background: rgba(255, 255, 255, 0.5); height: 14px; border-radius: 7px; }
-.hist-row .bar > i { background: #fff; }
+.hist-row .bar { background: var(--track); height: 12px; border-radius: 6px; }
+.hist-row .bar > i { background: var(--lavender); }
 .hist-row.today .bar > i { background: var(--coral); }
 .hist-row .km { text-align: right; font-family: var(--display); font-weight: 700; font-size: 15px; }
-.sum-actions { display: flex; gap: 12px; margin-top: 20px; }
+.sum-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .sum-actions .btn-start { padding: 0 28px; }
 
 /* ---------- dialogs & toast ---------- */
@@ -571,7 +583,7 @@ main { padding: 0 32px 40px; }
 }
 
 @media (max-width: 960px) {
-  .setup-grid, .sum-top, .sum-bottom { grid-template-columns: 1fr; }
+  .setup-grid { grid-template-columns: 1fr; }
   .setup-right { padding-top: 0; }
   .topbar, main { padding-left: 16px; padding-right: 16px; }
   .browser-notice { margin-left: 16px; margin-right: 16px; }
@@ -584,7 +596,7 @@ main { padding: 0 32px 40px; }
   .title { font-size: 30px; }
   .block-table .bar { display: none; }
   .block-table td, .block-table th { padding-left: 4px; padding-right: 4px; }
-  .sum-bottom > .card, .chart-card { padding: 16px; }
+  .sum-blocks, .chart-card { padding: 14px; }
 
   /* Build a ride: one column, with Start always in reach at the bottom of the screen. */
   /* Stacked in one column, the parts need more air between them than side by side. */
@@ -621,8 +633,7 @@ main { padding: 0 32px 40px; }
   .stats-card .calib-table td:nth-child(2), .stats-card .calib-table th:nth-child(2) { padding-left: 8px; }
   .data-cards { grid-template-columns: 1fr; }
 
-  .sum-head { flex-direction: column; align-items: flex-start; }
-  .sum-head .title { font-size: 32px; }
+  .sum-head .title { font-size: 28px; }
   .sum-actions { flex-direction: column; }
 
   .dialog { padding: 18px; }

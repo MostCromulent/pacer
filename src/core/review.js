@@ -46,7 +46,7 @@ function outside(have, [lo, hi]) {
  *   watts: number[], cadence: number[], resistance: number[],
  *   targets: object[],            the step targets in force each second
  *   spanAt: number[],             index into `spans` for each second
- *   spans: {name: string, from: number, to: number}[],
+ *   spans: {name: string, from: number, to: number, onTargetPct: number}[],
  *   misses: [number, number][],   stretches off target, as [from, to) seconds
  *   rows: object[],               one line per block (or per kind of step) for the table
  * }}
@@ -135,7 +135,11 @@ export function rideReview(session) {
     resistance: samples.r,
     targets,
     spanAt,
-    spans: spans.map(({ name, from, to }) => ({ name, from, to })),
+    spans: spans.map(({ name, from, to, segs }) => {
+      const on = segs.reduce((a, i) => a + session.segOnTarget[i].on, 0);
+      const total = segs.reduce((a, i) => a + session.segOnTarget[i].total, 0);
+      return { name, from, to, onTargetPct: total ? Math.round((on / total) * 100) : 0 };
+    }),
     misses,
     rows,
   };

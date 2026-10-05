@@ -94,48 +94,30 @@ export function finishRide(completed) {
 function renderSummary({ sum, workout, prevBest, completed, saved, session, extra }) {
   const ahead = sum.gap >= 0;
   $('sum-eyebrow').textContent = completed ? 'Ride complete' : 'Ride ended early';
+  // The result is the headline: "You beat the pacer by 180 m".
   const who = sum.ghostKind === 'pacer' ? 'the pacer' : 'your ghost';
-  $('sum-title').textContent = ahead ? `You beat ${who}.` : `${who === 'the pacer' ? 'The pacer' : 'Your ghost'} got you this time.`;
+  $('sum-title').textContent = ahead ? `You beat ${who} by` : `${who === 'the pacer' ? 'The pacer' : 'Your ghost'} got you by`;
+  $('sum-gap').textContent = fmtGap(Math.abs(sum.gap)).replace('+', '');
+  $('sum-gap').classList.toggle('behind', !ahead);
   const count = storage.ridesFor(workout.code).length;
   $('sum-sub').innerHTML = `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${count ? ` · ridden ${count} time${count === 1 ? '' : 's'}` : ''}${sum.avgEffort !== 1 ? ` · effort ${Math.round(sum.avgEffort * 100)}%` : ''}${extra?.s >= 30 ? ` · then ${fmtClock(extra.s)} more` : ''}`;
 
   const isPb = completed && saved && (!prevBest || sum.distanceM > prevBest.distanceM);
   $('pb-badge').hidden = !isPb;
 
-  const hero = $('sum-hero');
-  hero.classList.toggle('behind', !ahead);
-  $('hero-label').textContent = ahead ? `Beat ${who} by` : `${who === 'the pacer' ? 'The pacer' : 'Your ghost'} won by`;
-  $('hero-num').textContent = fmtGap(Math.abs(sum.gap)).replace('+', '');
-  $('hero-sub').textContent = isPb ? 'This ride is your new PB ghost' : ahead ? 'Nicely done' : 'Race it again to get it back';
-
-  $('t-dist').textContent = fmtKm(sum.distanceM);
-  if (isPb) celebrateBest(sum.distanceM);
-  const dSub = $('t-dist-sub');
-  if (prevBest) {
-    const diff = sum.distanceM - prevBest.distanceM;
-    dSub.textContent = `${diff >= 0 ? '+' : '−'}${Math.abs(diff / 1000).toFixed(2)} km vs best`;
-    dSub.classList.toggle('good', diff >= 0);
-  } else {
-    dSub.textContent = 'First time on this workout';
-    dSub.classList.remove('good');
-  }
-  $('t-on').textContent = `${sum.onTargetPct}%`;
-  $('t-on-sub').textContent = `${fmtClock(sum.onTargetS)} of ${fmtClock(sum.durationS)}`;
-  $('t-pow').textContent = `${sum.avgPowerW} W`;
-  $('t-pow-sub').textContent = `${sum.avgCadence} rpm average`;
+  // The ride's figures, as chips beside the headline.
+  const diff = prevBest ? sum.distanceM - prevBest.distanceM : null;
+  const vsBest = diff === null ? '' : `<small class="${diff >= 0 ? 'good' : ''}">${diff >= 0 ? '+' : '−'}${Math.abs(diff / 1000).toFixed(2)} km vs best</small>`;
   const won = sum.gates.filter((g) => g.won).length;
-  if (!workout.gates.length) {
-    $('t-gates').textContent = '—';
-    $('t-gates-sub').textContent = 'No gates in this workout';
-  } else if (!sum.gates.length) {
-    $('t-gates').textContent = '0';
-    $('t-gates-sub').textContent = 'Ended before the first gate finished';
-  } else {
-    $('t-gates').textContent = `${won} of ${sum.gates.length}`;
-    $('t-gates-sub').textContent = sum.gates.length < workout.gates.length
-      ? `won · ${workout.gates.length - sum.gates.length} not reached`
-      : 'won against the ghost';
-  }
+  const chips = [
+    `Distance<b id="t-dist">${fmtKm(sum.distanceM)}</b>${vsBest}`,
+    `On target<b>${sum.onTargetPct}%</b>`,
+    `Average power<b>${sum.avgPowerW} W</b><small>${sum.avgCadence} rpm</small>`,
+    // Sprint gates only count once one has been ridden.
+    sum.gates.length ? `Sprint gates<b>${won} of ${sum.gates.length}</b>` : '',
+  ];
+  $('sum-chips').innerHTML = chips.filter(Boolean).map((c) => `<span class="sum-chip">${c}</span>`).join('');
+  if (isPb) celebrateBest(sum.distanceM);
 
   renderReview(session);
 
@@ -204,18 +186,38 @@ function renderReview(session) {
   $('ride-chart').innerHTML = rideChartSvg(review);
   $('ride-readout').hidden = true;
 
+  // Under the chart, a cell for each block it shows, as wide as the block, with its time on target.
+  const shown = review.seconds >= 30 && review.spans.length <= 16 ? review.spans.filter((sp) => sp.from < review.seconds) : [];
+  const widest = Math.max(1, ...shown.map((sp) => Math.min(sp.to, review.seconds) - sp.from));
+  $('ride-blockrow').hidden = !shown.length;
+  $('ride-blockrow').innerHTML = shown.map((sp) => {
+    const length = Math.min(sp.to, review.seconds) - sp.from;
+    // A narrow cell has room for the number but not the sign.
+    const text = length / review.seconds >= 0.05 ? `${sp.onTargetPct}%` : length / review.seconds >= 0.025 ? sp.onTargetPct : '';
+    return `<span class="${sp.onTargetPct >= 75 ? '' : 'low'}" style="flex-grow:${(length / widest).toFixed(4)}" data-block="${esc(sp.name)}" title="${esc(sp.name)}: on target ${sp.onTargetPct}% of the time">${text}</span>`;
+  }).join('');
+
   // "on" where the target was held, otherwise how far out it was on average.
   const versus = (d) => (d ? `<small class="miss">${d > 0 ? '+' : '−'}${Math.abs(d)}</small>` : '<small>on</small>');
   $('ride-blocks').innerHTML = `<table class="block-table">
     <thead><tr><th>Block</th><th>On target</th><th>Watts</th><th>Cadence</th><th>Resistance</th></tr></thead>
-    <tbody>${review.rows.map((r) => `<tr><td>${esc(r.name)}</td>
+    <tbody>${review.rows.map((r) => `<tr data-block="${esc(r.name.replace(/ ×\d+$/, ''))}"><td>${esc(r.name)}</td>
       <td><span class="bar"><i class="${r.onTargetPct >= 75 ? 'good' : ''}" style="width:${r.onTargetPct}%"></i></span>${r.onTargetPct}%</td>
       <td>${r.avgW} W</td><td>${r.avgCadence} ${versus(r.cadenceOff)}</td><td>${r.avgResistance} ${versus(r.resistanceOff)}</td></tr>`).join('')}</tbody></table>`;
 
-  // Hover: a line through both panels and a readout of that moment between them.
+  // Pointing at a block under the chart, or at its line in the table, picks out the other.
+  const lightUp = (name) => {
+    for (const el of document.querySelectorAll('#ride-blockrow [data-block], #ride-blocks tr[data-block]')) el.classList.toggle('lit', el.dataset.block === name);
+  };
+  for (const id of ['ride-blockrow', 'ride-blocks']) {
+    $(id).onpointerover = (e) => lightUp(e.target.closest('[data-block]')?.dataset.block ?? null);
+    $(id).onpointerleave = () => lightUp(null);
+  }
+
+  // Hover: a line down the plot, and a readout of that moment over the block names.
   const svg = $('ride-chart').querySelector('svg');
   if (!svg) return;
-  const { width, height, left, right, split } = RIDE_PLOT;
+  const { width, height, left, right } = RIDE_PLOT;
   const { x, yLevel } = rideScales(review);
   const cursor = svg.querySelector('#ride-cursor'), readout = $('ride-readout');
   const dots = { cadence: svg.querySelector('#ride-dot-cadence'), resistance: svg.querySelector('#ride-dot-resistance') };
@@ -241,7 +243,7 @@ function renderReview(session) {
     readout.hidden = false;
     // Centred on the cursor, but kept inside the chart.
     const half = readout.offsetWidth / 2;
-    readout.style.top = `${((split + 12) / height) * 100}%`;
+    readout.style.top = `${(3 / height) * 100}%`;
     readout.style.left = `${Math.min(box.width - half, Math.max(half, (at / width) * box.width))}px`;
   });
   svg.addEventListener('pointerleave', () => {

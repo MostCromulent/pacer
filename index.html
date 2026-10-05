@@ -311,50 +311,41 @@
     <div class="sum-head">
       <div>
         <p id="sum-eyebrow" class="eyebrow">Ride complete</p>
-        <h1 id="sum-title" class="title">You beat your ghost.</h1>
+        <h1 class="title">
+          <span id="sum-title">You beat your ghost by</span>
+          <em id="sum-gap" class="sum-gap">0 m</em>
+          <span id="pb-badge" class="pb-badge" hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+            New PB
+          </span>
+        </h1>
         <p id="sum-sub" class="muted"></p>
       </div>
-      <span id="pb-badge" class="pb-badge" hidden>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/></svg>
-        New PB
-      </span>
-    </div>
-    <div class="sum-top">
-      <div id="sum-hero" class="hero">
-        <span id="hero-label" class="hero-label">Beat your ghost by</span>
-        <span id="hero-num" class="hero-num">0 m</span>
-        <span id="hero-sub" class="hero-sub"></span>
-      </div>
-      <div class="tiles">
-        <div class="tile"><span class="tile-label">Distance</span><span id="t-dist" class="tile-num"></span><span id="t-dist-sub" class="tile-sub"></span></div>
-        <div class="tile"><span class="tile-label">On target</span><span id="t-on" class="tile-num"></span><span id="t-on-sub" class="tile-sub"></span></div>
-        <div class="tile"><span class="tile-label">Average power</span><span id="t-pow" class="tile-num"></span><span id="t-pow-sub" class="tile-sub"></span></div>
-        <div class="tile"><span class="tile-label">Sprint gates</span><span id="t-gates" class="tile-num"></span><span id="t-gates-sub" class="tile-sub"></span></div>
-      </div>
+      <div id="sum-chips" class="sum-chips"></div>
     </div>
     <div class="card chart-card">
-      <h2 class="card-title">Your ride</h2>
       <div class="ride-chart">
         <div class="ride-chart-plot">
           <div id="ride-chart"></div>
+          <div id="ride-blockrow" class="ride-blockrow" aria-label="Time on target in each block"></div>
           <div id="ride-readout" class="ride-readout" hidden></div>
         </div>
       </div>
     </div>
-    <div class="sum-bottom">
-      <div class="card">
-        <h2 class="card-title">Block by block</h2>
-        <div id="ride-blocks"></div>
-      </div>
-      <div class="history card-lilac">
+    <div class="sum-foot">
+      <div class="history">
         <h2 class="card-title">Every time you've ridden this</h2>
         <div id="history" class="hist"></div>
         <p id="history-note" class="small strong"></p>
       </div>
+      <div class="sum-actions">
+        <button id="btn-again" class="btn btn-start" type="button">Race this ghost again</button>
+        <button id="btn-new" class="btn btn-paper" type="button">Build a new ride</button>
+      </div>
     </div>
-    <div class="sum-actions">
-      <button id="btn-again" class="btn btn-start" type="button">Race this ghost again</button>
-      <button id="btn-new" class="btn btn-paper" type="button">Build a new ride</button>
+    <div class="card sum-blocks">
+      <h2 class="card-title">Block by block</h2>
+      <div id="ride-blocks"></div>
     </div>
   </section>
 </main>
