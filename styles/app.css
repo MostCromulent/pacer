@@ -509,7 +509,6 @@ main { padding: 0 32px 40px; }
 .hist-row .bar > i { background: #fff; }
 .hist-row.today .bar > i { background: var(--coral); }
 .hist-row .km { text-align: right; font-family: var(--display); font-weight: 700; font-size: 15px; }
-.tip { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; margin-top: 16px; }
 .sum-actions { display: flex; gap: 12px; margin-top: 20px; }
 .sum-actions .btn-start { padding: 0 28px; }
 
@@ -621,7 +620,6 @@ main { padding: 0 32px 40px; }
 
   .sum-head { flex-direction: column; align-items: flex-start; }
   .sum-head .title { font-size: 32px; }
-  .tip { flex-direction: column; align-items: stretch; }
   .sum-actions { flex-direction: column; }
 
   .dialog { padding: 18px; }

@@ -167,6 +167,7 @@ function renderSummary({ sum, workout, prevBest, completed, saved, session, extr
       // Following estimated resistance numbers: the gap is most likely the estimate, not fitness.
       $('baseline-tip-text').textContent = `Following the resistance targets, your hard efforts came out ${Math.round(Math.abs(followRatio - 1) * 100)}% ${followRatio > 1 ? 'above' : 'below'} target. Calibrate so the resistance numbers match your bike.`;
       $('btn-apply-baseline').textContent = 'Calibrate resistance';
+      $('baseline-tip-title').textContent = 'Calibrate this bike?';
       tip.hidden = false;
       $('btn-apply-baseline').onclick = () => {
         tip.hidden = true;
@@ -174,6 +175,7 @@ function renderSummary({ sum, workout, prevBest, completed, saved, session, extr
       };
     } else if (ratio > 1.04 || ratio < 0.9) {
       $('btn-apply-baseline').textContent = ratio > 1 ? 'Make rides harder' : 'Make rides easier';
+      $('baseline-tip-title').textContent = ratio > 1 ? 'Make rides harder?' : 'Make rides easier?';
       const cap = Math.max(0.08, Math.abs(sum.avgEffort - 1) + 0.02);
       const suggested = Math.round((session.baselineW * Math.min(1 + cap, Math.max(1 - cap, ratio))) / 5) * 5;
       if (suggested !== session.baselineW) {
@@ -247,6 +249,8 @@ function renderReview(session) {
     readout.hidden = true;
   });
 }
+
+$('baseline-tip-later').addEventListener('click', () => { $('baseline-tip').hidden = true; });
 
 $('btn-again').addEventListener('click', () => {
   const w = state.ride?.workout;
