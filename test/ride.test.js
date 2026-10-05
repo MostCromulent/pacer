@@ -323,6 +323,10 @@ test('each step has a one-word instruction', async () => {
   // Recover is for easing off after something harder.
   assert.deepEqual(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'work', dur: 30, pct: 95 }), { text: 'Recover', tone: 'recover' });
   assert.equal(stepAction({ kind: 'recovery', dur: 90, pct: 55 }, 0, { kind: 'warmup', dur: 60, pct: 58 }), null);
+  // The same resistance and faster legs is a spin-up; a lot of resistance coming off, at much the same effort, is easing off.
+  assert.deepEqual(stepAction({ kind: 'work', dur: 30, pct: 95, cadence: 97, hold: true }, 0, { ...settle, cadence: 82 }), { text: 'Spin up', tone: 'push' });
+  assert.deepEqual(stepAction({ kind: 'steady', dur: 240, pct: 76, cadence: 95 }, -22, { kind: 'work', dur: 240, pct: 82, cadence: 65 }), { text: 'Ease off', tone: 'recover' });
+  assert.equal(stepAction({ kind: 'steady', dur: 240, pct: 76, cadence: 90 }, -3, { kind: 'steady', dur: 240, pct: 80, cadence: 88 }), null);
   // The easy half of a round of pushes counts too.
   assert.deepEqual(stepAction({ kind: 'steady', dur: 45, pct: 72 }, 0, { kind: 'work', dur: 30, pct: 95 }), { text: 'Recover', tone: 'recover' });
   assert.equal(stepAction({ kind: 'steady', dur: 300, pct: 72 }, 0, { kind: 'steady', dur: 300, pct: 65 }), null);

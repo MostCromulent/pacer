@@ -2,10 +2,13 @@
 // and how a target range is written. Wording only; the ride engine is ride.js.
 
 import { SHORT_STEP_S } from './ride.js';
+import { roundTo } from './util.js';
 
 const PUSH_MAX_S = 60; // a push is a short burst; anything longer is just the ride
 const PUSH_MORE_PCT = 8; // ...that is clearly harder than the step before
 const RECOVER_LESS_PCT = 10; // a recovery is worth announcing when it follows something clearly harder
+const SPIN_UP_RPM = 10; // this much faster on the same resistance is a spin-up
+const EASE_OFF_LEVELS = 8; // this much resistance coming off is worth a word
 
 /**
  * The badge for a step, or null. A badge marks a moment, not a state: it says
@@ -13,17 +16,22 @@ const RECOVER_LESS_PCT = 10; // a recovery is worth announcing when it follows s
  * - "All out" for a sprint.
  * - "Push" for a short burst that is harder than what came before it. A long
  *   climb is not a push.
+ * - "Spin up" when the resistance stays and only the legs go faster.
  * - "Add 2" on a creeping climb, by how many levels the resistance goes up.
  * - "Recover" when easing off after something harder, whether that is a
  *   recovery proper or the easy half of a round of pushes.
+ * - "Ease off" when a lot of resistance comes off without the effort easing,
+ *   as when a slow heavy climb gives way to fast flat road.
  */
 export function stepAction(seg, resistanceChange = 0, prev = null) {
   if (seg.creep) return { text: resistanceChange > 0 ? `Add ${resistanceChange}` : 'Build', tone: 'add' };
   if (seg.kind === 'sprint') return { text: 'All out', tone: 'push' };
   if (!prev) return null;
+  if (seg.hold && roundTo(seg.cadence, 5) >= roundTo(prev.cadence, 5) + SPIN_UP_RPM) return { text: 'Spin up', tone: 'push' };
   if (seg.kind === 'work' && seg.dur <= PUSH_MAX_S && seg.pct >= prev.pct + PUSH_MORE_PCT) return { text: 'Push', tone: 'push' };
   const easy = seg.kind === 'recovery' || seg.kind === 'steady';
   if (easy && prev.pct >= seg.pct + RECOVER_LESS_PCT) return { text: 'Recover', tone: 'recover' };
+  if (!seg.hold && resistanceChange <= -EASE_OFF_LEVELS) return { text: 'Ease off', tone: 'recover' };
   return null;
 }
 
