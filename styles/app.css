@@ -82,7 +82,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: #D6C7B8; }
 .chip.ok .dot { background: #6FA67E; }
-.chip.warn .dot { background: var(--mustard); }
+.chip.warn .dot { background: var(--mustard); animation: dot-pulse 0.9s ease-in-out infinite; }
+.chip.ok .dot { animation: dot-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes dot-pulse { 50% { transform: scale(1.5); opacity: 0.55; } }
+@keyframes dot-pop { 0% { transform: scale(0.4); } 60% { transform: scale(1.6); } }
 .pace-row { margin-bottom: 10px; }
 .pace-row .link { font-size: 15px; }
 
@@ -158,6 +161,25 @@ main { padding: 0 32px 40px; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   transition: transform 0.15s;
 }
+/* A newly picked card gives a press and a pop. */
+.dur.picked { animation: card-pick 0.3s cubic-bezier(0.3, 1.5, 0.5, 1); }
+.type.picked { animation: tile-pick 0.3s cubic-bezier(0.3, 1.5, 0.5, 1); }
+@keyframes card-pick { 0% { transform: scale(0.94); } 55% { transform: rotate(-3deg) translateY(-5px) scale(1.05); } }
+@keyframes tile-pick { 0% { transform: scale(0.97); } 55% { transform: scale(1.025); } }
+/* Moving between steps, the new step's contents slide in from the side it lies on. */
+[data-step].from-right { animation: step-from-right 0.2s ease-out; }
+[data-step].from-left { animation: step-from-left 0.2s ease-out; }
+@keyframes step-from-right { from { transform: translateX(28px); opacity: 0; } }
+@keyframes step-from-left { from { transform: translateX(-28px); opacity: 0; } }
+/* Start sits back until a bike is connected, then gives one bounce. */
+#btn-start { transition: opacity 0.25s, filter 0.25s; }
+#btn-start.waiting { opacity: 0.55; filter: saturate(0.6); }
+#btn-start.ready { animation: start-ready 0.5s cubic-bezier(0.3, 1.5, 0.5, 1); }
+@keyframes start-ready { 35% { transform: translateY(-7px) scale(1.03); } 70% { transform: translateY(1px); } }
+@media (prefers-reduced-motion: reduce) {
+  .preview-chart svg .step-bar, .dur.picked, .type.picked, [data-step], #btn-start.ready, .type-fold.opening, .chip .dot { animation: none !important; }
+  #btn-shuffle svg, .type-new svg { transition: none; }
+}
 .dur .num { font-family: var(--display); font-weight: 700; font-size: 28px; line-height: 1; }
 .dur .lbl { font-size: 12px; font-weight: 800; color: var(--ink-soft); }
 .custom-dur {
@@ -200,6 +222,11 @@ main { padding: 0 32px 40px; }
   background: color-mix(in srgb, var(--group) 28%, var(--cream));
 }
 .type-open .type-group { width: 100%; border-radius: 12px 12px 0 0; }
+/* The open group's rides ease open: a grid row growing from nothing to their own height. */
+.type-fold { display: grid; grid-template-rows: 1fr; }
+.type-fold.opening { animation: fold-open 0.22s ease-out; }
+.type-fold > .type-list { overflow: hidden; min-height: 0; }
+@keyframes fold-open { from { grid-template-rows: 0fr; } }
 .type-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px; }
 .type-group {
   grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px;
@@ -235,6 +262,14 @@ main { padding: 0 32px 40px; }
 .preview-chart { height: 210px; padding: 10px 6px 4px; border-radius: 16px; background: var(--peach); }
 .preview-chart svg { display: block; filter: drop-shadow(0 2px 2px rgba(122, 78, 58, 0.18)); }
 .preview-chart rect { cursor: pointer; }
+/* A new ride grows in from the left; a shuffled one drops away first. */
+.preview-chart .step-bar { transform-box: fill-box; transform-origin: 50% 100%; }
+.preview-chart svg.grow .step-bar { animation: bar-grow 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; animation-delay: calc(var(--along) * 240ms); }
+.preview-chart svg.drop .step-bar { animation: bar-drop 0.12s ease-in both; }
+@keyframes bar-grow { from { transform: scaleY(0); } }
+@keyframes bar-drop { to { transform: scaleY(0); } }
+#btn-shuffle svg, .type-new svg { transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1); }
+#btn-shuffle svg.spun, .type-new svg.spun { transform: rotate(360deg); }
 .preview-chart svg.picked .step-bar:not(.on) { opacity: 0.4; }
 .preview-chart-wrap { position: relative; }
 .preview-pick {

@@ -15,6 +15,7 @@ import { profileSvg, esc } from './charts.js';
 import { ZONE_COLORS } from './palette.js';
 import { easyResistance, paceIsSet } from './pace.js';
 import { isCalibratedBike } from './learning.js';
+import { prefersStill } from './paper.js';
 
 export function currentWorkout() {
   return generateWorkout(state.type, state.duration, state.variant, { exclude: settings.spinExclude });
@@ -35,6 +36,53 @@ export function pickGhost(workout) {
   if (choice?.ride) return ghostFromRide(choice.ride, choice.id);
   // The pacer rides exactly what the screen shows, held-resistance rests included.
   return pacerGhost(workout, settings.baselineW, (seg) => stepTargets(seg, workout.segments, settings.baselineW, activeModel()).watts);
+}
+
+// What the last render showed, so that the next can move only what has changed.
+const shown = {};
+
+/** Start an animation on an element, from the beginning even if it has just played. */
+function replay(el, name) {
+  if (!el) return;
+  el.classList.remove(name);
+  void el.offsetWidth; // restart the animation
+  el.classList.add(name);
+}
+
+/**
+ * The small motions of the setup screen. The screen is redrawn whole on every
+ * change, so each is given only to the part that is different from last time:
+ * the preview bars regrow for a new ride, a newly picked card pops, a step
+ * slides in from the side it lies on, a group eases open, and Start gives a
+ * bounce when a bike connects.
+ */
+function moveWhatChanged(w) {
+  const now = { ride: `${w.code} at ${settings.effort}`, duration: state.duration, type: state.type, step: state.step, group: state.typeGroup, ready: state.bikeState === 'connected' };
+  $('btn-start').classList.toggle('waiting', !now.ready);
+  if (shown.ride !== undefined) {
+    if (now.ride !== shown.ride) $('preview-chart').querySelector('svg').classList.add('grow');
+    if (now.duration !== shown.duration) replay($('durations').querySelector('[aria-pressed="true"]'), 'picked');
+    if (now.type !== shown.type) replay($('types').querySelector('.type[aria-pressed="true"]'), 'picked');
+    if (now.group !== shown.group) replay($('types').querySelector('.type-fold'), 'opening');
+    if (now.ready && !shown.ready) replay($('btn-start'), 'ready');
+    if (now.step !== shown.step) {
+      for (const el of document.querySelectorAll('[data-step]')) {
+        el.classList.remove('from-left', 'from-right');
+        if (!el.hidden) replay(el, now.step > shown.step ? 'from-right' : 'from-left');
+      }
+    }
+  }
+  Object.assign(shown, now);
+}
+
+/** Deal a different ride: the icon spins and the old bars drop before the new ones grow. */
+function dealAgain(icon, change) {
+  icon?.classList.toggle('spun');
+  $('preview-chart').querySelector('svg')?.classList.add('drop');
+  setTimeout(() => {
+    change();
+    renderSetup();
+  }, prefersStill() ? 0 : 130);
 }
 
 // The part of the ride picked on the preview chart, remembered while the ride stays the same.
@@ -147,7 +195,7 @@ export function renderSetup() {
     </button>`;
     if (!open) return head;
     // An open group is one shaded box in the group's colour, holding its rides.
-    return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-list">` + list.map((t, i) => `
+    return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-fold"><div class="type-list">` + list.map((t, i) => `
     <button type="button" class="type${(list.length % 2 && i === list.length - 1) || list.some((x) => x.blocks) ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
@@ -155,7 +203,7 @@ export function renderSetup() {
       ${t.blocks ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
         New class</span>` : ''}
-    </button>`).join('') + (list.some((x) => x.blocks) ? spinBlockChips() : '') + '</div></div>';
+    </button>`).join('') + (list.some((x) => x.blocks) ? spinBlockChips() : '') + '</div></div></div>';
   }).join('');
 
   const choices = ghostChoices(w.code);
@@ -168,6 +216,7 @@ export function renderSetup() {
   $('preview-code').textContent = `#${w.code}`;
   $('preview-chart').innerHTML = profileSvg(w, 600, 196, settings.effort);
   showPicked(w);
+  moveWhatChanged(w);
   $('axis-mid').textContent = String(Math.round(w.minutes / 2));
   $('axis-end').textContent = `${w.minutes} min`;
   $('zones').innerHTML = [['Z1 recover', 1], ['Z2 endurance', 2], ['Z3 tempo', 3], ['Z4 threshold', 4], ['Z5 max', 5]]
@@ -356,10 +405,12 @@ $('types').addEventListener('click', (e) => {
   }
   if (e.target.closest('[data-new-class]')) {
     // A fresh random class: blocks in a new order, with new numbers.
-    state.type = e.target.closest('[data-type]').dataset.type;
-    state.variant = randomVariant();
-    saveSettings({ lastType: state.type });
-    renderSetup();
+    const type = e.target.closest('[data-type]').dataset.type;
+    dealAgain(e.target.closest('[data-new-class]').querySelector('svg'), () => {
+      state.type = type;
+      state.variant = randomVariant();
+      saveSettings({ lastType: state.type });
+    });
     return;
   }
   const head = e.target.closest('[data-group]');
@@ -385,6 +436,5 @@ $('ghosts').addEventListener('click', (e) => {
 });
 
 $('btn-shuffle').addEventListener('click', () => {
-  state.variant = state.variant >= 3 ? 0 : (state.variant + 1) % 3;
-  renderSetup();
+  dealAgain($('btn-shuffle').querySelector('svg'), () => { state.variant = state.variant >= 3 ? 0 : (state.variant + 1) % 3; });
 });

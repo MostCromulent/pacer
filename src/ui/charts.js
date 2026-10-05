@@ -22,7 +22,7 @@ export function profileSvg(workout, width, height, effort = 1) {
     const w = Math.max(1, (s.dur / total) * width - gap);
     const pct = s.pct * effort;
     const h = Math.round(14 + (Math.min(pct, 150) / 150) * (height - 20));
-    const r = `<rect class="step-bar" data-seg="${i}" x="${x.toFixed(1)}" y="${height - h}" width="${w.toFixed(1)}" height="${h}" rx="${Math.min(6, w / 2).toFixed(1)}" fill="${ZONE_COLORS[zoneOf(pct)]}"/>`
+    const r = `<rect class="step-bar" style="--along:${(x / width).toFixed(3)}" data-seg="${i}" x="${x.toFixed(1)}" y="${height - h}" width="${w.toFixed(1)}" height="${h}" rx="${Math.min(6, w / 2).toFixed(1)}" fill="${ZONE_COLORS[zoneOf(pct)]}"/>`
       + `<rect data-seg="${i}" x="${x.toFixed(1)}" y="0" width="${((s.dur / total) * width).toFixed(1)}" height="${height}" fill="transparent"/>`;
     x += (s.dur / total) * width;
     return r;
