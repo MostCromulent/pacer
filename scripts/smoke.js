@@ -40,7 +40,8 @@ if (!chromePath) {
 const profile = mkdtempSync(join(tmpdir(), 'pacer-smoke-'));
 const server = spawn(process.execPath, [join(root, 'scripts/serve.js'), String(APP_PORT)], { stdio: 'ignore' });
 const chrome = spawn(chromePath, [
-  '--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`, '--window-size=1280,1000',
+  // Muted: the rides it runs chime and speak, and that is not for whoever is at the computer.
+  '--headless=new', '--mute-audio', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`, '--window-size=1280,1000',
   ...(process.env.CI ? ['--no-sandbox'] : []), 'about:blank',
 ], { stdio: 'ignore' });
 
