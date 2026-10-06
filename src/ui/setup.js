@@ -26,9 +26,9 @@ function ghostChoices(code) {
   const best = storage.bestRide(code);
   const last = storage.lastRide(code);
   return [
+    { id: 'pacer', name: 'Pacer', sub: 'Hits every target exactly' },
     { id: 'pb', name: 'Your best on this ride', sub: best ? fmtKm(best.distanceM) : 'No rides yet', ride: best },
     { id: 'last', name: 'Your last ride', sub: last ? `${fmtKm(last.distanceM)} · ${fmtDate(last.date)}` : 'No rides yet', ride: last },
-    { id: 'pacer', name: 'Pacer', sub: 'Hits every target exactly' },
   ];
 }
 

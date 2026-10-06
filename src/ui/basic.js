@@ -12,7 +12,7 @@ import { PACE_EXAMPLES } from './pace.js';
 import { useBasicBike } from './connection.js';
 
 const EASY_PCT = EASY_PACE_PCT / 100;
-const FIRST_TOP = 8; // where "Fewer levels" starts: a common knob on magnetic bikes
+const FIRST_TOP = 8; // where "Fewer numbers" starts: a common knob on magnetic bikes
 
 // What the screen shows: the kind of knob, its top level, and the easy pace
 // as a resistance on Pacer's 1-100 scale and a cadence.
@@ -63,8 +63,8 @@ function renderBasic() {
   if (top) $('basic-r').textContent = String(levelFor(knob.resistance, top));
   $('basic-c').textContent = String(knob.cadence);
   $('basic-pace-why').textContent = top
-    ? "The resistance and cadence you'd ride at on a flat road while holding a conversation. Every ride is built from this."
-    : "The cadence you'd ride at on a flat road while holding a conversation, with the knob turned to where it feels moderate. Every step is called as lighter or heavier than that.";
+    ? 'A pace you could chat at. Every ride is built from it.'
+    : 'A pace you could chat at, with the knob where it feels moderate. Steps are called lighter or heavier than that.';
 
   const base = baselineW();
   const easy = easyPaceResistance(DEFAULT_MODEL, base, knob.cadence);

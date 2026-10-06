@@ -80,24 +80,23 @@ A chart of the ride against its targets and how each block went, and
 
 ## 🚲 Without a smart bike
 
-Any exercise bike will do: click **Ride without a smart bike** and tell Pacer
-what your resistance knob looks like:
+Any exercise bike works. Click **Ride without a smart bike**, then say what's
+on your resistance knob:
 
-- **Numbered 1 to 100**: targets are given as they are.
-- **Fewer levels**, such as 1 to 8: the same targets, on your knob's scale.
+- **1 to 100**: targets as they are.
+- **Fewer numbers**, such as 1 to 8: targets scaled to your knob.
 - **No numbers**: each step says how heavy it should feel, from *light* to
-  *very heavy*, measured from your easy pace.
+  *very heavy*.
 
-Then set your easy pace on that knob. Pacer can't see what you're doing, so it
-just tells you: a cadence and a resistance for every step, the countdown, the
-chimes and the voice. Press play to start after a count of three, and pause it
-yourself. There's no race, no score and no distance, but every ride counts
-towards your minutes on the **Statistics** page.
+Set your easy pace, build a ride and press play. Pacer calls out each step and
+you follow along. It can't track your ride, so there's no race, score or
+distance, but your minutes still count in **Statistics**.
 
-The numbers are a guide, since every knob is different. If a ride feels too
-easy or too hard, change your easy pace, or use **Effort − / +** as you ride.
+Every bike is different, so treat the numbers as a guide. Too easy or too
+hard? Change your easy pace, or use **Effort − / +** while you ride.
 
-It needs no Bluetooth, so it works in any browser, on an iPhone or iPad too.
+No Bluetooth is needed, so this works in any browser, including on an iPhone
+or iPad.
 
 ## 🔧 Calibration
 

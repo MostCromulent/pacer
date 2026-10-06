@@ -87,8 +87,8 @@ if (!BleBike.supported()) {
     ? "iPhones and iPads can't connect to a smart bike from a web page."
     : 'Pacer needs Chrome or Edge to reach a smart bike.';
   $('notice-text').textContent = apple
-    ? 'Use a computer or an Android phone, in Chrome or Edge. Or ride without a smart bike: Pacer calls out every step and you follow along.'
-    : "This browser can't use Bluetooth. Open this page in Chrome or Edge, or ride without a smart bike: Pacer calls out every step and you follow along.";
+    ? 'Use a computer or an Android phone in Chrome or Edge, or ride without a smart bike.'
+    : "This browser can't use Bluetooth. Use Chrome or Edge, or ride without a smart bike.";
   $('browser-notice').hidden = false;
   $('btn-connect').classList.add('unavailable');
 }
