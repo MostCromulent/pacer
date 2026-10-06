@@ -276,6 +276,62 @@ try {
     await click('#calib-cancel');
   });
 
+  await check('riding without a smart bike, from the knob screen to the summary', async () => {
+    const panel = `(window.pacer.state.pipWin?.document ?? document)`;
+    await click('#btn-basic');
+    expect(await run(`document.getElementById('basic-dialog').open`), 'the knob screen did not open');
+    await click('[data-knob="levels"]');
+    await click('#knob-top-up');
+    await click('#knob-top-up');
+    expect((await text('#knob-top')) === '10', 'the knob did not go up to 10 levels');
+    await click('#basic-save');
+    expect(await run(`window.pacer.state.bikeKind === 'basic' && window.pacer.state.bikeState === 'connected'`), 'not riding without a smart bike');
+    expect(/level \d+ of 10 at \d+ rpm/.test(await text('#pace-chip')), 'the easy pace is not shown on the knob');
+    expect(await run(`document.getElementById('btn-model').hidden`), 'a basic bike has nothing to calibrate');
+    await run(`(() => { const s = window.pacer.state; s.type = 'intervals'; s.duration = 10; s.variant = 0; })()`);
+    await click('.step[data-go="3"]');
+    expect(await run(`document.getElementById('race-group').hidden`), 'there is no race without a smart bike');
+    await press('#btn-start');
+    await until('the ride window', `window.pacer.state.screen === 'ride'`);
+    await sleep(500);
+    expect(!(await run(`window.pacer.state.started`)), 'the ride started before it was told to');
+    await until('the start button', `${panel}.getElementById('overlay-text').textContent === 'Tap to start'`);
+    await run(`${panel}.getElementById('overlay').click()`);
+    await until('the count of three', `window.pacer.state.started`, 6000);
+    await until('the targets to show', `/^\\d+(–\\d+)?$/.test(${panel}.getElementById('tile-b-now').textContent)`);
+    expect((await run(`${panel}.getElementById('tile-b-lbl').textContent`)) === 'Resistance · of 10', 'the resistance is not on the knob');
+    expect((await run(`${panel}.getElementById('gap-pill').textContent`)) === '', 'there is no race to show');
+    // No pedalling, and no pause: the clock runs on its own.
+    await until('the ride to finish', `window.pacer.state.session?.done === true`, 40000);
+    expect(!(await run(`window.pacer.state.paused`)), 'the ride paused itself');
+    await run(`${panel}.getElementById('btn-done').click()`);
+    await until('the summary', `window.pacer.state.screen === 'summary'`);
+    expect((await text('#sum-title')) === 'You rode for', 'expected the time ridden');
+    expect(await run(`document.getElementById('sum-blocks').hidden`), 'there are no blocks to score');
+    expect(await run(`window.pacer.storage.allRides().some((r) => r.follow && !r.samples)`), 'the ride was not saved');
+    await click('#btn-stats');
+    expect(/no smart bike/.test(await text('#stats-body')), 'the ride is not in the statistics');
+    await click('#btn-build');
+  });
+
+  await check('a knob with no numbers is called by feel', async () => {
+    const panel = `(window.pacer.state.pipWin?.document ?? document)`;
+    await click('.step[data-go="2"]');
+    await click('#btn-pace');
+    expect(await run(`document.getElementById('basic-dialog').open`), 'the easy pace did not open the knob screen');
+    await click('[data-knob="none"]');
+    expect(await run(`document.getElementById('basic-r-box').hidden`), 'a knob with no numbers has no level to set');
+    await click('#basic-save');
+    await press('#btn-start');
+    await until('the ride window', `window.pacer.state.screen === 'ride'`);
+    await run(`window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))`);
+    await until('the count of three', `window.pacer.state.started`, 6000);
+    await until('a feel to show', `['Light', 'Moderate', 'Firm', 'Heavy', 'Very heavy'].includes(${panel}.getElementById('tile-b-now').textContent)`);
+    await click('#btn-end');
+    await until('the summary', `window.pacer.state.screen === 'summary'`);
+    expect((await text('#sum-eyebrow')) === 'Ride ended early', 'expected an early finish');
+  });
+
   ws.close();
 } catch (err) {
   failed = err;

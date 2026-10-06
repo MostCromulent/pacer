@@ -7,7 +7,7 @@ import { formatRange } from '../core/cues.js';
 import { storage, settings, saveSettings, state, voice } from './store.js';
 import { $, toast, showScreen } from './dom.js';
 import { fmtClock, fmtKm, fmtGap } from './format.js';
-import { rideChartSvg, rideScales, RIDE_PLOT, RIDE_COLORS, esc } from './charts.js';
+import { rideChartSvg, rideScales, profileSvg, RIDE_PLOT, RIDE_COLORS, esc } from './charts.js';
 import { renderSetup, resistanceIsEstimate } from './setup.js';
 import { easyResistance } from './pace.js';
 import { saveLearning } from './learning.js';
@@ -48,7 +48,16 @@ export function recordRide(session) {
   if (state.finished) return;
   storage.clearResume();
   const sum = session.summary();
-  const ride = {
+  // Without a smart bike there is only the time to keep: no distance, so no ghost.
+  const ride = session.follow ? {
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    code: state.ride.workout.code,
+    date: new Date().toISOString(),
+    follow: true,
+    durationS: Math.round(sum.durationS),
+    baselineW: session.baselineW,
+    effort: sum.avgEffort,
+  } : {
     id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     code: state.ride.workout.code,
     date: new Date().toISOString(),
@@ -80,10 +89,12 @@ export function finishRide(completed) {
   state.finished = null;
   // Time ridden after the finish counts towards the totals, not the race.
   const extra = done && s.extra?.s >= 1 ? { s: Math.round(s.extra.s), m: Math.round(s.extra.dist) } : null;
-  if (extra) storage.updateRide(done.id, { extraS: extra.s, extraM: extra.m });
+  if (extra) storage.updateRide(done.id, s.follow ? { extraS: extra.s } : { extraS: extra.s, extraM: extra.m });
   const { workout, prevBest } = state.ride;
   try {
-    renderSummary({ sum: done?.sum ?? s.summary(), workout, prevBest, completed: !!done, saved: !!done?.saved, session: s, extra });
+    const shown = { sum: done?.sum ?? s.summary(), workout, prevBest, completed: !!done, saved: !!done?.saved, session: s, extra };
+    if (s.follow) renderFollowSummary(shown);
+    else renderSummary(shown);
   } catch (err) {
     console.error(err);
     toast('The ride is finished, but its summary could not be drawn.', 6000);
@@ -94,7 +105,53 @@ export function finishRide(completed) {
   saveLearning();
 }
 
+/** The heading line under the headline: the ride, its code, the effort, and any time after the finish. */
+function rideLine(workout, sum, extra) {
+  return `${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${sum.avgEffort !== 1 ? ` · effort ${Math.round(sum.avgEffort * 100)}%` : ''}${extra?.s >= 30 ? ` · then ${fmtClock(extra.s)} more` : ''}`;
+}
+
+/** "Third time on this ride" */
+function nthTime(times) {
+  return `${ORDINALS[times - 1] ?? `Ride ${times},`}${ORDINALS[times - 1] ? ' time' : ''} on this ride`;
+}
+
+/**
+ * A ride without a smart bike: how long, and how often, with the plan that
+ * was followed. There were no readings, so there is nothing to score.
+ */
+function renderFollowSummary({ sum, workout, completed, saved, extra }) {
+  $('baseline-tip').hidden = true;
+  $('sum-eyebrow').textContent = completed ? 'Ride complete' : 'Ride ended early';
+  const figure = $('sum-gap');
+  figure.classList.remove('best', 'behind', 'stamped');
+  $('sum-title').textContent = 'You rode for';
+  figure.textContent = `${Math.max(1, Math.round((sum.durationS + (extra?.s ?? 0)) / 60))} min`;
+  $('sum-sub').innerHTML = rideLine(workout, sum, extra);
+  const times = storage.ridesFor(workout.code).length + (saved ? 0 : 1);
+  $('sum-history').textContent = `${nthTime(times)}.${completed ? '' : ' It ended early, so it was not saved.'}`;
+
+  // Minutes this week, Monday to now: the rides kept, as Statistics counts them,
+  // and this one if it was finished but couldn't be kept.
+  const monday = new Date();
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const week = storage.allRides().filter((r) => new Date(r.date) >= monday);
+  const unsaved = completed && !saved;
+  const weekS = week.reduce((a, r) => a + r.durationS + (r.extraS ?? 0), 0) + (unsaved ? sum.durationS : 0);
+  const rides = week.length + (unsaved ? 1 : 0);
+  $('sum-chips').innerHTML = rides
+    ? `<span class="sum-chip">This week<b>${Math.round(weekS / 60)} min</b><small>${rides} ride${rides === 1 ? '' : 's'}</small></span>`
+    : '';
+
+  // The ride as it was planned, since there is nothing ridden to set beside it.
+  $('ride-verdict').textContent = 'The ride you followed:';
+  $('ride-chart').innerHTML = profileSvg(workout, 1040, 220, sum.avgEffort);
+  $('ride-readout').hidden = true;
+  $('sum-blocks').hidden = true;
+}
+
 function renderSummary({ sum, workout, prevBest, completed, saved, session, extra }) {
+  $('sum-blocks').hidden = false;
   const ahead = sum.gap >= 0;
   $('sum-eyebrow').textContent = completed ? 'Ride complete' : 'Ride ended early';
   const who = sum.ghostKind === 'pacer' ? 'the pacer' : 'your ghost';
@@ -108,13 +165,14 @@ function renderSummary({ sum, workout, prevBest, completed, saved, session, extr
   $('sum-title').textContent = isPb ? 'New best:' : ahead ? `You beat ${who} by` : `${Who} got you by`;
   figure.textContent = isPb ? fmtKm(sum.distanceM) : gap;
   const race = ahead ? `You beat ${who} by ${gap}` : `${Who} finished ${gap} ahead`;
-  $('sum-sub').innerHTML = `${isPb ? `${race} · ` : ''}${esc(workout.name)} · ${workout.minutes} min · <span style="color:var(--lavender-text)">#${esc(workout.code)}</span>${sum.avgEffort !== 1 ? ` · effort ${Math.round(sum.avgEffort * 100)}%` : ''}${extra?.s >= 30 ? ` · then ${fmtClock(extra.s)} more` : ''}`;
+  $('sum-sub').innerHTML = `${isPb ? `${race} · ` : ''}${rideLine(workout, sum, extra)}`;
 
   // History in a line: how many times, how far each time, and who the ghost is next.
-  const before = storage.ridesFor(workout.code).slice(-5).map((r) => r.distanceM);
-  const times = storage.ridesFor(workout.code).length + (saved ? 0 : 1);
+  // (Rides without a smart bike have no distance, so only races are counted.)
+  const before = storage.racesFor(workout.code).slice(-5).map((r) => r.distanceM);
+  const times = storage.racesFor(workout.code).length + (saved ? 0 : 1);
   const distances = saved ? before : [...before, sum.distanceM].slice(-5);
-  const nth = `${ORDINALS[times - 1] ?? `Ride ${times},`}${ORDINALS[times - 1] ? ' time' : ''} on this ride`;
+  const nth = nthTime(times);
   const next = !completed ? 'It ended early, so it was not saved as a ghost.' : isPb ? "Next time you'll race today's ride." : 'Your best ride is still the ghost to beat.';
   $('sum-history').textContent = `${nth}${times > 1 ? `: ${listKm(distances)}` : ''}. ${next}`;
 

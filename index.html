@@ -32,6 +32,7 @@
   <div class="bike-controls">
     <span id="bike-status" class="chip"><span class="dot" aria-hidden="true"></span><span id="bike-status-text">No bike connected</span></span>
     <button id="btn-connect" class="btn btn-paper" type="button">Connect bike</button>
+    <button id="btn-basic" class="btn btn-ghostly" type="button">Ride without a smart bike</button>
     <button id="btn-sim" class="btn btn-ghostly" type="button" hidden>Use simulator</button>
   </div>
 </header>
@@ -100,7 +101,7 @@
           </div>
           <p id="effort-note" class="muted small effort-note"></p>
         </fieldset>
-        <fieldset class="group" data-step="3">
+        <fieldset id="race-group" class="group" data-step="3">
           <legend>Race against</legend>
           <div id="ghosts" class="ghosts"></div>
         </fieldset>
@@ -113,7 +114,7 @@
           </div>
           <p class="muted small effort-note">A chime warns you before each change. With voice on, each step is also read out, such as "Hill. Resistance 45, cadence 70."</p>
         </fieldset>
-        <fieldset class="group" data-step="2">
+        <fieldset id="targets-group" class="group" data-step="2">
           <legend>Show targets as</legend>
           <div class="seg-toggle mode-toggle" role="group" aria-label="Show targets as">
             <button id="mode-resistance" class="seg" type="button" data-mode="resistance">Cadence + resistance</button>
@@ -150,7 +151,7 @@
           <div id="zones" class="zones"></div>
           <div class="stats">
             <div class="stat"><span id="stat-hard" class="stat-num">12</span><span class="stat-label">Hard minutes</span></div>
-            <div class="stat"><span id="stat-avg" class="stat-num">150 W</span><span class="stat-label">Average target</span></div>
+            <div id="stat-avg-box" class="stat"><span id="stat-avg" class="stat-num">150 W</span><span class="stat-label">Average target</span></div>
             <div class="stat"><span id="stat-effort" class="stat-num">6 / 10</span><span class="stat-label">Effort</span></div>
           </div>
         </div>
@@ -330,7 +331,7 @@
         </div>
       </div>
     </div>
-    <div class="card sum-blocks">
+    <div id="sum-blocks" class="card sum-blocks">
       <h2 class="card-title">Block by block</h2>
       <div id="ride-blocks"></div>
     </div>
@@ -385,6 +386,47 @@
   <div class="dialog-actions">
     <button id="pace-cancel" class="btn btn-paper" type="button">Cancel</button>
     <button id="pace-save" class="btn btn-start small-btn" type="button">Save</button>
+  </div>
+</dialog>
+
+<!-- A BASIC BIKE -->
+<dialog id="basic-dialog" class="dialog" aria-labelledby="basic-title">
+  <h2 id="basic-title" class="title-sm">Riding without a smart bike</h2>
+  <p>Pacer can't see what you're doing, so it just tells you what to do: a cadence and a resistance for each step, and when they change. There's no race and no score.</p>
+  <h3 class="dialog-sub">Your resistance knob</h3>
+  <div id="knob-kinds" class="seg-toggle knob-kinds" role="group" aria-label="Your resistance knob">
+    <button class="seg" type="button" data-knob="full">Numbered 1 to 100</button>
+    <button class="seg" type="button" data-knob="levels">Fewer levels</button>
+    <button class="seg" type="button" data-knob="none">No numbers</button>
+  </div>
+  <div id="knob-top-row" class="custom-dur">
+    <span class="custom-label">Its highest level</span>
+    <span class="stepper">
+      <button id="knob-top-down" class="icon-btn" type="button" aria-label="Fewer levels">−</button>
+      <span id="knob-top" class="effort-setup" aria-live="polite">8</span>
+      <button id="knob-top-up" class="icon-btn" type="button" aria-label="More levels">+</button>
+    </span>
+  </div>
+  <h3 class="dialog-sub">Your easy pace</h3>
+  <p id="basic-pace-why" class="muted small"></p>
+  <div class="calib-ask">
+    <div id="basic-r-box">
+      <span class="calib-ask-lbl">Resistance</span>
+      <span id="basic-r" class="big-number">3</span>
+      <span class="stepper"><button id="basic-r-down" class="icon-btn" type="button" aria-label="Lower resistance">−</button><button id="basic-r-up" class="icon-btn" type="button" aria-label="Higher resistance">+</button></span>
+    </div>
+    <div>
+      <span class="calib-ask-lbl">Cadence</span>
+      <span class="big-number"><span id="basic-c">80</span><small> rpm</small></span>
+      <span class="stepper"><button id="basic-c-down" class="icon-btn" type="button" aria-label="Slower cadence">−</button><button id="basic-c-up" class="icon-btn" type="button" aria-label="Faster cadence">+</button></span>
+    </div>
+  </div>
+  <p class="muted small">What a ride will ask for:</p>
+  <table class="calib-table"><tbody id="basic-rows"></tbody></table>
+  <p class="muted small">Without a smart bike these are a guide: every knob is different. If a ride feels too easy or too hard, change your easy pace, or use Effort − / + as you ride.</p>
+  <div class="dialog-actions">
+    <button id="basic-cancel" class="btn btn-paper" type="button">Cancel</button>
+    <button id="basic-save" class="btn btn-start small-btn" type="button">Save</button>
   </div>
 </dialog>
 

@@ -10,8 +10,9 @@ out of the way.
 **[Open Pacer](https://mostcromulent.github.io/pacer/)** in Chrome or Edge.
 It's free, there is nothing to install, and nothing leaves your computer.
 
-You need a Bluetooth spin bike that uses the standard FTMS protocol, such as
-the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
+It works best with a Bluetooth spin bike that uses the standard FTMS
+protocol, such as the Schwinn 800IC / IC4 / IC8 or the Bowflex C6. No smart
+bike? You can [ride without one](#-without-a-smart-bike) and follow along.
 
 <p align="center">
   <img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="280">
@@ -77,6 +78,27 @@ A chart of the ride against its targets and how each block went, and
   <img src="docs/summary.png" alt="The end of a ride: the result, a chart of the ride against its targets, and how each block went" width="760">
 </p>
 
+## 🚲 Without a smart bike
+
+Any exercise bike will do: click **Ride without a smart bike** and tell Pacer
+what your resistance knob looks like:
+
+- **Numbered 1 to 100**: targets are given as they are.
+- **Fewer levels**, such as 1 to 8: the same targets, on your knob's scale.
+- **No numbers**: each step says how heavy it should feel, from *light* to
+  *very heavy*, measured from your easy pace.
+
+Then set your easy pace on that knob. Pacer can't see what you're doing, so it
+just tells you: a cadence and a resistance for every step, the countdown, the
+chimes and the voice. Press play to start after a count of three, and pause it
+yourself. There's no race, no score and no distance, but every ride counts
+towards your minutes on the **Statistics** page.
+
+The numbers are a guide, since every knob is different. If a ride feels too
+easy or too hard, change your easy pace, or use **Effort − / +** as you ride.
+
+It needs no Bluetooth, so it works in any browser, on an iPhone or iPad too.
+
 ## 🔧 Calibration
 
 Spin bikes estimate watts from resistance and cadence, each model in its own
@@ -91,8 +113,8 @@ its resistance (the 800IC does) Pacer keeps learning from every ride.
 |---|---|
 | Computer, in Chrome or Edge | Yes. The ride floats over your other windows |
 | Android phone, in Chrome | Yes. Prop it on the handlebars as a second screen |
-| Firefox or Safari | No. They can't use Bluetooth |
-| iPhone or iPad, any browser | No. Apple doesn't let web pages use Bluetooth |
+| Firefox or Safari | Only without a smart bike. They can't use Bluetooth |
+| iPhone or iPad, any browser | Only without a smart bike. Apple doesn't let web pages use Bluetooth |
 
 **The bike isn't in the list.** Pedal to wake it, and check no other app or
 phone is connected to it. Shift-click **Connect bike** lists every Bluetooth

@@ -56,18 +56,22 @@ export function renderStats() {
     };
   });
 
+  // A ride without a smart bike has its time, and nothing measured.
+  const raced = rides.filter((r) => !r.follow);
+  const racedS = raced.reduce((a, r) => a + r.durationS, 0);
   const rows = rides.slice(0, STATS_ROWS).map((r) => `<tr>
     <td>${new Date(r.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-    <td>${esc(rideName(r.code))}</td><td>${Math.round(r.durationS / 60)} min${r.extraS >= 30 ? ` +${Math.round(r.extraS / 60)}` : ''}</td><td>${fmtKm(r.distanceM + (r.extraM ?? 0))}</td>
-    <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td>
+    <td>${esc(rideName(r.code))}${r.follow ? ' <small class="muted">· no smart bike</small>' : ''}</td><td>${Math.round(r.durationS / 60)} min${r.extraS >= 30 ? ` +${Math.round(r.extraS / 60)}` : ''}</td>
+    ${r.follow ? '<td>–</td><td>–</td><td>–</td>' : `<td>${fmtKm(r.distanceM + (r.extraM ?? 0))}</td>
+    <td>${Math.round(r.avgPowerW)} W</td><td>${Math.round(r.onTargetPct)}%</td>`}
     <td><button type="button" class="link" data-delete="${esc(r.id)}">Delete</button></td></tr>`).join('');
 
   $('stats-body').innerHTML = `
     <div class="stats-tiles">
       <div class="tile"><span class="tile-label">Rides</span><span class="tile-num">${rides.length}</span><span class="tile-sub">${weeks.at(-1).rides} this week</span></div>
       <div class="tile"><span class="tile-label">Time ridden</span><span class="tile-num">${fmtHours(totalS)}</span><span class="tile-sub">${fmtHours(weeks.at(-1).minutes * 60)} this week</span></div>
-      <div class="tile"><span class="tile-label">Distance</span><span class="tile-num">${fmtKm(sum((r) => r.distanceM + (r.extraM ?? 0)))}</span><span class="tile-sub">virtual, from your power</span></div>
-      <div class="tile"><span class="tile-label">On target</span><span class="tile-num">${Math.round(sum((r) => r.onTargetPct * r.durationS) / totalS)}%</span><span class="tile-sub">of ride time, all rides</span></div>
+      <div class="tile"><span class="tile-label">Distance</span><span class="tile-num">${raced.length ? fmtKm(raced.reduce((a, r) => a + r.distanceM + (r.extraM ?? 0), 0)) : '–'}</span><span class="tile-sub">virtual, from your power</span></div>
+      <div class="tile"><span class="tile-label">On target</span><span class="tile-num">${racedS ? `${Math.round(raced.reduce((a, r) => a + r.onTargetPct * r.durationS, 0) / racedS)}%` : '–'}</span><span class="tile-sub">of ride time${raced.length < rides.length ? ', smart bike rides' : ', all rides'}</span></div>
     </div>
     <div class="card stats-card">
       <h2 class="card-title">Minutes each week</h2>

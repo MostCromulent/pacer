@@ -2,8 +2,9 @@
 // mini window, sound, the keyboard, and the simulator's controls.
 
 import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S, EASY_PACE_PCT } from '../core/ride.js';
-import { formatRange, spokenCue, repeatsInBlock, stepAction } from '../core/cues.js';
-import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, applySound, state, chimes, voice } from './store.js';
+import { formatRange, spokenCue, repeatsInBlock, stepAction, resistanceText } from '../core/cues.js';
+import { FULL_KNOB } from '../core/knob.js';
+import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, following, easyPace, applySound, state, chimes, voice } from './store.js';
 import { $, setPipDoc, toast, showScreen } from './dom.js';
 import { Voice } from './audio.js';
 import { rainPaper, prefersStill } from './paper.js';
@@ -27,6 +28,7 @@ const LAST_SECONDS = 5; // the countdown turns red and pulses for this long befo
 const RESUME_SAVE_MS = 5000; // how often the ride in progress is saved
 const IDLE_END_MS = 30000; // after the finish, this long without pedalling ends the ride
 const IDLE_SHOWN_MS = 1500; // a pause in the readings this short isn't the rider stopping
+const COUNTDOWN_MS = 3000; // without a smart bike, the ride starts after a count of three
 const scene = new Scene($('scene'), { height: SCENE_HEIGHT });
 
 let lastPedalAt = 0;
@@ -47,7 +49,8 @@ export function notePedalling(cadence) {
 
 /** Stop the clock if the pedals have stopped: stepping off for a drink shouldn't cost you the ride. */
 function autoPause() {
-  if (!state.started || state.paused || performance.now() - lastPedalAt < AUTO_PAUSE_MS) return;
+  // Without a smart bike there are no pedals to watch: the rider pauses it.
+  if (state.session.follow || !state.started || state.paused || performance.now() - lastPedalAt < AUTO_PAUSE_MS) return;
   state.paused = true;
   state.autoPaused = true;
   updatePauseButton();
@@ -61,7 +64,7 @@ function saveProgress() {
   if (!s || !state.started || s.done || now - lastResumeSave < RESUME_SAVE_MS) return;
   lastResumeSave = now;
   const { type, minutes, variant, options } = s.workout;
-  storage.saveResume({ type, minutes, variant, options, ghostKind: state.ghostKind, baselineW: s.baselineW, session: s.save() });
+  storage.saveResume({ type, minutes, variant, options, ghostKind: state.ghostKind, baselineW: s.baselineW, follow: s.follow, session: s.save() });
 }
 
 export function advance() {
@@ -73,6 +76,12 @@ export function advance() {
     state.lastAdvance = now;
     if (state.bikeKind === 'sim') state.bike.tick(now / 1000);
     const s = state.session;
+    if (state.countdownAt !== null && performance.now() - state.countdownAt >= COUNTDOWN_MS) go();
+    if (s?.done && s.extra && s.follow) {
+      // Without a smart bike, the time after the finish runs until End ride.
+      if (!state.paused) s.updateExtra(Math.min((now - prev) / 1000, 10 * TIME_SCALE));
+      return;
+    }
     if (s?.done && s.extra) {
       // Carrying on after the finish: it ends when the pedals stop, or on End ride.
       // Time only counts while the pedals are turning.
@@ -131,7 +140,7 @@ function onRideEvent(ev) {
       scene.celebrate();
       rainPaper(loopWindow());
     }
-    state.session.keepGoing({ kind: 'steady', pct: EASY_PACE_PCT, cadence: settings.easyCadence, label: 'Easy cruise', name: 'Easy cruise' });
+    state.session.keepGoing({ kind: 'steady', pct: EASY_PACE_PCT, cadence: easyPace().easyCadence, label: 'Easy cruise', name: 'Easy cruise' });
     lastPedalAt = performance.now();
     state.lastDom = 0;
   } else if (ev === 'passedGhost' || ev === 'ghostPassed') {
@@ -150,16 +159,26 @@ function onRideEvent(ev) {
 /** Start a ride. `resume` is a saved ride in progress (storage.loadResume()) to carry on with. */
 export function startRide(workout, resume = null) {
   if (state.bikeState !== 'connected') {
-    toast('Connect your bike first.');
+    toast('Connect your bike first, or ride without a smart bike.');
+    return;
+  }
+  const follow = following();
+  if (resume && !!resume.follow !== follow) {
+    toast(resume.follow ? 'That ride was without a smart bike. Choose Ride without a smart bike to carry on with it.' : 'That ride was on a smart bike. Connect it to carry on with the ride.', 6000);
     return;
   }
   chimes.unlock();
   state.workout = workout;
-  const ghost = pickGhost(workout);
-  state.session = new RideSession({ workout, baselineW: resume?.baselineW ?? settings.baselineW, model: activeModel(), ghost, targetMode: settings.targetMode });
+  const ghost = follow ? null : pickGhost(workout);
+  const pace = easyPace();
+  state.session = new RideSession({
+    workout, baselineW: resume?.baselineW ?? pace.baselineW, model: activeModel(), ghost, targetMode: settings.targetMode,
+    follow, knob: pace.knob, easyCadence: pace.easyCadence,
+  });
   state.session.setEffort(settings.effort);
   if (resume) state.session.restore(resume.session);
   state.started = false;
+  state.countdownAt = null;
   state.paused = false;
   state.autoPaused = false;
   lastPedalAt = performance.now();
@@ -168,8 +187,11 @@ export function startRide(workout, resume = null) {
   state.finished = null;
   // Hills follow resistance: steeper means turn it up. Measured against an easy
   // cruise at the starting effort, so raising the effort makes the hills grow.
-  state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).resistance;
+  // (On Pacer's 1-100 scale, whatever the bike's knob, so a knob with few levels still has hills.)
+  state.terrainRef = state.session.targetsFor({ kind: 'steady', pct: 70, cadence: 88 }).exactResistance;
+  scene.solo = follow;
   applyTerrain();
+  $('ride-panel').classList.toggle('follow', follow);
   $('pip-card').hidden = !pipSupported();
   $('btn-pip').hidden = !pipSupported();
   fitPage();
@@ -186,9 +208,9 @@ function applyTerrain() {
   const s = state.session;
   if (!s) return;
   const ref = state.terrainRef;
-  scene.setWorkout(s.workout, (seg) => Math.tanh((s.targetsFor(seg).resistance - ref) / 10));
-  state.routeHeight = (seg) => (s.targetsFor(seg).resistance - 15) / 70;
-  $('route-svg').innerHTML = routeSvg(s.workout, ROUTE_W, ROUTE_H, state.routeHeight);
+  scene.setWorkout(s.workout, (seg) => Math.tanh((s.targetsFor(seg).exactResistance - ref) / 10));
+  state.routeHeight = (seg) => (s.targetsFor(seg).exactResistance - 15) / 70;
+  $('route-svg').innerHTML = routeSvg(s.workout, ROUTE_W, ROUTE_H, state.routeHeight, !s.follow);
 }
 
 $('btn-start').addEventListener('click', () => startRide(currentWorkout()));
@@ -201,8 +223,10 @@ function renderRide() {
   state.lastFrame = now;
   const snap = s.snapshot();
   const moving = state.started && !state.paused;
+  // Without a smart bike the rider on screen pedals at the target cadence.
+  const pedalled = snap.follow ? { ...snap, cadence: snap.targetCadence } : snap;
   // After the finish the road keeps rolling, with the ghost held where it finished.
-  const view = snap.extra ? { ...snap, t: snap.totalS + snap.extra.s, ghostSpeed: snap.speed, ghostCadence: snap.cadence } : snap;
+  const view = snap.extra ? { ...pedalled, t: snap.totalS + snap.extra.s, ghostSpeed: snap.speed, ghostCadence: snap.cadence } : pedalled;
   scene.render(moving ? view : { ...view, cadence: 0, speed: 0, ghostSpeed: 0, ghostCadence: 0 }, moving ? dt : 0);
 
   if (now - state.lastDom < DOM_EVERY_MS) return;
@@ -223,9 +247,14 @@ function renderRide() {
     const stopped = idle > IDLE_SHOWN_MS;
     $('done-fill').style.width = stopped ? `${Math.min(100, ((idle - IDLE_SHOWN_MS) / (IDLE_END_MS - IDLE_SHOWN_MS)) * 100).toFixed(1)}%` : '0';
     $('done-hint').textContent = stopped ? `ending in ${Math.max(1, Math.ceil((IDLE_END_MS - idle) / 1000))}` : 'or just stop pedalling';
+    if (snap.follow) {
+      $('done-fill').style.width = '0';
+      $('done-hint').textContent = "when you're done";
+    }
   }
   updateRoute($('ride-panel'), s.workout, snap.t, ROUTE_W, ROUTE_H, state.routeHeight);
-  $('route-dist').textContent = fmtKm(snap.dist);
+  // The distance comes from the bike's power, so without a smart bike there is none.
+  $('route-dist').textContent = snap.follow ? '' : fmtKm(snap.dist);
   if (state.bikeKind === 'sim') {
     $('sim-cad').textContent = Math.round(state.bike.cadence);
     $('sim-resistance').textContent = Math.round(state.bike.resistance);
@@ -242,6 +271,10 @@ function renderRace(snap) {
   gap.classList.remove('ahead', 'behind', 'gate');
   if (!state.started) {
     gap.textContent = 'Ready';
+    gap.dataset.word = '';
+  } else if (snap.follow) {
+    // No race without a smart bike.
+    gap.textContent = '';
     gap.dataset.word = '';
   } else if (snap.gate) {
     gap.classList.add('gate');
@@ -329,7 +362,13 @@ function renderBadges(s, snap) {
   }
   action.dataset.step = String(snap.stepIndex);
   const before = s.workout.segments[snap.stepIndex - 1];
-  const act = stepAction(seg, before ? snap.targetResistance - s.targetsFor(before).resistance : 0, before);
+  // How much the resistance moves, on the 1-100 scale; a creeping climb says how much on the rider's knob.
+  const [now, was] = [s.targetsFor(seg), before && s.targetsFor(before)];
+  const act = stepAction(seg, was ? Math.round(now.exactResistance) - Math.round(was.exactResistance) : 0, before);
+  if (act?.tone === 'add' && s.knob !== FULL_KNOB) {
+    const levels = was ? now.resistance - was.resistance : 0;
+    act.text = levels <= 0 ? 'Build' : now.feel ? 'Turn up' : `Add ${levels}`;
+  }
   action.hidden = !act;
   if (!act) {
     action.textContent = '';
@@ -343,6 +382,7 @@ function renderBadges(s, snap) {
 
 /** The two big tiles: cadence and resistance, or watts and cadence in watts mode. */
 function renderTiles(snap) {
+  if (snap.follow) return renderFollowTiles(snap);
   const live = state.started && !snap.noSignal;
   const sprint = snap.seg.kind === 'sprint';
   const estimate = resistanceIsEstimate();
@@ -374,6 +414,29 @@ function renderTiles(snap) {
   }
 }
 
+/**
+ * Without a smart bike there is nothing to show of what the rider is doing,
+ * so the tiles show what to do, large: the cadence, and the resistance on the
+ * bike's knob or how heavy it should feel.
+ */
+function renderFollowTiles(snap) {
+  const s = state.session;
+  const sprint = snap.seg.kind === 'sprint';
+  const tg = s.targetsFor(snap.seg);
+  const cadence = formatRange(snap.cadenceRange);
+  setTile('a', { label: 'Cadence · rpm', aim: cadence, now: cadence, status: '' });
+  const top = s.knob;
+  setTile('b', {
+    label: snap.feel ? 'Resistance' : top === FULL_KNOB ? 'Resistance' : `Resistance · of ${top}`,
+    aim: resistanceText(tg),
+    now: resistanceText(tg),
+    status: '',
+  });
+  $('tile-b').classList.toggle('word', !!snap.feel);
+  $('tile-b').classList.toggle('long', snap.feel?.length > 8); // "Very heavy" takes a smaller size to stay on one line
+  $('aside-line').textContent = sprint ? 'All out' : '';
+}
+
 /** The effort control at the bottom of the ride window. */
 function renderEffort(snap) {
   const el = $('ride-effort');
@@ -388,13 +451,46 @@ function renderEffort(snap) {
 /** The message laid over the scene when the ride isn't moving. */
 function renderOverlay(snap) {
   let msg = '';
-  if (state.autoPaused) msg = 'Paused · pedal to carry on';
-  else if (state.paused) msg = 'Paused';
-  else if (!state.started) msg = 'Start pedalling to begin';
+  const counting = state.countdownAt !== null;
+  if (counting) msg = String(Math.max(1, Math.ceil((COUNTDOWN_MS - (performance.now() - state.countdownAt)) / 1000)));
+  else if (state.autoPaused) msg = 'Paused · pedal to carry on';
+  else if (state.paused) msg = snap.follow ? 'Paused · tap to carry on' : 'Paused';
+  else if (!state.started) msg = snap.follow ? 'Tap to start' : 'Start pedalling to begin';
   else if (snap.noSignal) msg = state.bikeState === 'reconnecting' ? 'Bike dropped out · reconnecting…' : 'Waiting for the bike… keep pedalling';
   $('overlay').hidden = !msg;
+  $('overlay').classList.toggle('tap', snap.follow && !counting && (!state.started || state.paused));
+  $('overlay').classList.toggle('count', counting);
   $('overlay-text').textContent = msg;
 }
+
+/** Without a smart bike, the ride starts on a count of three. */
+function countDown() {
+  if (state.started || state.countdownAt !== null) return;
+  chimes.unlock();
+  state.countdownAt = performance.now();
+  state.lastDom = 0;
+}
+
+/** The count is over: off we go. */
+function go() {
+  state.countdownAt = null;
+  const s = state.session;
+  if (!s) return; // ended before the count was over
+  state.started = true;
+  state.lastAdvance = clock();
+  // The chime and the call for the first step, as for every step after it.
+  chimes.play('stepChange');
+  const { seg } = s.snapshot();
+  voice.say(spokenCue(seg, s.targetsFor(seg), settings.targetMode));
+  updatePauseButton();
+  state.lastDom = 0;
+}
+
+$('overlay').addEventListener('click', () => {
+  if (!state.session?.follow) return;
+  if (!state.started) countDown();
+  else if (state.paused) togglePause();
+});
 
 function shortLabel(seg) {
   return seg.label.replace(/ of \d+$/, '');
@@ -421,12 +517,16 @@ function setTile(key, { label, aim, now, status }) {
 }
 
 function updatePauseButton() {
-  $('btn-pause').setAttribute('aria-label', state.paused ? 'Resume' : 'Pause');
-  $('pause-icon').innerHTML = state.paused ? '<path d="M7 4.5v15l12-7.5z"/>' : '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
+  // Without a smart bike, the ride waits for play to be pressed.
+  const play = state.paused || (!!state.session?.follow && !state.started);
+  $('btn-pause').setAttribute('aria-label', play ? (state.started ? 'Resume' : 'Start') : 'Pause');
+  $('pause-icon').innerHTML = play ? '<path d="M7 4.5v15l12-7.5z"/>' : '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>';
 }
 
 function togglePause() {
   if (!state.session) return;
+  // Without a smart bike, the first press of play (or Space) starts the ride.
+  if (state.session.follow && !state.started) return countDown();
   state.paused = !state.paused;
   state.autoPaused = false;
   lastPedalAt = performance.now();

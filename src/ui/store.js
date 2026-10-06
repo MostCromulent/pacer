@@ -11,6 +11,7 @@
 
 import { Storage } from '../core/storage.js';
 import { DEFAULT_MODEL } from '../core/resistance.js';
+import { FULL_KNOB } from '../core/knob.js';
 import { Learner, addToBins } from '../core/learn.js';
 import { Chimes, Voice } from './audio.js';
 
@@ -66,7 +67,24 @@ export function setSimModel(model) {
 /** The resistance model in use: the bike's calibration, or a generic curve until there is one. */
 export function activeModel() {
   if (state.bikeKind === 'sim') return simModel ?? DEFAULT_MODEL;
+  if (state.bikeKind === 'basic') return DEFAULT_MODEL;
   return calibration?.model ?? DEFAULT_MODEL;
+}
+
+/** Whether the ride is on a basic bike: followed along, with no readings. */
+export function following() {
+  return state.bikeKind === 'basic';
+}
+
+/**
+ * The easy pace that rides are built from, `{ baselineW, easyCadence }`. A
+ * basic bike has its own, on the generic model, and `knob` is the top level
+ * of its resistance knob.
+ */
+export function easyPace() {
+  return following()
+    ? { baselineW: settings.basicBaselineW, easyCadence: settings.basicEasyCadence, knob: settings.basicKnob }
+    : { baselineW: settings.baselineW, easyCadence: settings.easyCadence, knob: FULL_KNOB };
 }
 
 const CALIBRATION_FILE = 'calibration.json';
@@ -129,7 +147,7 @@ export const state = {
 
   // The bike
   bike: null,
-  bikeKind: null, // 'ble' | 'sim'
+  bikeKind: null, // 'ble' | 'sim' | 'basic' (no smart bike: the rider follows along)
   bikeState: 'disconnected',
   latest: {}, // the newest value of each field the bike has sent
 
@@ -137,7 +155,8 @@ export const state = {
   session: null, // RideSession
   ride: null, // { workout, ghost, prevBest, prevLast }
   finished: null, // { id, sum, saved }: the ride just completed, saved while the rider carries on
-  started: false, // becomes true with the first pedal stroke
+  started: false, // becomes true with the first pedal stroke, or after the countdown on a basic bike
+  countdownAt: null, // when the countdown to the start began, on a basic bike
   paused: false,
   autoPaused: false, // paused because the pedals stopped; pedalling resumes it
   pipWin: null, // the mini window, when open

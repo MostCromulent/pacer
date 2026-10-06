@@ -33,6 +33,7 @@ src/core/      logic with no page code, covered by unit tests
   cues.js        wording for a step: the voice cue and the badge
   review.js      a finished ride looked back on: misses, and how each block went
   resistance.js  the resistance/cadence/watts model and its calibration fit
+  knob.js        a basic bike's resistance knob: fewer levels, or words for the feel
   learn.js       pools ride readings and refits the model from them
   ghost.js       ghost riders
   physics.js     power to virtual speed
@@ -53,6 +54,7 @@ src/ui/        the browser interface
   summary.js     finishing a ride and the summary
   stats.js       statistics and the backup
   connection.js  connecting a bike and passing on its readings
+  basic.js       riding without a smart bike: the knob and its easy pace
   learning.js    learning the model during rides
   calibration.js the calibration dialog
   model-view.js  the calibration chart and table
@@ -89,6 +91,8 @@ The code uses the same words the rider sees.
 | step | one part of a ride, with a cadence and an effort to hold (see the `Step` typedef in `workout.js`) |
 | block | a themed run of steps in a spin class |
 | ghost | the rider you race: a past ride, or the pacer that hits every target |
+| basic bike | an exercise bike with no Bluetooth, ridden by following along. The ride is `follow`: it has no readings, so it is not raced or scored |
+| knob | a basic bike's resistance knob: marked 1 to 100, with fewer levels, or with no numbers (`top` 0) |
 
 ## Adding a kind of ride
 

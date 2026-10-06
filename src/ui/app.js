@@ -13,6 +13,7 @@ import './connection.js';
 import './learning.js';
 import './summary.js';
 import './calibration.js';
+import './basic.js';
 import './model-view.js';
 
 updateMute();

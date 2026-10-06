@@ -2,11 +2,12 @@
 
 import { TYPES, DURATIONS, SPIN_BLOCKS, generateWorkout, workoutStats, randomVariant } from '../core/workout.js';
 import { spinBlockTitle } from '../core/spinclass.js';
-import { stepTargets, EFFORT_MIN, EFFORT_MAX, EFFORT_STEP } from '../core/ride.js';
-import { formatRange } from '../core/cues.js';
+import { stepTargets, easyPaceResistance, EFFORT_MIN, EFFORT_MAX, EFFORT_STEP } from '../core/ride.js';
+import { onKnob, levelFor, FULL_KNOB } from '../core/knob.js';
+import { formatRange, resistanceText } from '../core/cues.js';
 import { rideSpans } from '../core/review.js';
 import { pacerGhost, ghostFromRide } from '../core/ghost.js';
-import { DEV, storage, settings, saveSettings, calibration, activeModel, state } from './store.js';
+import { DEV, storage, settings, saveSettings, calibration, activeModel, following, easyPace, state } from './store.js';
 import { $, toast } from './dom.js';
 import { startRide } from './ride-view.js';
 import { Voice } from './audio.js';
@@ -36,6 +37,22 @@ export function pickGhost(workout) {
   if (choice?.ride) return ghostFromRide(choice.ride, choice.id);
   // The pacer rides exactly what the screen shows, held-resistance rests included.
   return pacerGhost(workout, settings.baselineW, (seg) => stepTargets(seg, workout.segments, settings.baselineW, activeModel()).watts);
+}
+
+/** What a step asks for at the effort set for the ride, on the bike in use: on a basic bike, in its knob's units. */
+function targetsOnBike(seg, w) {
+  const { baselineW, easyCadence, knob } = easyPace();
+  const model = activeModel();
+  return onKnob(stepTargets(seg, w.segments, baselineW * settings.effort, model), knob, easyPaceResistance(model, baselineW, easyCadence));
+}
+
+/** The easy pace as the rider set it. */
+function paceText() {
+  if (!following()) return paceIsSet() ? `${easyResistance()} resistance at ${settings.easyCadence} rpm` : 'not set yet';
+  const { baselineW, easyCadence, knob } = easyPace();
+  if (!knob) return `${easyCadence} rpm, with the knob at moderate`;
+  const level = levelFor(easyPaceResistance(activeModel(), baselineW, easyCadence), knob);
+  return `${knob === FULL_KNOB ? `${level} resistance` : `level ${level} of ${knob}`} at ${easyCadence} rpm`;
 }
 
 // What the last render showed, so that the next can move only what has changed.
@@ -100,15 +117,21 @@ function showPicked(w) {
   tip.hidden = !span;
   if (!span) return;
   const steps = span.segs.map((i) => w.segments[i]);
-  const targets = steps.map((seg) => stepTargets(seg, w.segments, settings.baselineW * settings.effort, activeModel()));
+  const targets = steps.map((seg) => targetsOnBike(seg, w));
   const cadences = targets.map((t) => t.cadence);
   const lows = targets.map((t) => t.resistanceRange[0]);
   const highs = targets.map((t) => t.resistanceRange[1] ?? t.resistance);
   const span2 = (lo, hi) => (lo === hi ? String(lo) : `${lo}–${hi}`);
+  // A knob with no numbers is told how it should feel: "moderate to heavy".
+  const feel = (t) => t.feel.toLowerCase();
+  const lightest = targets.reduce((a, b) => (b.resistance < a.resistance ? b : a));
+  const heaviest = targets.reduce((a, b) => (b.resistance > a.resistance ? b : a));
   const facts = [
     `${fmtClock(span.to - span.from)}, from ${fmtClock(span.from)}`,
     steps[0].rounds ? `${steps[0].rounds} rounds` : '',
-    `resistance ${span2(Math.min(...lows), Math.max(...highs))}`,
+    targets[0].feel
+      ? (lightest.feel === heaviest.feel ? feel(lightest) : `${feel(lightest)} to ${feel(heaviest)}`)
+      : `resistance ${span2(Math.min(...lows), Math.max(...highs))}`,
     `cadence ${span2(Math.min(...cadences), Math.max(...cadences))}`,
     steps.every((x) => x.position === 'standing') ? 'out of the saddle' : steps.some((x) => x.position === 'standing') ? 'in and out of the saddle' : '',
   ];
@@ -221,20 +244,28 @@ export function renderSetup() {
   $('axis-end').textContent = `${w.minutes} min`;
   $('zones').innerHTML = [['Z1 recover', 1], ['Z2 endurance', 2], ['Z3 tempo', 3], ['Z4 threshold', 4], ['Z5 max', 5]]
     .map(([n, z]) => `<span><i style="background:${ZONE_COLORS[z]}"></i>${n}</span>`).join('');
-  const st = workoutStats(w, settings.baselineW, settings.effort);
+  const st = workoutStats(w, easyPace().baselineW, settings.effort);
+  // Without a smart bike the watts are a guess, so they aren't shown.
+  $('stat-avg-box').hidden = following();
   renderEffort(w);
   $('stat-hard').textContent = `${st.hardMinutes} min`;
   $('stat-avg').textContent = `${st.avgTargetW} W`;
   $('stat-effort').textContent = `${st.score} / 10`;
 
   // One step of the setup at a time; each step's tab shows what is picked.
-  const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer'];
-  $('steps').innerHTML = SETUP_STEPS.map((name, i) => `
+  // Without a smart bike there is no race, so the last step is only the sound.
+  const sound = !settings.chimes ? (settings.voice ? '' : 'off') : settings.voice ? 'voice' : 'chimes';
+  const last = following()
+    ? { name: 'Sound', pick: { chimes: 'Chimes', voice: 'Chimes + voice', off: 'Off' }[sound] ?? 'Voice' }
+    : { name: SETUP_STEPS.at(-1), pick: { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer' };
+  const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, last.pick];
+  $('steps').innerHTML = [...SETUP_STEPS.slice(0, -1), last.name].map((name, i) => `
     <li><button type="button" class="step" data-go="${i}" ${i === state.step ? 'aria-current="step"' : ''}>
       <span class="step-num" aria-hidden="true">${i + 1}</span>
       <span class="step-name"><span class="sr-only">Step ${i + 1}: </span>${name}</span><span class="step-pick">${esc(picks[i])}</span>
     </button></li>`).join('');
   for (const el of document.querySelectorAll('[data-step]')) el.hidden = Number(el.dataset.step) !== state.step;
+  if (following()) $('race-group').hidden = $('targets-group').hidden = true;
   $('step-back').style.visibility = state.step === 0 ? 'hidden' : 'visible';
   $('step-next').style.visibility = state.step === SETUP_STEPS.length - 1 ? 'hidden' : 'visible';
   renderResume();
@@ -248,7 +279,7 @@ export function renderSetup() {
   }
   // Calibrated, but the easy pace has never been set: every target would be sized from a guess.
   $('pace-banner').hidden = banner || !activeModel().calibrated || paceIsSet();
-  $('pace-chip').textContent = paceIsSet() ? `${easyResistance()} resistance at ${settings.easyCadence} rpm` : 'not set yet';
+  $('pace-chip').textContent = paceText();
   for (const b of document.querySelectorAll('.mode-toggle .seg')) {
     const on = b.dataset.mode === settings.targetMode;
     b.classList.toggle('on', on);
@@ -256,7 +287,6 @@ export function renderSetup() {
   }
   $('calib-nudge').hidden = settings.targetMode !== 'resistance' || !resistanceIsEstimate();
   // (Voice without chimes, which the ride window allows, is none of the three.)
-  const sound = !settings.chimes ? (settings.voice ? '' : 'off') : settings.voice ? 'voice' : 'chimes';
   for (const b of document.querySelectorAll('#sounds .seg')) {
     b.classList.toggle('on', b.dataset.sound === sound);
     b.setAttribute('aria-pressed', String(b.dataset.sound === sound));
@@ -318,10 +348,11 @@ function renderEffort(w) {
   $('effort-plus').disabled = settings.effort >= EFFORT_MAX - 1e-9;
   const steps = w.segments
     .filter((seg) => seg.kind !== 'sprint')
-    .map((seg) => stepTargets(seg, w.segments, settings.baselineW * settings.effort, activeModel()));
+    .map((seg) => targetsOnBike(seg, w));
   const easy = steps.reduce((a, b) => (b.watts < a.watts ? b : a));
   const hard = steps.reduce((a, b) => (b.watts > a.watts ? b : a));
-  const line = (t) => `resistance ${formatRange(t.resistanceRange)} at ${formatRange(t.cadenceRange)} rpm (${t.watts} W)`;
+  const resistance = (t) => (t.feel ? t.feel.toLowerCase() : `resistance ${resistanceText(t)}`);
+  const line = (t) => `${resistance(t)} at ${formatRange(t.cadenceRange)} rpm${following() ? '' : ` (${t.watts} W)`}`;
   $('effort-note').innerHTML = `Easiest step: ${line(easy)}.<br>Hardest: ${line(hard)}.`;
 }
 
@@ -346,7 +377,8 @@ function needsCalibration() {
 
 /** Resistance numbers come from the generic model and may not match the bike's screen. */
 export function resistanceIsEstimate() {
-  return !activeModel().calibrated && state.latest.resistance === undefined;
+  // (Without a smart bike every number is a guide, and the rider has been told so.)
+  return !following() && !activeModel().calibrated && state.latest.resistance === undefined;
 }
 
 for (const b of document.querySelectorAll('.mode-toggle .seg')) {
