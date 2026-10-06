@@ -198,6 +198,8 @@ main { padding: 0 32px 40px; }
 .custom-dur.on .stepper input { border-color: var(--mustard-deep); background: #FFF6DE; }
 .effort-setup { min-width: 64px; text-align: center; font-family: var(--display); font-weight: 700; font-size: 20px; }
 .seg-toggle.sound-toggle { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 420px; }
+.seg-toggle.knob-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
+.dialog-sub { font-family: var(--display); font-weight: 700; font-size: 18px; margin: 16px 0 6px; }
 .sound-toggle .seg { cursor: pointer; }
 .seg-toggle.effort-words { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .effort-words .seg { cursor: pointer; padding: 0 2px; }
@@ -287,6 +289,7 @@ main { padding: 0 32px 40px; }
 .zones span { display: inline-flex; align-items: center; gap: 6px; }
 .zones i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stats:has(> .stat[hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .stat { background: var(--sand); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .stat-num { font-family: var(--display); font-weight: 700; font-size: 24px; }
 .stat-label { font-size: 12px; font-weight: 800; color: var(--muted); }
@@ -358,6 +361,10 @@ main { padding: 0 32px 40px; }
   position: absolute; inset: 0; display: grid; place-items: center; background: rgba(251, 243, 234, 0.72);
   font-family: var(--display); font-weight: 700; font-size: 22px; text-align: center; padding: 24px;
 }
+/* Without a smart bike, the overlay is the start button, and then the count. */
+.scene-overlay.tap { cursor: pointer; }
+.scene-overlay.tap #overlay-text { padding: 10px 22px; border-radius: 14px; background: var(--mint); box-shadow: 0 3px 0 rgba(122, 78, 58, 0.25); }
+.scene-overlay.count { font-size: 88px; }
 
 /* Step countdown: the biggest thing in the window. */
 .stage { padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -415,6 +422,11 @@ main { padding: 0 32px 40px; }
 .num-col.low { background: var(--mustard); }
 .num-col.high { background: #9DB9F2; }
 .num-col.on .num-lbl, .num-col.low .num-lbl, .num-col.high .num-lbl { color: var(--ink-soft); }
+/* Without a smart bike the tiles show the targets themselves, large. */
+.panel.follow .num-aim { display: none; }
+.panel.follow .num-big { font-size: 48px; padding: 4px 0 2px; }
+.panel.follow .num-col.word .num-big { font-size: 32px; line-height: 1.1; margin: auto 0; }
+.panel.follow .num-col.word.long .num-big { font-size: 25px; }
 .stage-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .aside-line { margin: 0 2px; font-size: 12px; font-weight: 800; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .effort { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }

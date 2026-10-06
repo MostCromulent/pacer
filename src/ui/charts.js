@@ -34,9 +34,10 @@ const byPower = (s) => Math.min(s.pct, 150) / 150;
 
 /**
  * Route strip for the mini window: the workout as paper blocks, gate flags and a playhead.
- * `heightOf(segment)` gives each block's height from 0 to 1.
+ * `heightOf(segment)` gives each block's height from 0 to 1. Without `gates`
+ * (a ride with no race) there are no flags.
  */
-export function routeSvg(workout, width = 328, height = 56, heightOf = byPower) {
+export function routeSvg(workout, width = 328, height = 56, heightOf = byPower, gates = true) {
   const total = workout.totalS;
   let d = `M0,${height}`;
   for (const s of workout.segments) {
@@ -47,7 +48,7 @@ export function routeSvg(workout, width = 328, height = 56, heightOf = byPower) 
     d += ` L${(x0 + r).toFixed(1)},${y} L${(x1 - r).toFixed(1)},${y}`;
   }
   d += ` L${width},${height} Z`;
-  const flags = workout.gates
+  const flags = (gates ? workout.gates : [])
     .map((g) => {
       const x = ((g.start / total) * width).toFixed(1);
       return `M${x},${height} V3 l8,3.5 l-8,3.5 Z`;

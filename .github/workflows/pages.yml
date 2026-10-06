@@ -31,6 +31,11 @@ jobs:
       - run: |
           mkdir site
           cp -r index.html manifest.webmanifest icon.svg LICENSE src styles site/
+      # Stamp the footer with when this version was published, and its commit.
+      - run: |
+          stamp="Updated $(date -u '+%-d %b %Y') · <a href=\"https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\" target=\"_blank\" rel=\"noopener\">${GITHUB_SHA::7}</a>"
+          sed -i "s|<span id=\"app-build\" hidden></span>|<span id=\"app-build\">${stamp}</span>|" site/index.html
+          grep -q '<span id="app-build">Updated' site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

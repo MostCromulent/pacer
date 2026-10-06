@@ -40,6 +40,7 @@ export function stepAction(seg, resistanceChange = 0, prev = null) {
  * `mode` is 'resistance' or 'watts'; `prev` is the step before.
  *
  * - An ordinary step: its name and the two numbers. "Hill. Resistance 56, cadence 68."
+ *   On a knob with no numbers, the feel instead: "Hill. Heavy, cadence 68."
  * - The first step of a spin class block: the block and its rounds first, then
  *   the numbers, so they are heard once. "Cadence pushes, 3 rounds. Recover.
  *   Resistance 28, cadence 83."
@@ -58,7 +59,9 @@ export function spokenCue(seg, targets, mode = 'resistance', prev = null, repeat
     ? `Same resistance, cadence ${targets.cadence}.`
     : mode === 'watts'
       ? `${targets.watts} watts, cadence ${targets.cadence}.`
-      : `Resistance ${saidResistance(targets)}, cadence ${targets.cadence}.`;
+      : targets.feel
+        ? `${targets.feel}, cadence ${targets.cadence}.`
+        : `Resistance ${saidResistance(targets)}, cadence ${targets.cadence}.`;
 
   const opens = !!(seg.blockStart && seg.block && seg.block !== 'Recovery');
   const intro = opens ? `${seg.block}${seg.rounds ? `, ${seg.rounds} rounds` : ''}. ` : '';
@@ -68,7 +71,7 @@ export function spokenCue(seg, targets, mode = 'resistance', prev = null, repeat
 
   if (seg.kind === 'sprint') return `${intro}${opens ? '' : 'Sprint. '}All out.${saddle}`;
   // A creeping climb only moves the resistance, so after the first step that is all that is said.
-  if (seg.creep) return opens ? intro + numbers : mode === 'watts' ? `${targets.watts} watts.` : `Resistance ${targets.resistance}.`;
+  if (seg.creep) return opens ? intro + numbers : mode === 'watts' ? `${targets.watts} watts.` : targets.feel ? `${targets.feel}.` : `Resistance ${targets.resistance}.`;
   if (short) {
     const word = seg.kind === 'drill' ? `Cadence ${targets.cadence}.`
       : seg.kind !== 'work' ? `${name}.`
@@ -104,4 +107,10 @@ export function repeatsInBlock(segments, index) {
 /** "80–90", or "105+" when there's no upper limit. */
 export function formatRange([lo, hi]) {
   return hi === null ? `${lo}+` : `${lo}–${hi}`;
+}
+
+/** The resistance to set, as written: "40–50", one level such as "4", or, on a knob with no numbers, a feel such as "Heavy". */
+export function resistanceText(targets) {
+  if (targets.feel) return targets.feel;
+  return targets.resistanceIsExact ? String(targets.resistance) : formatRange(targets.resistanceRange);
 }

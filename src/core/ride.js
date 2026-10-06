@@ -6,6 +6,7 @@ import { segmentIndexAt, zoneOf } from './workout.js';
 import { resistanceFor, powerFor } from './resistance.js';
 import { targetWatts } from './ghost.js';
 import { roundTo } from './util.js';
+import { onKnob, FULL_KNOB } from './knob.js';
 
 const STALE_INPUT_S = 3;
 const STEP_WARNING_S = 10;
@@ -40,6 +41,11 @@ export const EFFORT_STEP = 0.1; // about one resistance block
 export function resistanceBlock(resistance, cap = 100) {
   const hi = Math.min(cap, roundTo(resistance, ROUND_TO) + RESISTANCE_TOLERANCE);
   return [Math.max(1, hi - 2 * RESISTANCE_TOLERANCE), Math.max(hi, 2 * RESISTANCE_TOLERANCE)];
+}
+
+/** The resistance of the easy pace, on the 1-100 scale: what a knob with no numbers is measured from. */
+export function easyPaceResistance(model, baselineW, easyCadence) {
+  return resistanceFor(model, (EASY_PACE_PCT / 100) * baselineW, easyCadence);
 }
 
 export function stepTargets(seg, segments, baselineW, model) {
@@ -104,13 +110,25 @@ export class RideSession {
    * @param {object} o.model       resistance model
    * @param {import('./ghost.js').Ghost} o.ghost
    */
-  /** `targetMode` is what the rider is shown and follows: 'resistance' (with cadence) or 'watts'. */
-  constructor({ workout, baselineW, model, ghost, targetMode = 'resistance' }) {
+  /**
+   * `targetMode` is what the rider is shown and follows: 'resistance' (with cadence) or 'watts'.
+   *
+   * A ride on a basic bike, with no readings, is `follow`: the rider follows
+   * the targets and the clock runs on its own. Nothing is scored and there is
+   * no ghost; the ride keeps a speed and distance from the targets only so
+   * that the road can move. `knob` is the top level of the bike's resistance
+   * knob (0 if it has no numbers; see knob.js) and `easyCadence` the easy
+   * pace's cadence, which a knob with no numbers is measured from.
+   */
+  constructor({ workout, baselineW, model, ghost, targetMode = 'resistance', follow = false, knob = FULL_KNOB, easyCadence = 80 }) {
     this.workout = workout;
     this.baselineW = baselineW;
     this.model = model;
-    this.ghost = ghost;
-    this.targetMode = targetMode;
+    this.ghost = follow ? null : ghost;
+    this.targetMode = follow ? 'resistance' : targetMode;
+    this.follow = follow;
+    this.knob = knob;
+    this.easyResistance = easyPaceResistance(model, baselineW, easyCadence);
     // Effort multiplier the rider can change mid-ride; scales every power target.
     this.effort = 1;
     this._effortS = 0;
@@ -156,12 +174,16 @@ export class RideSession {
     this.t = Math.min(this.workout.totalS, this.t + dt);
     const realDt = this.t - prevT;
 
-    this.speed = stepSpeed(this.speed, powerW, realDt);
-    this.dist += this.speed * realDt;
-    this._effortS += this.effort * realDt;
-
     const si = segmentIndexAt(this.workout, Math.max(0, this.t - 1e-6));
     const seg = this.workout.segments[si];
+    this.speed = stepSpeed(this.speed, this.follow ? this.targetsFor(seg).watts : powerW, realDt);
+    this.dist += this.speed * realDt;
+    this._effortS += this.effort * realDt;
+    if (this.follow) {
+      this._steps(si, events);
+      return this._finish(events);
+    }
+
     const resistance = stale ? null : this.currentResistance();
     const on = this.status(seg, powerW, cadence, resistance).onTarget;
     if (on) this.onTargetS += realDt;
@@ -187,22 +209,7 @@ export class RideSession {
       this._accum = { p: 0, c: 0, r: 0, n: 0 };
     }
 
-    // Step changes and the heads-up before them. Moving on to a step that
-    // looks the same to the rider is no change at all.
-    const segs = this.workout.segments;
-    if (si !== this._lastSeg) {
-      if (!this.looksSame(segs[this._lastSeg], seg)) events.push('stepChange');
-      this._lastSeg = si;
-    }
-    const [first, last] = this.runOf(si);
-    const runEnd = segs[last].start + segs[last].dur;
-    // No heads-up inside short HIIT reps: the change chime itself is the cue.
-    if (segs[last + 1] && runEnd - segs[first].start >= SHORT_STEP_S) {
-      if (runEnd - this.t <= STEP_WARNING_S && !this._warned.has(last)) {
-        this._warned.add(last);
-        events.push('stepSoon');
-      }
-    }
+    this._steps(si, events);
 
     // Sprint gates.
     const ghostD = this.ghost.distanceAt(this.t);
@@ -230,6 +237,30 @@ export class RideSession {
     if (this._lastAhead === false && gap > 3) { this._lastAhead = true; events.push('passedGhost'); }
     if (this._lastAhead === true && gap < -3) { this._lastAhead = false; events.push('ghostPassed'); }
 
+    return this._finish(events);
+  }
+
+  /** Step changes, and the heads-up before them, added to `events`. */
+  _steps(si, events) {
+    // Moving on to a step that looks the same to the rider is no change at all.
+    const segs = this.workout.segments;
+    if (si !== this._lastSeg) {
+      if (!this.looksSame(segs[this._lastSeg], segs[si])) events.push('stepChange');
+      this._lastSeg = si;
+    }
+    const [first, last] = this.runOf(si);
+    const runEnd = segs[last].start + segs[last].dur;
+    // No heads-up inside short HIIT reps: the change chime itself is the cue.
+    if (segs[last + 1] && runEnd - segs[first].start >= SHORT_STEP_S) {
+      if (runEnd - this.t <= STEP_WARNING_S && !this._warned.has(last)) {
+        this._warned.add(last);
+        events.push('stepSoon');
+      }
+    }
+  }
+
+  /** The finish, added to `events`, which is returned. */
+  _finish(events) {
     if (this.t >= this.workout.totalS) {
       this.done = true;
       events.push('done');
@@ -266,7 +297,7 @@ export class RideSession {
   /** Advance the time after the finish by `dt` seconds. */
   updateExtra(dt) {
     if (!this.done || !this.extra) return;
-    this.speed = stepSpeed(this.speed, this.input.powerW, dt);
+    this.speed = stepSpeed(this.speed, this.follow ? this.targetsFor(this.extraSeg).watts : this.input.powerW, dt);
     this.extra.s += dt;
     this.extra.dist += this.speed * dt;
   }
@@ -328,10 +359,10 @@ export class RideSession {
 
   /**
    * What to aim for in a step: power, cadence, and the resistance level that gives
-   * that power at that cadence (from the resistance model).
+   * that power at that cadence (from the resistance model), on the bike's knob.
    */
   targetsFor(seg) {
-    return stepTargets(seg, this.workout.segments, this.effectiveBaselineW, this.model);
+    return onKnob(stepTargets(seg, this.workout.segments, this.effectiveBaselineW, this.model), this.knob, this.easyResistance);
   }
 
   /**
@@ -360,16 +391,17 @@ export class RideSession {
     const cruising = this.done && !!this.extraSeg;
     const si = cruising ? w.segments.length : segmentIndexAt(w, Math.max(0, this.t - 1e-6));
     const seg = cruising ? this.extraSeg : w.segments[si];
-    const stale = this.t - this.input.at > STALE_INPUT_S;
+    // A ride with no readings is never short of them: there were none to lose.
+    const stale = !this.follow && this.t - this.input.at > STALE_INPUT_S;
     const powerW = stale ? 0 : this.input.powerW;
     const cadence = stale ? 0 : this.input.cadence;
-    const ghostDist = this.ghost.distanceAt(this.t);
+    const ghostDist = this.ghost?.distanceAt(this.t) ?? 0;
     const resistance = stale ? null : this.currentResistance();
 
-    const st = this.status(seg, powerW, cadence, resistance);
+    const st = this.follow ? { targets: this.targetsFor(seg), cadenceStatus: null, resistanceStatus: null, onTarget: false } : this.status(seg, powerW, cadence, resistance);
     const tg = st.targets;
     let gate = null;
-    if (this._activeGate) {
+    if (this._activeGate && !this.follow) {
       const g = this._activeGate;
       gate = {
         index: g.index,
@@ -379,7 +411,7 @@ export class RideSession {
         ghost: ghostDist - g.ghostStart,
       };
     }
-    const upcoming = w.gates.find((g) => g.start > this.t);
+    const upcoming = this.follow ? null : w.gates.find((g) => g.start > this.t);
     // The step as the rider sees it: the whole run of steps that look alike.
     const [first, last] = cruising ? [si, si] : this.runOf(si);
     const stepStart = cruising ? seg.start : w.segments[first].start;
@@ -391,10 +423,10 @@ export class RideSession {
       dist: this.dist,
       speed: this.speed,
       ghostDist,
-      gap: this.dist - ghostDist,
-      ghostLabel: this.ghost.label,
-      ghostSpeed: this.ghost.speedAt(this.t),
-      ghostCadence: this.ghost.cadenceAt(this.t) ?? 86,
+      gap: this.ghost ? this.dist - ghostDist : 0,
+      ghostLabel: this.ghost?.label ?? '',
+      ghostSpeed: this.ghost?.speedAt(this.t) ?? 0,
+      ghostCadence: this.ghost?.cadenceAt(this.t) ?? 86,
       segIndex: si,
       stepIndex: first, // the first step of the run the rider is in
       nextIndex: last + 1, // the next step that will look different (past the end, if none)
@@ -408,6 +440,7 @@ export class RideSession {
       cadenceRange: tg.cadenceRange,
       resistanceRange: tg.resistanceRange,
       resistanceIsExact: tg.resistanceIsExact,
+      feel: tg.feel ?? null,
       wattsRange: tg.wattsRange,
       effort: this.effort,
       powerW: Math.round(powerW),
@@ -419,6 +452,7 @@ export class RideSession {
       gate,
       nextGate: upcoming ? { index: upcoming.index, count: w.gates.length, inS: upcoming.start - this.t } : null,
       noSignal: stale,
+      follow: this.follow,
       done: this.done,
       extra: cruising ? this.extra : null, // { s, dist } since the finish
     };
@@ -426,6 +460,9 @@ export class RideSession {
 
   /** Final numbers for the summary screen and for saving. */
   summary() {
+    const avgEffort = this.t ? Math.round((this._effortS / this.t) * 100) / 100 : 1;
+    // With no readings there is only the time and the effort to report.
+    if (this.follow) return { follow: true, durationS: this.t, avgEffort };
     const w = this.workout;
     const secs = this.samples.p.length || 1;
     const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
@@ -456,7 +493,7 @@ export class RideSession {
       avgCadence: Math.round(avg(this.samples.c.filter((c) => c > 0))),
       onTargetS: this.onTargetS,
       onTargetPct: Math.round((this.onTargetS / Math.max(1, this.t)) * 100),
-      avgEffort: this.t ? Math.round((this._effortS / this.t) * 100) / 100 : 1,
+      avgEffort,
       ghostKind: this.ghost.kind,
       ghostFinal: this.ghost.distanceAt(this.t),
       gap: this.dist - this.ghost.distanceAt(this.t),

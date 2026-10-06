@@ -34,8 +34,8 @@ export const calib = {
   timer: null,
 
   start() {
-    if (state.bikeState !== 'connected') {
-      toast('Connect a bike first.');
+    if (state.bikeState !== 'connected' || state.bikeKind === 'basic') {
+      toast(state.bikeKind === 'basic' ? 'Calibrating needs a smart bike: connect one first.' : 'Connect a bike first.');
       return;
     }
     this.open = true;

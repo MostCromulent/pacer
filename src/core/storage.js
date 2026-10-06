@@ -21,6 +21,12 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lastGhost: 'pb',
   simReportsResistance: false,
   targetMode: 'resistance',
+  // A basic bike, ridden without readings: the top level of its resistance
+  // knob (100, fewer, or 0 for no numbers; see knob.js), and its own easy
+  // pace, on the generic model, since it is never calibrated.
+  basicKnob: 100,
+  basicBaselineW: 200,
+  basicEasyCadence: 80,
 });
 
 function safeGet(store, key) {
@@ -98,12 +104,17 @@ export class Storage {
     return this.allRides().filter((r) => r.code === code).sort((a, b) => a.date.localeCompare(b.date));
   }
 
+  /** The rides on `code` that were raced: those ridden with readings, which can be ghosts. */
+  racesFor(code) {
+    return this.ridesFor(code).filter((r) => !r.follow);
+  }
+
   bestRide(code) {
-    return this.ridesFor(code).reduce((best, r) => (!best || r.distanceM > best.distanceM ? r : best), null);
+    return this.racesFor(code).reduce((best, r) => (!best || r.distanceM > best.distanceM ? r : best), null);
   }
 
   lastRide(code) {
-    const rides = this.ridesFor(code);
+    const rides = this.racesFor(code);
     return rides.length ? rides[rides.length - 1] : null;
   }
 

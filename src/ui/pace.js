@@ -5,11 +5,12 @@ import { resistanceFor, powerFor } from '../core/resistance.js';
 import { resistanceBlock, EASY_PACE_PCT } from '../core/ride.js';
 import { formatRange } from '../core/cues.js';
 import { DEFAULT_SETTINGS } from '../core/storage.js';
-import { storage, settings, saveSettings, reloadFromStorage, activeModel, state } from './store.js';
+import { storage, settings, saveSettings, reloadFromStorage, activeModel, following, state } from './store.js';
 import { $, toast } from './dom.js';
 import { renderSetup } from './setup.js';
 import { renderStats } from './stats.js';
 import { updateMute } from './ride-view.js';
+import { openBasic } from './basic.js';
 
 //
 // Rides are scaled from a baseline in watts, which means nothing to most riders.
@@ -18,7 +19,7 @@ import { updateMute } from './ride-view.js';
 // The easy pace is comfortable flat-road riding: 70% of the baseline, the same
 // as a "Flat road" step. Recovery steps sit a little below it.
 const EASY_PCT = EASY_PACE_PCT / 100;
-const PACE_EXAMPLES = [
+export const PACE_EXAMPLES = [
   { name: 'Recovery spin', pct: 0.55, cadence: 75 },
   { name: 'Flat road', pct: 0.7, cadence: 90 },
   { name: 'Seated climb', pct: 0.9, cadence: 70 },
@@ -71,7 +72,8 @@ function renderPace() {
     : "The bike isn't calibrated yet, so these resistances are rough.";
 }
 
-$('btn-pace').addEventListener('click', openPace);
+// Without a smart bike, the easy pace is set on the knob's own screen.
+$('btn-pace').addEventListener('click', () => (following() ? openBasic() : openPace()));
 $('btn-pace-banner').addEventListener('click', openPace);
 for (const [id, key, step, lo, hi] of [
   ['pace-r-down', 'resistance', -1, 1, 100], ['pace-r-up', 'resistance', 1, 1, 100],

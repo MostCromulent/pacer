@@ -10,8 +10,9 @@ out of the way.
 **[Open Pacer](https://mostcromulent.github.io/pacer/)** in Chrome or Edge.
 It's free, there is nothing to install, and nothing leaves your computer.
 
-You need a Bluetooth spin bike that uses the standard FTMS protocol, such as
-the Schwinn 800IC / IC4 / IC8 or the Bowflex C6.
+It works best with a Bluetooth spin bike that uses the standard FTMS
+protocol, such as the Schwinn 800IC / IC4 / IC8 or the Bowflex C6. No smart
+bike? You can [ride without one](#-without-a-smart-bike) and follow along.
 
 <p align="center">
   <img src="docs/ride.png" alt="The Pacer mini window during a hill climb" width="280">
@@ -77,6 +78,26 @@ A chart of the ride against its targets and how each block went, and
   <img src="docs/summary.png" alt="The end of a ride: the result, a chart of the ride against its targets, and how each block went" width="760">
 </p>
 
+## 🚲 Without a smart bike
+
+Any exercise bike works. Click **Ride without a smart bike**, then say what's
+on your resistance knob:
+
+- **1 to 100**: targets as they are.
+- **Fewer numbers**, such as 1 to 8: targets scaled to your knob.
+- **No numbers**: each step says how heavy it should feel, from *light* to
+  *very heavy*.
+
+Set your easy pace, build a ride and press play. Pacer calls out each step and
+you follow along. It can't track your ride, so there's no race, score or
+distance, but your minutes still count in **Statistics**.
+
+Every bike is different, so treat the numbers as a guide. Too easy or too
+hard? Change your easy pace, or use **Effort − / +** while you ride.
+
+No Bluetooth is needed, so this works in any browser, including on an iPhone
+or iPad.
+
 ## 🔧 Calibration
 
 Spin bikes estimate watts from resistance and cadence, each model in its own
@@ -91,8 +112,8 @@ its resistance (the 800IC does) Pacer keeps learning from every ride.
 |---|---|
 | Computer, in Chrome or Edge | Yes. The ride floats over your other windows |
 | Android phone, in Chrome | Yes. Prop it on the handlebars as a second screen |
-| Firefox or Safari | No. They can't use Bluetooth |
-| iPhone or iPad, any browser | No. Apple doesn't let web pages use Bluetooth |
+| Firefox or Safari | Only without a smart bike. They can't use Bluetooth |
+| iPhone or iPad, any browser | Only without a smart bike. Apple doesn't let web pages use Bluetooth |
 
 **The bike isn't in the list.** Pedal to wake it, and check no other app or
 phone is connected to it. Shift-click **Connect bike** lists every Bluetooth

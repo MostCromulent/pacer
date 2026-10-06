@@ -1,4 +1,5 @@
-// Connecting a bike (or the simulator) and passing its readings on.
+// Connecting a bike (or the simulator) and passing its readings on, or
+// riding a basic bike that has none.
 
 import { BleBike } from '../core/bike.js';
 import { SimulatedBike } from '../core/sim.js';
@@ -8,6 +9,30 @@ import { renderSetup } from './setup.js';
 import { learnWhileRiding } from './learning.js';
 import { advance, notePedalling } from './ride-view.js';
 import { calib } from './calibration.js';
+import { openBasic } from './basic.js';
+
+const BASIC_NAME = 'No smart bike';
+
+/** A basic bike: always there, and never says anything. */
+class BasicBike extends EventTarget {
+  name = BASIC_NAME;
+
+  start() {
+    this.dispatchEvent(new CustomEvent('status', { detail: { state: 'connected', name: BASIC_NAME } }));
+  }
+
+  stop() {
+    this.dispatchEvent(new CustomEvent('status', { detail: { state: 'disconnected', name: BASIC_NAME } }));
+  }
+}
+
+/** Ride without a smart bike, from now until a bike is connected. */
+export function useBasicBike() {
+  if (state.bikeKind === 'basic') return;
+  const bike = new BasicBike();
+  attachBike(bike, 'basic');
+  bike.start();
+}
 
 function attachBike(bike, kind) {
   detachBike();
@@ -22,8 +47,8 @@ function detachBike() {
   if (!state.bike) return;
   state.bike.removeEventListener('data', onReading);
   state.bike.removeEventListener('status', onBikeStatus);
-  if (state.bikeKind === 'sim') state.bike.stop();
-  else state.bike.disconnect();
+  if (state.bikeKind === 'ble') state.bike.disconnect();
+  else state.bike.stop();
   state.bike = null;
   state.bikeKind = null;
   setBikeStatus('disconnected', '');
@@ -39,7 +64,7 @@ function setBikeStatus(s, name) {
   pill.classList.toggle('ok', s === 'connected');
   pill.classList.toggle('warn', s === 'connecting' || s === 'reconnecting');
   const label = {
-    connected: `${name} · connected`,
+    connected: state.bikeKind === 'basic' ? 'Riding without a smart bike' : `${name} · connected`,
     connecting: `Connecting to ${name}…`,
     reconnecting: `${name} dropped out · reconnecting…`,
     disconnected: 'No bike connected',
@@ -47,6 +72,9 @@ function setBikeStatus(s, name) {
   $('bike-status-text').textContent = label;
   $('btn-sim').textContent = state.bikeKind === 'sim' ? 'Stop simulator' : 'Use simulator';
   $('btn-connect').textContent = state.bikeKind === 'ble' && s !== 'disconnected' ? 'Disconnect' : 'Connect bike';
+  $('btn-basic').hidden = state.bikeKind === 'basic';
+  // A basic bike has nothing to calibrate.
+  $('btn-model').hidden = state.bikeKind === 'basic';
   $('sim-card').hidden = state.bikeKind !== 'sim';
   if (state.screen === 'setup') renderSetup();
 }
@@ -56,11 +84,11 @@ if (!BleBike.supported()) {
   // Every browser on an iPhone or iPad is Safari underneath, so switching doesn't help there.
   const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   $('notice-title').textContent = apple
-    ? "iPhones and iPads can't connect to a bike from a web page."
-    : 'Pacer needs Chrome or Edge to reach your bike.';
+    ? "iPhones and iPads can't connect to a smart bike from a web page."
+    : 'Pacer needs Chrome or Edge to reach a smart bike.';
   $('notice-text').textContent = apple
-    ? 'Use a computer or an Android phone, in Chrome or Edge.'
-    : "This browser can't use Bluetooth. Open this page in Chrome or Edge and you're set.";
+    ? 'Use a computer or an Android phone in Chrome or Edge, or ride without a smart bike.'
+    : "This browser can't use Bluetooth. Use Chrome or Edge, or ride without a smart bike.";
   $('browser-notice').hidden = false;
   $('btn-connect').classList.add('unavailable');
 }
@@ -87,6 +115,8 @@ $('btn-connect').addEventListener('click', async (e) => {
     }
   }
 });
+
+$('btn-basic').addEventListener('click', () => openBasic({ joining: true }));
 
 $('btn-sim').addEventListener('click', () => {
   if (state.bikeKind === 'sim') {

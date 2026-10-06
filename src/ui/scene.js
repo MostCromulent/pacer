@@ -47,6 +47,7 @@ export class Scene {
     this.stand = 0; // 0 seated .. 1 out of the saddle, eased between the two
     this.cheerS = null; // seconds since the finish was celebrated, or null
     this.paper = []; // streamers and confetti in the air
+    this.solo = false; // riding alone, with no ghost and no sprint gates: a ride without a smart bike
   }
 
   /** Cross the line in style: your rider sits up with both arms in the air, and paper bursts from the finish banner. */
@@ -139,7 +140,7 @@ export class Scene {
     this._mountains(ctx, worldX * 0.22, this.H - 126, 44 * this.ampScale, 56, P.mountain2, 29, false);
     this._hills(ctx, worldX * 0.45);
     this._ground(ctx, t);
-    this._gates(ctx, t);
+    if (!this.solo) this._gates(ctx, t);
     this._finish(ctx, t);
 
     // Ghost position from the gap, converted to "seconds of riding" at your speed.
@@ -151,15 +152,17 @@ export class Scene {
     const offscreen = rawX < GHOST_MIN_X || rawX > GHOST_MAX_X;
 
     // The ghost always rides "behind the glass", so it never hides your rider.
-    this._rider(ctx, ghostX, t, { ghost: true, crank: this.ghostCrank, wheel: this.ghostWheel });
+    if (!this.solo) this._rider(ctx, ghostX, t, { ghost: true, crank: this.ghostCrank, wheel: this.ghostWheel });
     this._rider(ctx, YOU_X, t, { ghost: false, crank: this.crank, wheel: this.wheel, speedLines: (snap.speed || 0) > 6, cheer });
     this._paper(ctx, t, dt);
     if (cheer > 0.15) return; // the name tags step aside while the paper flies
 
-    const ghostTag = offscreen ? `${snap.ghostLabel} ${tagGap(-snap.gap)}` : snap.ghostLabel;
-    // Lift the ghost's tag when the riders are side by side so the tags don't collide.
-    const lift = Math.abs(ghostX - YOU_X) < 50 ? 24 : 0;
-    this._tag(ctx, ghostX, this.roadY(ghostX, t) - 76 - lift, ghostTag, P.lavenderText);
+    if (!this.solo) {
+      const ghostTag = offscreen ? `${snap.ghostLabel} ${tagGap(-snap.gap)}` : snap.ghostLabel;
+      // Lift the ghost's tag when the riders are side by side so the tags don't collide.
+      const lift = Math.abs(ghostX - YOU_X) < 50 ? 24 : 0;
+      this._tag(ctx, ghostX, this.roadY(ghostX, t) - 76 - lift, ghostTag, P.lavenderText);
+    }
     this._tag(ctx, YOU_X, this.roadY(YOU_X, t) - 78 - this.stand * 6, 'YOU', P.coralText);
   }
 
