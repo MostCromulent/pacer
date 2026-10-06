@@ -114,6 +114,26 @@ test('HIIT is built from short reps with rests between blocks', () => {
   assert.equal(w.gates.length, 0);
 });
 
+test('every HIIT ride finishes on a Tabata, whatever its blocks', () => {
+  for (let v = 0; v < 3; v++) {
+    for (let min = 12; min <= 120; min += 3) {
+      const w = generateWorkout('hiit', min, v);
+      const reps = w.segments.filter((s) => s.kind === 'work');
+      assert.ok(reps.length >= 8, `${w.code} has no blocks`);
+      const last = reps.slice(-8);
+      assert.ok(last.every((s) => s.dur === 20 && /^Tabata/.test(s.label)), `${w.code} ends on ${reps.at(-1).label}`);
+      // ...and goes straight from its last rest into the cool-down.
+      const cool = w.segments.findIndex((s) => s.kind === 'cooldown');
+      assert.equal(w.segments[cool - 2], last.at(-1), `${w.code} has something between the Tabata and the cool-down`);
+    }
+  }
+  // The other versions ride their own blocks first, then the Tabata.
+  const w = generateWorkout('hiit', 45, 1);
+  const labels = w.segments.filter((s) => s.kind === 'work').map((s) => s.label);
+  assert.match(labels[0], /^30\/30 1 · rep 1\/10$/);
+  assert.equal(labels.at(-1), 'Tabata · rep 8/8');
+});
+
 test('natural rides vary like terrain but repeat exactly for the same code', () => {
   const a = generateWorkout('hills', 45, 0);
   const hills = a.segments.filter((s) => s.name === 'Hill');

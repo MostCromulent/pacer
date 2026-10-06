@@ -32,8 +32,16 @@ function ghostChoices(code) {
   ];
 }
 
+/**
+ * The ghost to race on this ride: the one picked, if there is a ride to race,
+ * or else the pacer. (The pick is kept, for the rides that have one.)
+ */
+function chosenGhost(choices) {
+  return choices.find((g) => g.id === state.ghostKind && (g.id === 'pacer' || g.ride)) ?? choices.find((g) => g.id === 'pacer');
+}
+
 export function pickGhost(workout) {
-  const choice = ghostChoices(workout.code).find((g) => g.id === state.ghostKind);
+  const choice = chosenGhost(ghostChoices(workout.code));
   if (choice?.ride) return ghostFromRide(choice.ride, choice.id);
   // The pacer rides exactly what the screen shows, held-resistance rests included.
   return pacerGhost(workout, settings.baselineW, (seg) => stepTargets(seg, workout.segments, settings.baselineW, activeModel()).watts);
@@ -229,9 +237,11 @@ export function renderSetup() {
     </button>`).join('') + (list.some((x) => x.blocks) ? spinBlockChips() : '') + '</div></div></div></div>';
   }).join('');
 
+  // A ghost with no ride behind it yet can't be raced, so it is shown but can't be picked.
   const choices = ghostChoices(w.code);
+  const ghost = chosenGhost(choices);
   $('ghosts').innerHTML = choices.map((g) => `
-    <button type="button" class="ghost-opt" data-ghost="${g.id}" aria-pressed="${g.id === state.ghostKind}">
+    <button type="button" class="ghost-opt" data-ghost="${g.id}" aria-pressed="${g === ghost}" ${g.id === 'pacer' || g.ride ? '' : 'disabled'}>
       <span class="name">${esc(g.name)}</span><span class="sub">${esc(g.sub)}</span>
     </button>`).join('');
 
@@ -257,7 +267,7 @@ export function renderSetup() {
   const sound = !settings.chimes ? (settings.voice ? '' : 'off') : settings.voice ? 'voice' : 'chimes';
   const last = following()
     ? { name: 'Sound', pick: { chimes: 'Chimes', voice: 'Chimes + voice', off: 'Off' }[sound] ?? 'Voice' }
-    : { name: SETUP_STEPS.at(-1), pick: { pb: 'Your best', last: 'Last ride' }[state.ghostKind] ?? 'Pacer' };
+    : { name: SETUP_STEPS.at(-1), pick: { pb: 'Your best', last: 'Last ride' }[ghost.id] ?? 'Pacer' };
   const picks = [`${w.minutes} min`, w.name, `${Math.round(settings.effort * 100)}%`, last.pick];
   $('steps').innerHTML = [...SETUP_STEPS.slice(0, -1), last.name].map((name, i) => `
     <li><button type="button" class="step" data-go="${i}" ${i === state.step ? 'aria-current="step"' : ''}>

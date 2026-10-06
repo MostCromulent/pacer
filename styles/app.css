@@ -255,6 +255,7 @@ main { padding: 0 32px 40px; }
 .ghost-opt .name { font-weight: 800; font-size: 15px; }
 .ghost-opt .sub { font-size: 13px; font-weight: 700; color: var(--muted); }
 .ghost-opt[aria-pressed="true"] { border: 2px dashed #8C80B8; background: var(--lavender-soft); }
+.ghost-opt:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 
 .card { background: var(--paper); border-radius: 22px; box-shadow: var(--paper-shadow); }
 .preview { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
@@ -510,7 +511,9 @@ main { padding: 0 32px 40px; }
 .ride-chart-plot g.lit rect { stroke: var(--ink); stroke-width: 2; }
 .ride-verdict { margin: 0 0 10px; font-weight: 800; line-height: 1.4; }
 .ride-verdict:empty { display: none; }
-.block-table tr.lit td { background: var(--sand); }
+/* Every other line is shaded, so a line is easy to follow across. */
+.block-table tbody tr:nth-child(even) td { background: #F9F0E6; }
+.block-table tbody tr.lit td { background: var(--sand); }
 .block-table { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .block-table th { text-align: right; font-size: 12px; font-weight: 800; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--line); }
 .block-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -592,6 +595,8 @@ main { padding: 0 32px 40px; }
   .top-nav { padding-left: 0; order: 3; flex-basis: 100%; }
   .title { font-size: 30px; }
   .block-table td, .block-table th { padding-left: 4px; padding-right: 4px; }
+  /* No room for every column: the watts go, as the column least to act on. */
+  .block-table th:nth-child(4), .block-table td:nth-child(4) { display: none; }
   .sum-blocks, .chart-card { padding: 14px; }
 
   /* Build a ride: one column, with Start always in reach at the bottom of the screen. */

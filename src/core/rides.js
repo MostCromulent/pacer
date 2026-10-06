@@ -168,33 +168,36 @@ export function makeBuilders(add, v, rand, exclude = []) {
       cruise(left);
     },
 
-    // Tabata-style blocks of short reps with a rest between blocks.
+    // Tabata-style blocks of short reps with a rest between blocks. Whatever
+    // the blocks, the last one is a Tabata, straight into the cool-down: the
+    // hardest four minutes, to finish.
     hiit(budget) {
+      const tabata = { on: 20, off: 10, reps: 8, pctOn: 145, pctOff: 45, label: 'Tabata' };
       const plan = [
-        { on: 20, off: 10, reps: 8, pctOn: 145, pctOff: 45, label: 'Tabata' },
+        tabata,
         { on: 30, off: 30, reps: 10, pctOn: 130, pctOff: 50, label: '30/30' },
         { on: 40, off: 20, reps: 8, pctOn: 120, pctOff: 50, label: '40/20' },
       ][v];
-      const blockS = (plan.on + plan.off) * plan.reps;
+      const lengthOf = (p) => (p.on + p.off) * p.reps;
       const restS = 180;
+      // The ride's own blocks, while there is still room for the Tabata after them.
+      const blocks = [];
       let left = budget;
-      let block = 0;
-      while (left >= blockS) {
-        if (block > 0) {
-          if (left < restS + blockS) break;
-          add(restS, 55, 'recovery', { name: 'Rest' });
-          left -= restS;
-        }
-        block++;
-        for (let r = 1; r <= plan.reps; r++) {
-          add(plan.on, plan.pctOn, 'work', { cadence: 100, label: `${plan.label} ${block} · rep ${r}/${plan.reps}` });
+      const cost = (p) => (blocks.length ? restS : 0) + lengthOf(p);
+      while (left >= cost(plan) + restS + lengthOf(tabata)) { left -= cost(plan); blocks.push(plan); }
+      if (left >= cost(tabata)) { left -= cost(tabata); blocks.push(tabata); }
+      // Time to spare is ridden easy first, so nothing comes between the Tabata and the cool-down.
+      cruise(left);
+      blocks.forEach((p, i) => {
+        if (i > 0) add(restS, 55, 'recovery', { name: 'Rest' });
+        const label = p === plan ? `${p.label} ${i + 1}` : p.label;
+        for (let r = 1; r <= p.reps; r++) {
+          add(p.on, p.pctOn, 'work', { cadence: 100, label: `${label} · rep ${r}/${p.reps}` });
           // Rests hold the rep's resistance and just drop the cadence: nobody can
           // swing the resistance up and down every 10 seconds.
-          add(plan.off, plan.pctOff, 'recovery', { cadence: 70, hold: true, label: 'Rest' });
+          add(p.off, p.pctOff, 'recovery', { cadence: 70, hold: true, label: 'Rest' });
         }
-        left -= blockS;
-      }
-      cruise(left);
+      });
     },
 
     // Short-to-medium climbs, descents and flats, varying like real terrain.

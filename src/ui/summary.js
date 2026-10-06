@@ -252,8 +252,8 @@ function renderReview(session) {
   // A figure alone where the target was held; where it wasn't, how far out it was on average.
   const held = (value, off) => `${value}${off ? `<small>${off > 0 ? '+' : '−'}${Math.abs(off)}</small>` : ''}`;
   $('ride-blocks').innerHTML = `<table class="block-table">
-    <thead><tr><th>Block</th><th>On target</th><th>Watts</th><th>Cadence</th><th>Resistance</th></tr></thead>
-    <tbody>${review.rows.map((r) => `<tr data-block="${esc(r.name.replace(/ ×\d+$/, ''))}"><td>${esc(r.name)}</td>
+    <thead><tr><th>Block</th><th>Length</th><th>On target</th><th>Watts</th><th>Cadence</th><th>Resistance</th></tr></thead>
+    <tbody>${review.rows.map((r) => `<tr data-block="${esc(r.name.replace(/ ×\d+$/, ''))}"><td>${esc(r.name)}</td><td>${fmtClock(r.lengthS)}</td>
       ${r.rest ? '<td class="none">–</td>' : `<td class="${r.onTargetPct >= 75 ? '' : 'low'}">${r.onTargetPct}%</td>`}
       <td>${r.avgW} W</td><td>${held(r.avgCadence, r.rest ? 0 : r.cadenceOff)}</td><td>${held(r.avgResistance, r.rest ? 0 : r.resistanceOff)}</td></tr>`).join('')}</tbody></table>`;
 

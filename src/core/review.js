@@ -118,6 +118,8 @@ export function rideReview(session) {
     const n = row.seconds;
     rows.push({
       name: row.name,
+      // The planned length of the block, or of all the steps gathered on this line.
+      lengthS: [...g.spans].reduce((a, sp) => a + spans[sp].to - spans[sp].from, 0),
       rest: [...g.spans].every((sp) => spans[sp].segs.every((i) => segments[i].kind === 'recovery')),
       onTargetPct: row.total ? Math.round((row.on / row.total) * 100) : 0,
       avgW: Math.round(row.w / n),
