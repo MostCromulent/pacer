@@ -2,7 +2,7 @@
 
 import { powerFor } from '../core/resistance.js';
 import { levelCounts, totalReadings } from '../core/learn.js';
-import { calibration, activeModel, learner } from './store.js';
+import { calibration, activeModel, learner, state } from './store.js';
 import { $ } from './dom.js';
 import { round1 } from './format.js';
 import { esc, modelSvg, modelRange, MODEL_PLOT, MODEL_CADENCES } from './charts.js';
@@ -25,9 +25,18 @@ function renderModel() {
   const near = (r) => (few ? counts[r] ?? 0 : [-2, -1, 0, 1, 2].reduce((n, d) => n + (counts[r + d] ?? 0), 0));
   const rows = levels.map((r) => `<tr class="${r < from || r > to ? 'est' : ''}"><td>${r}</td>${MODEL_CADENCES.map(({ rpm }) => `<td>${Math.round(powerFor(model, r, rpm))} W</td>`).join('')}<td>${model.knots ? near(r) : '–'}</td></tr>`).join('');
 
+  // Whether the calibration keeps improving by itself: only a bike that sends its resistance can teach it.
+  const connected = state.bikeKind === 'ble' && state.bikeState === 'connected';
+  const sends = state.latest.resistance !== undefined;
+  const learning = !model.calibrated ? ''
+    : connected && sends ? 'Pacer learns as you ride. Every ride improves this calibration, so you don\'t need to calibrate again.'
+      : connected ? "This bike doesn't send its resistance, so Pacer can't learn from your rides. Calibrate again if the numbers stop matching the bike's screen."
+        : 'If your bike sends its resistance (the Schwinn 800IC does), Pacer learns as you ride and every ride improves this calibration.';
+
   const cv = calibration?.check;
   $('model-body').innerHTML = `
     <p class="muted small">${about}</p>
+    ${learning ? `<p class="nudge good small">${learning}</p>` : ''}
     <div class="model-chart">
       <div class="model-legend">
         <span>Watts at each resistance</span>
@@ -45,7 +54,7 @@ function renderModel() {
       <table class="calib-table"><thead><tr><th>Resistance</th>${MODEL_CADENCES.map(({ rpm }) => `<th>${rpm} rpm</th>`).join('')}<th>Readings</th></tr></thead><tbody>${rows}</tbody></table>
     </div>
     <p class="muted small">${model.knots
-      ? `Built from ${readings} readings. Dashed lines and grey rows are beyond the levels measured so far. If the bike reports its resistance, the model is updated after every ride.`
+      ? `Built from ${readings} readings. Dashed lines and grey rows are beyond the levels measured so far.`
       : 'Calibrate to replace this with measurements from your bike.'}</p>`;
   $('model-calibrate').textContent = model.calibrated ? 'Calibrate again' : 'Calibrate';
 

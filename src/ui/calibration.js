@@ -153,7 +153,8 @@ export const calib = {
       body.innerHTML = `
         <p>You'll ride ${STEPS.length} short steps. Each one gives you a resistance and a cadence.</p>
         <p>Set the resistance by the number on the bike's screen, then pedal up to the cadence. The tiles turn green when you're there; recording then takes ${RECORD_S} seconds, and pauses if you drift off.</p>
-        <p class="muted">About two and a half minutes of pedalling in total. Two of the resistances come up twice, once slow and once fast.</p>`;
+        <p class="muted">About two and a half minutes of pedalling in total. Two of the resistances come up twice, once slow and once fast.</p>
+        <p>You only need to do this once. If your bike sends its resistance (the Schwinn 800IC does), Pacer then keeps learning as you ride, and the calibration gets better with every ride.</p>`;
       next.textContent = 'Begin';
     } else if (this.phase === 'level') {
       const st = STEPS[this.level];
@@ -197,7 +198,10 @@ export const calib = {
         ${shaky ? '<p class="error small">A few steps were uneven. Run it again and hold each cadence steadier for a tighter result.</p>' : ''}
         <p class="muted small">Each step was left out in turn and predicted from the others:</p>
         <table class="calib-table"><thead><tr><th>Step</th><th>Cadence</th><th>Predicted</th></tr></thead><tbody>${rows}</tbody></table>
-        <p>To check it, set any resistance and pedal. The app makes it <b id="calib-detect">—</b>.</p>`;
+        <p>To check it, set any resistance and pedal. The app makes it <b id="calib-detect">—</b>.</p>
+        <p class="nudge good small">${state.latest.resistance !== undefined
+          ? 'From now on Pacer learns as you ride, so this gets better with every ride.'
+          : "This bike doesn't send its resistance, so Pacer can't learn from your rides. Calibrate again if the numbers stop matching the bike's screen."}</p>`;
       next.textContent = 'Save';
     }
   },

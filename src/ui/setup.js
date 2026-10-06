@@ -218,7 +218,7 @@ export function renderSetup() {
     </button>`;
     if (!open) return head;
     // An open group is one shaded box in the group's colour, holding its rides.
-    return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-fold"><div class="type-list">` + list.map((t, i) => `
+    return `<div class="type-open" style="--group:${GROUP_COLORS[g] ?? ''}">${head}<div class="type-fold"><div class="type-clip"><div class="type-list">` + list.map((t, i) => `
     <button type="button" class="type${(list.length % 2 && i === list.length - 1) || list.some((x) => x.blocks) ? ' wide' : ''}" data-type="${t.id}" aria-pressed="${t.id === state.type}"
       style="${t.id === state.type ? `border-color:${TYPE_COLORS[t.id]}` : ''}">
       <span class="sw" style="background:${TYPE_COLORS[t.id]}"></span>
@@ -226,7 +226,7 @@ export function renderSetup() {
       ${t.blocks ? `<span class="type-new" role="button" tabindex="0" data-new-class title="Make a new random class" aria-label="Make a new random class">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
         New class</span>` : ''}
-    </button>`).join('') + (list.some((x) => x.blocks) ? spinBlockChips() : '') + '</div></div></div>';
+    </button>`).join('') + (list.some((x) => x.blocks) ? spinBlockChips() : '') + '</div></div></div></div>';
   }).join('');
 
   const choices = ghostChoices(w.code);
