@@ -378,6 +378,7 @@ main { padding: 0 32px 40px; }
 .zone-chip { padding: 2px 9px; border-radius: 8px; font-family: var(--display); font-weight: 700; font-size: 13px; background: #9DB9F2; flex-shrink: 0; }
 .step-label { font-weight: 800; font-size: 16px; white-space: nowrap; }
 .next-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.next-label.soon { color: var(--ink); }
 .cd-row { display: flex; gap: 10px; }
 .cd-num { font-family: var(--display); font-weight: 700; font-size: 74px; line-height: 0.95; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .cd-row { align-items: baseline; padding-left: 2px; }

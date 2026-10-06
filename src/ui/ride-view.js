@@ -1,8 +1,8 @@
 // The ride itself: the frame loop, the ride window and everything on it, the
 // mini window, sound, the keyboard, and the simulator's controls.
 
-import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S, EASY_PACE_PCT } from '../core/ride.js';
-import { formatRange, spokenCue, repeatsInBlock, stepAction, resistanceText } from '../core/cues.js';
+import { RideSession, EFFORT_MIN, EFFORT_MAX, SHORT_STEP_S, STEP_WARNING_S, EASY_PACE_PCT } from '../core/ride.js';
+import { formatRange, spokenCue, repeatsInBlock, stepAction, resistanceText, upcomingCue, targetMove } from '../core/cues.js';
 import { FULL_KNOB } from '../core/knob.js';
 import { TIME_SCALE, clock, storage, settings, saveSettings, activeModel, following, easyPace, applySound, state, chimes, voice } from './store.js';
 import { $, setPipDoc, toast, showScreen } from './dom.js';
@@ -148,12 +148,25 @@ function onRideEvent(ev) {
     pulse($('gap-pill'));
   } else if (ev === 'stepSoon' || ev === 'stepChange') {
     chimes.play(ev);
+    const s = state.session;
+    const snap = s.snapshot();
+    const steps = s.workout.segments;
     if (ev === 'stepChange') {
-      const snap = state.session.snapshot();
-      const steps = state.session.workout.segments;
-      voice.say(spokenCue(snap.seg, state.session.targetsFor(snap.seg), settings.targetMode, steps[snap.segIndex - 1], repeatsInBlock(steps, snap.segIndex)));
+      voice.say(spokenCue(snap.seg, s.targetsFor(snap.seg), s.targetMode, steps[snap.segIndex - 1], repeatsInBlock(steps, snap.segIndex)));
+    } else if (steps[snap.nextIndex]) {
+      // Ahead of the change, what is coming and which way things go, so the rider is ready for it.
+      const next = steps[snap.nextIndex];
+      voice.say(upcomingCue(next, s.targetsFor(next), s.targetsFor(snap.seg), snap.seg, s.targetMode));
     }
   }
+}
+
+/** Say the step the rider is on, as at every change: for the first step, when the ride starts. */
+export function announceStep() {
+  const s = state.session;
+  if (!s) return;
+  const { seg, segIndex } = s.snapshot();
+  voice.say(spokenCue(seg, s.targetsFor(seg), s.targetMode, s.workout.segments[segIndex - 1]));
 }
 
 /** Start a ride. `resume` is a saved ride in progress (storage.loadResume()) to carry on with. */
@@ -309,7 +322,10 @@ function renderStep(s, snap) {
     zone.style.background = ZONE_COLORS[snap.zone];
   }
   $('step-label').textContent = seg.label;
-  $('next-label').textContent = next ? `Next: ${shortLabel(next)}` : 'Last step';
+  // In the last seconds before a change, what to set next and which way it goes.
+  const soon = !!next && !snap.extra && snap.stepDur >= SHORT_STEP_S && snap.stepLeft <= STEP_WARNING_S;
+  $('next-label').textContent = !next ? 'Last step' : soon ? `Next: ${shortLabel(next)} · ${nextTargetsText(s, seg, next)}` : `Next: ${shortLabel(next)}`;
+  $('next-label').classList.toggle('soon', soon);
   // The cruise after the finish has no end to count down to, so it counts up.
   $('step-time').textContent = fmtClock(snap.extra ? snap.extra.s : snap.stepLeft);
   $('step-lbl').textContent = snap.extra ? 'extra' : 'left';
@@ -364,8 +380,9 @@ function renderBadges(s, snap) {
   const before = s.workout.segments[snap.stepIndex - 1];
   // How much the resistance moves, on the 1-100 scale; a creeping climb says how much on the rider's knob.
   const [now, was] = [s.targetsFor(seg), before && s.targetsFor(before)];
-  const act = stepAction(seg, was ? Math.round(now.exactResistance) - Math.round(was.exactResistance) : 0, before);
-  if (act?.tone === 'add' && s.knob !== FULL_KNOB) {
+  const act = stepAction(seg, was ? Math.round(now.exactResistance) - Math.round(was.exactResistance) : 0, before, now.feel ?? resistanceText(now));
+  // A creeping climb adds levels on the rider's own knob.
+  if (act?.tone === 'add' && before?.creep && s.knob !== FULL_KNOB) {
     const levels = was ? now.resistance - was.resistance : 0;
     act.text = levels <= 0 ? 'Build' : now.feel ? 'Turn up' : `Add ${levels}`;
   }
@@ -480,8 +497,7 @@ function go() {
   state.lastAdvance = clock();
   // The chime and the call for the first step, as for every step after it.
   chimes.play('stepChange');
-  const { seg } = s.snapshot();
-  voice.say(spokenCue(seg, s.targetsFor(seg), settings.targetMode));
+  announceStep();
   updatePauseButton();
   state.lastDom = 0;
 }
@@ -494,6 +510,16 @@ $('overlay').addEventListener('click', () => {
 
 function shortLabel(seg) {
   return seg.label.replace(/ of \d+$/, '');
+}
+
+/** The next step's targets, with an arrow where they change: "60–70 ▲ · 65 rpm ▼". */
+function nextTargetsText(s, seg, next) {
+  const [now, then] = [s.targetsFor(seg), s.targetsFor(next)];
+  if (next.kind === 'sprint') return 'all out';
+  const arrow = (key) => ({ up: ' ▲', down: ' ▼' })[targetMove(now, then, key)] ?? '';
+  const load = s.targetMode === 'watts' ? `${formatRange(then.wattsRange)} W${arrow('watts')}`
+    : next.hold ? 'same resistance' : `${then.feel ? then.feel.toLowerCase() : resistanceText(then)}${arrow('resistance')}`;
+  return `${load} · ${then.cadence} rpm${arrow('cadence')}`;
 }
 
 // A tile leads with what the rider is doing; its colour says whether that is

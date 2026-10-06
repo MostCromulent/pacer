@@ -9,7 +9,7 @@ import { roundTo } from './util.js';
 import { onKnob, FULL_KNOB } from './knob.js';
 
 const STALE_INPUT_S = 3;
-const STEP_WARNING_S = 10;
+export const STEP_WARNING_S = 10; // the heads-up before a step changes
 export const SHORT_STEP_S = 25;
 export const EASY_PACE_PCT = 70; // comfortable flat-road riding, as a % of baseline: what the rider's "easy pace" stands for
 // Targets are given as bands of ten in round numbers, the way an instructor

@@ -7,7 +7,7 @@ import { clock, settings, state } from './store.js';
 import { $, toast } from './dom.js';
 import { renderSetup } from './setup.js';
 import { learnWhileRiding } from './learning.js';
-import { advance, notePedalling } from './ride-view.js';
+import { advance, notePedalling, announceStep } from './ride-view.js';
 import { calib } from './calibration.js';
 import { openBasic } from './basic.js';
 
@@ -145,6 +145,7 @@ export function onReading(e) {
       state.started = true;
       state.lastAdvance = clock();
       notePedalling(fields.cadence);
+      announceStep(); // the first step is called as the ride starts, like every one after it
     }
     // Real-bike notifications keep the ride moving even if no window is drawing.
     if (state.bikeKind === 'ble') advance();

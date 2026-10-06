@@ -136,7 +136,8 @@ export function excludeFromMask(mask) {
  */
 function blockMakers({ between, int, near, reps, low }) {
   const step = roundTo;
-  const times = (n, make) => Array.from({ length: n }, (_, i) => make(i)).flat();
+  // `n` rounds of the parts `make` gives for each; every part knows its round.
+  const times = (n, make) => Array.from({ length: n }, (_, i) => make(i).map(([dur, pct, kind, opts]) => [dur, pct, kind, { ...opts, round: i + 1 }])).flat();
   return {
     flat: () => ({ parts: [[step(between(120, 180), 30), between(74, 80), 'steady', { cadence: int(90, 98), name: 'Flat road', most: 180 }]] }),
     seated: () => {
@@ -281,8 +282,9 @@ export function makeBlock(id, seed, { budget, low = false, load = null }) {
   const reps = (lo, hi) => Math.round(int(lo, hi) * clamp(stretch, 1, MOST_EXTRA_ROUNDS));
   const made = blockMakers({ between, int, near, reps, low })[id]();
   // Long steps grow with the class, up to the most a step of that kind should last.
-  const steps = made.parts.map(([dur, pct, kind, opts]) => asRidden({
-    dur: dur >= 120 ? Math.min(opts.most ?? Infinity, roundTo(dur * stretch, 30)) : dur, pct, kind, ...opts,
+  // (Only a block ridden in rounds keeps the round of each step.)
+  const steps = made.parts.map(([dur, pct, kind, { round, ...opts }]) => asRidden({
+    dur: dur >= 120 ? Math.min(opts.most ?? Infinity, roundTo(dur * stretch, 30)) : dur, pct, kind, ...opts, ...(made.rounds ? { round } : {}),
   }, low));
   // A held step is ridden on the resistance of the step it holds, so its
   // effort follows from the change of cadence, whatever was written for it.
@@ -599,7 +601,7 @@ export function buildSpinClass({ add, budget, rand, low = false, exclude = [] })
 
   for (const { title, rounds, steps } of items) {
     steps.forEach(({ dur, pct, kind, most, ...opts }, i) => {
-      add(dur, pct, kind, { ...opts, block: title, ...(i === 0 ? { blockStart: true, ...(rounds ? { rounds } : {}) } : {}) });
+      add(dur, pct, kind, { ...opts, block: title, ...(opts.round ? { roundOf: rounds } : {}), ...(i === 0 ? { blockStart: true, ...(rounds ? { rounds } : {}) } : {}) });
     });
   }
 }

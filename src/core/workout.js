@@ -292,9 +292,11 @@ const DEFAULT_NAMES = {
   work: 'Climb', sprint: 'Sprint', drill: 'Spin drill', warmup: 'Warm-up', cooldown: 'Cool-down', recovery: 'Recover', steady: 'Cruise',
 };
 
-// Hard steps are numbered within their name ("Hill 2 of 6"); the rest just get a name.
+// Hard steps are numbered within their name ("Hill 2 of 6"), or by their round
+// in a spin class block ("Heavy push 2 of 5"); the rest just get a name.
 function labelSteps(workout) {
-  const counted = (s) => !s.label && (s.kind === 'work' || s.kind === 'sprint' || s.kind === 'drill');
+  const hard = (s) => s.kind === 'work' || s.kind === 'sprint' || s.kind === 'drill';
+  const counted = (s) => !s.label && !s.round && hard(s);
   const totals = new Map();
   for (const s of workout.segments) {
     if (!counted(s)) continue;
@@ -305,7 +307,9 @@ function labelSteps(workout) {
   for (const s of workout.segments) {
     if (s.label) continue;
     const n = s.name ?? DEFAULT_NAMES[s.kind];
-    if (counted(s)) {
+    if (s.round && hard(s)) {
+      s.label = `${n} ${s.round} of ${s.roundOf}`;
+    } else if (counted(s)) {
       seen.set(n, (seen.get(n) ?? 0) + 1);
       s.label = totals.get(n) > 1 ? `${n} ${seen.get(n)} of ${totals.get(n)}` : n;
     } else {

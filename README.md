@@ -63,8 +63,10 @@ the saddle, and you can leave out any blocks you don't like.
 - Two tiles, **cadence** and **resistance**, show what you're doing now. Green
   is in range; yellow or blue with an arrow means go up or down.
 - The road is the workout: a steeper hill means more resistance.
-- A chime warns you before each change, so your eyes can stay elsewhere.
-  Turn on voice and each step is read out: "Hill. Resistance 45, cadence 70."
+- A chime warns you before each change, so your eyes can stay elsewhere, and
+  the next step's targets show with arrows for which way they go. Turn on voice
+  and you hear what's coming ("Coming up: hill. Resistance up, cadence 70."),
+  then each step as it starts: "Hill. Resistance 45, cadence 70."
 - **Effort − / +** makes the rest of the ride easier or harder.
 - Stop pedalling and the ride pauses; start again and it carries on. If the
   page is closed or reloaded, you can pick the ride back up.

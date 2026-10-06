@@ -4,7 +4,7 @@ import { generateWorkout } from '../src/core/workout.js';
 import { DEFAULT_MODEL, powerFor } from '../src/core/resistance.js';
 import { Ghost, pacerGhost, targetWatts } from '../src/core/ghost.js';
 import { RideSession, isOnTarget, stepTargets, resistanceBlock } from '../src/core/ride.js';
-import { formatRange, spokenCue, stepAction } from '../src/core/cues.js';
+import { formatRange, spokenCue, stepAction, upcomingCue } from '../src/core/cues.js';
 import { speedFromPower } from '../src/core/physics.js';
 import { Storage } from '../src/core/storage.js';
 
@@ -511,4 +511,35 @@ test('steps that show the rider the same targets are one step: one countdown, no
   // Following watts, the three have different targets, so they stay separate.
   const byWatts = new RideSession({ workout: w, baselineW: 250, model: DEFAULT_MODEL, ghost: pacerGhost(w, 250), targetMode: 'watts' });
   assert.deepEqual(byWatts.runOf(1), [1, 1]);
+});
+
+test('badges: "Set" opens a creeping climb, sitting down after a push recovers, and so does the cool-down', () => {
+  const flat = { kind: 'steady', pct: 75, cadence: 90, position: 'seated' };
+  const creep = { kind: 'work', pct: 85, cadence: 80, creep: true, position: 'seated' };
+  assert.deepEqual(stepAction(creep, 7, flat, '52'), { text: 'Set 52', tone: 'add' });
+  assert.deepEqual(stepAction(creep, 2, creep, '54'), { text: 'Add 2', tone: 'add' });
+  const push = { kind: 'work', pct: 115, cadence: 60, position: 'standing', dur: 30 };
+  const climb = { kind: 'work', pct: 95, cadence: 65, position: 'seated', dur: 90 };
+  assert.equal(stepAction(climb, -10, push).text, 'Recover');
+  // Off a heavy seated climb on to fast flat road, it is still "Ease off".
+  assert.equal(stepAction({ ...flat, kind: 'work', pct: 95 }, -12, { ...climb, pct: 95 }).text, 'Ease off');
+  const tabata = { kind: 'work', pct: 145, cadence: 100, position: 'seated', dur: 20 };
+  const cool = { kind: 'cooldown', pct: 65, cadence: 85, position: 'seated' };
+  assert.equal(stepAction(cool, -20, tabata).text, 'Recover');
+  assert.equal(stepAction({ ...cool, pct: 52 }, -3, cool), null);
+});
+
+test('the heads-up says what is coming and which way things go, leaving the numbers for the step', () => {
+  const flat = { kind: 'steady', label: 'Flat road', position: 'seated' };
+  const now = { resistance: 45, resistanceRange: [40, 50], cadence: 90, wattsRange: [140, 160] };
+  const hill = { kind: 'work', label: 'Hill 2 of 6', position: 'seated' };
+  const up = { resistance: 65, resistanceRange: [60, 70], cadence: 65, wattsRange: [200, 220] };
+  assert.equal(upcomingCue(hill, up, now, flat), 'Coming up: hill. Resistance up, cadence 65.');
+  assert.equal(upcomingCue(hill, up, now, flat, 'watts'), 'Coming up: hill. Watts up, cadence 65.');
+  assert.equal(upcomingCue({ ...hill, position: 'standing' }, { ...up, cadence: 90 }, now, flat), 'Coming up: hill. Out of the saddle. Resistance up.');
+  const block = { kind: 'work', label: 'Heavy climb 1 of 5', block: 'Heavy pushes', blockStart: true, position: 'seated' };
+  assert.equal(upcomingCue(block, up, now, flat), 'Coming up: heavy pushes. Resistance up, cadence 65.');
+  assert.equal(upcomingCue({ kind: 'sprint', label: 'Sprint 1 of 3', position: 'seated' }, up, now, flat), 'Coming up: sprint. All out.');
+  const rest = { kind: 'recovery', label: 'Rest', hold: true, position: 'seated' };
+  assert.equal(upcomingCue(rest, { ...up, cadence: 70 }, up, hill), 'Coming up: rest. Cadence 70.');
 });

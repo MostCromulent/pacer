@@ -244,7 +244,10 @@ test('a block gives its numbers once, then just names the steps it repeats', () 
   assert.match(say(steps[0]), /^Cadence pushes, \d rounds\. Recover\. Resistance \d+ to \d+, cadence \d+\.$/);
   assert.match(say(steps[1]), /^Cadence push\. Same resistance, cadence \d+\.$/);
   assert.equal(say(steps[2]), 'Recover.');
-  assert.equal(say(steps[3]), 'Cadence push.');
+  // Each round after the first is called by its number, and shown as it on the step.
+  assert.match(say(steps[3]), /^Cadence push, round 2 of (\d)\.$/);
+  assert.match(steps[3].label, /^Cadence push 2 of \d$/);
+  assert.equal(steps[3].round, 2);
 });
 
 test('blocks that open on a short step still say their numbers, and titles are not repeated', () => {
